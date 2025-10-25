@@ -86,7 +86,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
             2.  Analyze the task: "${task.text}".
             3.  Generate a list of 3 to 5 concise sub-tasks.
             4.  Each sub-task should be a clear, actionable item, also in Vietnamese.
-            5.  Return the result as a JSON array of strings. Do not return markdown.
+            5.  Return ONLY the JSON array, without any surrounding text or markdown formatting.
             
             Example:
             User Task: "Lên kế hoạch cho chiến dịch marketing Q4"
@@ -104,6 +104,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         });
         
         const jsonStr = response.text.trim();
+        if (!jsonStr) {
+            throw new Error("AI returned an empty response. This might be due to a content filter or an API issue.");
+        }
+
         const parsedSubtasks = JSON.parse(jsonStr);
 
         if (Array.isArray(parsedSubtasks) && parsedSubtasks.every(item => typeof item === 'string')) {
@@ -114,7 +118,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
 
     } catch (error) {
         console.error("AI sub-task generation failed:", error);
-        alert("AI không thể chia nhỏ công việc. Vui lòng thử lại.");
+        alert("AI không thể phân tích công việc. Vui lòng thử lại hoặc nhập thủ công.");
     } finally {
         setIsGeneratingSubtasks(false);
     }
