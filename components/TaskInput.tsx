@@ -1,6 +1,7 @@
 import React, { useState, KeyboardEvent } from 'react';
 import { Plus, X, Flag, Sparkles, Loader2 } from 'lucide-react';
-import { GoogleGenAI, Type } from '@google/genai';
+import { Type } from '@google/genai';
+import { getGoogleGenAI } from '../utils/gemini';
 
 interface TaskInputProps {
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => void;
@@ -37,7 +38,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError }) => {
     }
     setIsParsing(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+      const ai = getGoogleGenAI();
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: `You are an intelligent task parsing assistant for a to-do list application. The user is Vietnamese.
@@ -110,9 +111,9 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError }) => {
 
     } catch (error: any) {
       console.error("AI parsing failed:", error);
-      if (error?.message?.includes('API key not valid')) {
+      const errorMessage = error?.message?.toLowerCase() || '';
+      if (errorMessage.includes('api key not valid') || errorMessage.includes('permission_denied')) {
         onApiKeyError();
-        alert("API Key không hợp lệ. Vui lòng chọn lại API Key.");
       } else {
         alert("AI không thể phân tích công việc. Vui lòng thử lại hoặc nhập thủ công.");
       }

@@ -16,15 +16,7 @@ import AuthPage from './components/auth/AuthPage';
 import { useAuth } from './context/AuthContext';
 import ApiKeyPrompt from './components/ApiKeyPrompt';
 
-// FIX: Inlined the type definition for `aistudio` to resolve potential declaration conflicts.
-declare global {
-  interface Window {
-    aistudio: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
-  }
-}
+// FIX: Removed the conflicting 'aistudio' type declaration. The global type is likely provided elsewhere in the project.
 
 const App: React.FC = () => {
   const { currentUser, logout } = useAuth();
@@ -44,10 +36,11 @@ const App: React.FC = () => {
   const [notificationPermissionStatus, setNotificationPermissionStatus] = useState('default');
   const workerRef = useRef<Worker | null>(null);
 
-  // API Key State
-  const [isKeySelected, setIsKeySelected] = useState(false);
-  const [isCheckingKey, setIsCheckingKey] = useState(true);
-  const [apiKeySelectionError, setApiKeySelectionError] = useState<string | null>(null);
+  // Refactored API Key State
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
+  const [isStudioEnv, setIsStudioEnv] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
 
   // Focus Mode State
   const [focusTask, setFocusTask] = useState<Task | null>(null);
@@ -71,21 +64,23 @@ const App: React.FC = () => {
   }, []);
   
   const checkApiKey = useCallback(async () => {
-    setIsCheckingKey(true);
-    try {
-        if (window.aistudio) {
-            const hasKey = await window.aistudio.hasSelectedApiKey();
-            setIsKeySelected(hasKey);
-        } else {
-            console.warn('aistudio is not available. Assuming no key.');
-            setIsKeySelected(false);
+    setIsCheckingApiKey(true);
+    setApiKeyError(null);
+    if ((window as any).aistudio && typeof (window as any).aistudio.hasSelectedApiKey === 'function') {
+        setIsStudioEnv(true);
+        try {
+            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+            setHasApiKey(hasKey);
+        } catch (e) {
+            console.error("Error checking AI Studio key:", e);
+            setHasApiKey(false);
         }
-    } catch (e) {
-        console.error("Error checking for API key:", e);
-        setIsKeySelected(false);
-    } finally {
-        setIsCheckingKey(false);
+    } else {
+        setIsStudioEnv(false);
+        const storedKey = localStorage.getItem('userApiKey');
+        setHasApiKey(!!storedKey);
     }
+    setIsCheckingApiKey(false);
   }, []);
 
   useEffect(() => {
@@ -94,25 +89,33 @@ const App: React.FC = () => {
     }
   }, [currentUser, checkApiKey]);
 
-  const handleSelectKey = async () => {
-    setApiKeySelectionError(null);
-    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+  const handleSelectStudioKey = async () => {
+    setApiKeyError(null);
+    if ((window as any).aistudio && typeof (window as any).aistudio.openSelectKey === 'function') {
         try {
-            await window.aistudio.openSelectKey();
-            setIsKeySelected(true); // Assume success to handle race condition
+            await (window as any).aistudio.openSelectKey();
+            setHasApiKey(true); // Assume success to handle race condition
         } catch (e) {
             console.error("Could not open API key selection:", e);
-            setApiKeySelectionError("Không thể mở hộp thoại chọn API Key. Vui lòng thử làm mới trang.");
+            setApiKeyError("Không thể mở hộp thoại chọn API Key. Vui lòng thử làm mới trang.");
         }
     } else {
-        setApiKeySelectionError("Tính năng chọn API Key không khả dụng trong môi trường này. Vui lòng chạy ứng dụng trong một môi trường được hỗ trợ, chẳng hạn như Google AI Studio.");
-        console.error("window.aistudio.openSelectKey is not available.");
+        setApiKeyError("Lỗi không mong đợi: Chức năng chọn key không tồn tại.");
     }
   };
     
+  const handleSaveManualKey = (key: string) => {
+    localStorage.setItem('userApiKey', key);
+    setHasApiKey(true);
+  };
+    
   const onApiKeyError = useCallback(() => {
-    setIsKeySelected(false);
-  }, []);
+    if (!isStudioEnv) {
+        localStorage.removeItem('userApiKey');
+    }
+    setHasApiKey(false);
+    setApiKeyError("API Key của bạn không hợp lệ hoặc đã hết hạn. Vui lòng chọn lại hoặc nhập một key mới.");
+  }, [isStudioEnv]);
 
   useEffect(() => {
     if (isTimerRunning && timeLeft > 0) {
@@ -266,7 +269,7 @@ const App: React.FC = () => {
     return <AuthPage />;
   }
 
-  if (isCheckingKey) {
+  if (isCheckingApiKey) {
     return (
         <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
             <Loader2 className="h-12 w-12 text-indigo-400 animate-spin" />
@@ -274,8 +277,13 @@ const App: React.FC = () => {
     );
   }
 
-  if (!isKeySelected) {
-    return <ApiKeyPrompt onSelectKey={handleSelectKey} error={apiKeySelectionError} />;
+  if (!hasApiKey) {
+    return <ApiKeyPrompt 
+        isStudioEnv={isStudioEnv}
+        onSelectKey={handleSelectStudioKey}
+        onSaveManualKey={handleSaveManualKey}
+        error={apiKeyError}
+    />;
   }
 
   return (
