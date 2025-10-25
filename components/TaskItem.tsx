@@ -1,6 +1,8 @@
+
+
 import React, { useState, useRef, MouseEvent, TouchEvent } from 'react';
 import { Task } from '../types';
-import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle } from 'lucide-react';
+import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
@@ -23,6 +25,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   const isOverdue = task.dueDate && !task.completed && isPast(new Date(task.dueDate));
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
+  const [areSubtasksVisible, setAreSubtasksVisible] = useState(true);
 
   const [translateX, setTranslateX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -130,7 +133,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         setIsGeneratingSubtasks(false);
     }
   };
-
+  
   const dueDateForInput = task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd'T'HH:mm") : '';
 
   return (
@@ -226,17 +229,37 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
           )}
 
           {subtasks && subtasks.length > 0 && (
-            <div className="mt-4 pt-3 pl-4 border-t border-slate-700/50 space-y-2">
-              {subtasks.map(subtask => (
-                <div key={subtask.id} className="flex items-center gap-3 group">
-                  <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
-                    {subtask.completed ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
-                  </button>
-                  <p className={`text-sm ${subtask.completed ? 'line-through text-slate-500' : 'text-slate-300'}`}>
-                    {subtask.text}
-                  </p>
+            <div className="mt-4 pt-3 pl-4 border-t border-slate-700/50">
+              <button 
+                onClick={() => setAreSubtasksVisible(!areSubtasksVisible)}
+                className="flex items-center text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 hover:text-slate-200 transition-colors w-full"
+              >
+                {areSubtasksVisible ? <ChevronDown size={16} className="mr-1" /> : <ChevronRight size={16} className="mr-1" />}
+                <span>Công việc con ({subtasks.length})</span>
+              </button>
+              {areSubtasksVisible && (
+                <div className="space-y-2">
+                  {subtasks.map(subtask => (
+                    <div key={subtask.id} className="flex items-center justify-between gap-3 group">
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
+                                {subtask.completed ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
+                            </button>
+                            <p className={`text-sm ${subtask.completed ? 'line-through text-slate-500' : 'text-slate-300'}`}>
+                                {subtask.text}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => onDeleteTask(subtask.id)}
+                            className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full"
+                            title="Xóa công việc con"
+                        >
+                            <Trash2 size={14} />
+                        </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
 
