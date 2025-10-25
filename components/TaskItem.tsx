@@ -1,22 +1,26 @@
 import React, { useState, useRef, MouseEvent, TouchEvent } from 'react';
 import { Task } from '../types';
-import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play } from 'lucide-react';
+import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle } from 'lucide-react';
 import { format, isPast } from 'date-fns';
+import { GoogleGenAI, Type } from '@google/genai';
 
 interface TaskItemProps {
   task: Task;
+  subtasks: Task[];
   onToggleTask: (id: string) => void;
   onDeleteTask: (id:string) => void;
   onUpdateTaskDueDate: (id: string, newDueDate: string | null) => void;
   onToggleTaskUrgency: (id: string) => void;
   onStartFocus: (task: Task) => void;
+  onAddSubtasksBatch: (parentId: string, subtaskTexts: string[]) => Promise<void>;
 }
 
 const SWIPE_THRESHOLD = 80;
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch }) => {
   const isOverdue = task.dueDate && !task.completed && isPast(new Date(task.dueDate));
   const [isEditingDate, setIsEditingDate] = useState(false);
+  const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
 
   const [translateX, setTranslateX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -69,6 +73,53 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggleTask, onDeleteTask, o
     setIsEditingDate(false);
   };
   
+  const handleGenerateSubtasks = async () => {
+    setIsGeneratingSubtasks(true);
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `You are an expert project manager AI. Your task is to break down a large, complex task into smaller, actionable sub-tasks.
+            
+            Instructions:
+            1.  The user's request is in Vietnamese.
+            2.  Analyze the task: "${task.text}".
+            3.  Generate a list of 3 to 5 concise sub-tasks.
+            4.  Each sub-task should be a clear, actionable item, also in Vietnamese.
+            5.  Return the result as a JSON array of strings. Do not return markdown.
+            
+            Example:
+            User Task: "Lên kế hoạch cho chiến dịch marketing Q4"
+            Your Output: ["Nghiên cứu đối thủ cạnh tranh", "Xác định đối tượng khách hàng mục tiêu", "Lên ý tưởng thông điệp chính", "Soạn thảo nội dung cho email & mạng xã hội", "Thiết lập ngân sách và KPI"]
+            `,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.STRING,
+                    },
+                },
+            },
+        });
+        
+        const jsonStr = response.text.trim();
+        const parsedSubtasks = JSON.parse(jsonStr);
+
+        if (Array.isArray(parsedSubtasks) && parsedSubtasks.every(item => typeof item === 'string')) {
+            await onAddSubtasksBatch(task.id, parsedSubtasks);
+        } else {
+            throw new Error("AI returned data in an unexpected format.");
+        }
+
+    } catch (error) {
+        console.error("AI sub-task generation failed:", error);
+        alert("AI không thể chia nhỏ công việc. Vui lòng thử lại.");
+    } finally {
+        setIsGeneratingSubtasks(false);
+    }
+  };
+
   const dueDateForInput = task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd'T'HH:mm") : '';
 
   return (
@@ -162,8 +213,34 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggleTask, onDeleteTask, o
               />
             </div>
           )}
+
+          {subtasks && subtasks.length > 0 && (
+            <div className="mt-4 pt-3 pl-4 border-t border-slate-700/50 space-y-2">
+              {subtasks.map(subtask => (
+                <div key={subtask.id} className="flex items-center gap-3 group">
+                  <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
+                    {subtask.completed ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
+                  </button>
+                  <p className={`text-sm ${subtask.completed ? 'line-through text-slate-500' : 'text-slate-300'}`}>
+                    {subtask.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
         </div>
         <div className="ml-4 flex-shrink-0 flex items-center gap-4">
+          {!task.completed && !task.parentId && (
+            <button
+                onClick={handleGenerateSubtasks}
+                disabled={isGeneratingSubtasks}
+                className="text-slate-500 hover:text-purple-400 transition-colors duration-200 z-10"
+                title="Chia nhỏ công việc bằng AI"
+            >
+                {isGeneratingSubtasks ? <Loader2 size={18} className="animate-spin text-purple-400" /> : <ListTree size={18} />}
+            </button>
+          )}
           {!task.completed && (
             <button 
               onClick={() => onToggleTaskUrgency(task.id)}

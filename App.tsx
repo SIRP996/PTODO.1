@@ -25,6 +25,7 @@ const App: React.FC = () => {
     markReminderSent,
     updateTaskDueDate,
     toggleTaskUrgency,
+    addSubtasksBatch,
   } = useTasks();
   const [activeHashtag, setActiveHashtag] = useState<string | null>(null);
   const [view, setView] = useState<'incomplete' | 'completed'>('incomplete');
@@ -260,6 +261,7 @@ const App: React.FC = () => {
                 onUpdateTaskDueDate={updateTaskDueDate}
                 onToggleTaskUrgency={toggleTaskUrgency}
                 onStartFocus={handleStartFocus}
+                onAddSubtasksBatch={addSubtasksBatch}
               />
             </div>
           </div>

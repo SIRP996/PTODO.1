@@ -9,4 +9,5 @@ export interface Task {
   isUrgent: boolean;
   recurrenceRule?: 'none' | 'daily' | 'weekly' | 'monthly';
   userId?: string;
+  parentId?: string;
 }

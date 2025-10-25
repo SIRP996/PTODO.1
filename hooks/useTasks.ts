@@ -83,6 +83,36 @@ export const useTasks = () => {
     }
   }, [currentUser]);
 
+  const addSubtasksBatch = useCallback(async (parentId: string, subtaskTexts: string[]) => {
+    if (!currentUser || subtaskTexts.length === 0) return;
+
+    const batch = db.batch();
+    const tasksCollectionRef = db.collection('tasks');
+
+    subtaskTexts.forEach(text => {
+        const newDocRef = tasksCollectionRef.doc();
+        const subtaskData = {
+            text: text.trim(),
+            completed: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            dueDate: null,
+            hashtags: [],
+            reminderSent: false,
+            isUrgent: false,
+            recurrenceRule: 'none' as const,
+            userId: currentUser.uid,
+            parentId: parentId,
+        };
+        batch.set(newDocRef, subtaskData);
+    });
+
+    try {
+        await batch.commit();
+    } catch (error) {
+        console.error("Error adding subtasks in batch: ", error);
+    }
+  }, [currentUser]);
+
   const toggleTask = useCallback(async (id: string) => {
     if (!currentUser) return;
 
@@ -178,5 +208,5 @@ export const useTasks = () => {
   }, [currentUser]);
 
 
-  return { tasks, addTask, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency };
+  return { tasks, addTask, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency };
 };
