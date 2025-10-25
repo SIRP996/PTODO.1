@@ -1,0 +1,28 @@
+{
+  "name": "oke-ai-phiên-bản-mới",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@google/genai": "^0.15.0",
+    "lucide-react": "^0.546.0",
+    "uuid": "^13.0.0",
+    "react-dom": "^19.2.0",
+    "react": "^19.2.0",
+    "recharts": "^3.3.0",
+    "date-fns": "^4.1.0",
+    "webworker": "^0.8.4",
+    "firebase": "^12.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
