@@ -1,11 +1,13 @@
+
 import React from 'react';
-import { KeyRound, ShieldAlert } from 'lucide-react';
+import { KeyRound, ShieldAlert, AlertCircle } from 'lucide-react';
 
 interface ApiKeyPromptProps {
     onSelectKey: () => void;
+    error?: string | null;
 }
 
-const ApiKeyPrompt: React.FC<ApiKeyPromptProps> = ({ onSelectKey }) => {
+const ApiKeyPrompt: React.FC<ApiKeyPromptProps> = ({ onSelectKey, error }) => {
     return (
         <div className="fixed inset-0 bg-[#0F172A] flex items-center justify-center z-50">
             <div className="bg-[#1E293B]/60 p-8 rounded-2xl shadow-lg border border-slate-700 text-center max-w-md mx-4">
@@ -13,6 +15,14 @@ const ApiKeyPrompt: React.FC<ApiKeyPromptProps> = ({ onSelectKey }) => {
                     <KeyRound size={32} />
                 </div>
                 <h1 className="text-2xl font-bold text-white mb-2">Yêu cầu API Key</h1>
+
+                {error && (
+                    <div className="bg-red-900/50 border border-red-700 text-red-300 text-sm p-3 rounded-lg mb-4 text-left flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                        <span>{error}</span>
+                    </div>
+                )}
+
                 <p className="text-slate-400 mb-6">
                     Để sử dụng các tính năng AI, bạn cần chọn một API Key từ Google AI Studio. Việc này đảm bảo quyền truy cập an toàn vào các mô hình của Gemini.
                 </p>
