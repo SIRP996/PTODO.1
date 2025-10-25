@@ -13,11 +13,12 @@ interface TaskItemProps {
   onToggleTaskUrgency: (id: string) => void;
   onStartFocus: (task: Task) => void;
   onAddSubtasksBatch: (parentId: string, subtaskTexts: string[]) => Promise<void>;
+  onApiKeyError: () => void;
 }
 
 const SWIPE_THRESHOLD = 80;
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError }) => {
   const isOverdue = task.dueDate && !task.completed && isPast(new Date(task.dueDate));
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
@@ -116,9 +117,14 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
             throw new Error("AI returned data in an unexpected format.");
         }
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("AI sub-task generation failed:", error);
-        alert("AI không thể phân tích công việc. Vui lòng thử lại hoặc nhập thủ công.");
+        if (error?.message?.includes('API key not valid')) {
+            onApiKeyError();
+            alert("API Key không hợp lệ. Vui lòng chọn lại API Key.");
+        } else {
+            alert("AI không thể phân tích công việc. Vui lòng thử lại hoặc nhập thủ công.");
+        }
     } finally {
         setIsGeneratingSubtasks(false);
     }

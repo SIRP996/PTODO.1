@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -6,13 +7,26 @@ import AdvancedDashboard from './components/AdvancedDashboard';
 import TaskInput from './components/TaskInput';
 import FilterTags from './components/FilterTags';
 import TaskList from './components/TaskList';
-import { BellRing, ShieldCheck, ShieldOff } from 'lucide-react';
+import { BellRing, ShieldCheck, ShieldOff, Loader2 } from 'lucide-react';
 import { Task } from './types';
 import { isPast } from 'date-fns';
 import GoogleSheetSync from './components/GoogleSheetSync';
 import FocusModeOverlay from './components/FocusModeOverlay';
 import AuthPage from './components/auth/AuthPage';
 import { useAuth } from './context/AuthContext';
+import ApiKeyPrompt from './components/ApiKeyPrompt';
+
+// FIX: Define an interface for aistudio to resolve declaration conflicts.
+interface AIStudio {
+  hasSelectedApiKey: () => Promise<boolean>;
+  openSelectKey: () => Promise<void>;
+}
+
+declare global {
+  interface Window {
+    aistudio: AIStudio;
+  }
+}
 
 const App: React.FC = () => {
   const { currentUser, logout } = useAuth();
@@ -32,6 +46,10 @@ const App: React.FC = () => {
   const [notificationPermissionStatus, setNotificationPermissionStatus] = useState('default');
   const workerRef = useRef<Worker | null>(null);
 
+  // API Key State
+  const [isKeySelected, setIsKeySelected] = useState(false);
+  const [isCheckingKey, setIsCheckingKey] = useState(true);
+
   // Focus Mode State
   const [focusTask, setFocusTask] = useState<Task | null>(null);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
@@ -48,9 +66,46 @@ const App: React.FC = () => {
 
   const notificationSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
+  }, []);
+  
+  const checkApiKey = useCallback(async () => {
+    setIsCheckingKey(true);
+    try {
+        if (window.aistudio) {
+            const hasKey = await window.aistudio.hasSelectedApiKey();
+            setIsKeySelected(hasKey);
+        } else {
+            console.warn('aistudio is not available. Assuming no key.');
+            setIsKeySelected(false);
+        }
+    } catch (e) {
+        console.error("Error checking for API key:", e);
+        setIsKeySelected(false);
+    } finally {
+        setIsCheckingKey(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+        checkApiKey();
+    }
+  }, [currentUser, checkApiKey]);
+
+  const handleSelectKey = async () => {
+    try {
+        await window.aistudio.openSelectKey();
+        setIsKeySelected(true); // Assume success to handle race condition
+    } catch (e) {
+        console.error("Could not open API key selection:", e);
+    }
+  };
+    
+  const onApiKeyError = useCallback(() => {
+    setIsKeySelected(false);
   }, []);
 
   useEffect(() => {
@@ -205,6 +260,18 @@ const App: React.FC = () => {
     return <AuthPage />;
   }
 
+  if (isCheckingKey) {
+    return (
+        <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+            <Loader2 className="h-12 w-12 text-indigo-400 animate-spin" />
+        </div>
+    );
+  }
+
+  if (!isKeySelected) {
+    return <ApiKeyPrompt onSelectKey={handleSelectKey} />;
+  }
+
   return (
     <div className="min-h-screen text-slate-800 dark:text-slate-200 bg-[#0F172A] p-4 sm:p-6 lg:p-8">
       {isFocusModeActive && focusTask && (
@@ -224,7 +291,7 @@ const App: React.FC = () => {
           <div className="lg:col-span-3 space-y-6">
             <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
               <h2 className="text-xl font-semibold mb-4 text-slate-100">Thêm công việc mới</h2>
-              <TaskInput onAddTask={addTask} />
+              <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} />
             </div>
             
             <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
@@ -262,6 +329,7 @@ const App: React.FC = () => {
                 onToggleTaskUrgency={toggleTaskUrgency}
                 onStartFocus={handleStartFocus}
                 onAddSubtasksBatch={addSubtasksBatch}
+                onApiKeyError={onApiKeyError}
               />
             </div>
           </div>

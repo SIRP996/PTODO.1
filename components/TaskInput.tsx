@@ -4,9 +4,10 @@ import { GoogleGenAI, Type } from '@google/genai';
 
 interface TaskInputProps {
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => void;
+  onApiKeyError: () => void;
 }
 
-const TaskInput: React.FC<TaskInputProps> = ({ onAddTask }) => {
+const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError }) => {
   const [text, setText] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [currentTag, setCurrentTag] = useState('');
@@ -107,9 +108,14 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask }) => {
         }
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI parsing failed:", error);
-      alert("AI không thể phân tích công việc. Vui lòng thử lại hoặc nhập thủ công.");
+      if (error?.message?.includes('API key not valid')) {
+        onApiKeyError();
+        alert("API Key không hợp lệ. Vui lòng chọn lại API Key.");
+      } else {
+        alert("AI không thể phân tích công việc. Vui lòng thử lại hoặc nhập thủ công.");
+      }
     } finally {
       setIsParsing(false);
     }
