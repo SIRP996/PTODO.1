@@ -1,11 +1,11 @@
 
-
 import React, { useState, useRef, MouseEvent, TouchEvent } from 'react';
 import { Task } from '../types';
 import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
+import { useToast } from '../context/ToastContext';
 
 interface TaskItemProps {
   task: Task;
@@ -27,6 +27,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
   const [areSubtasksVisible, setAreSubtasksVisible] = useState(true);
+  const { addToast } = useToast();
 
   const [translateX, setTranslateX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -84,7 +85,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
     try {
         const ai = getGoogleGenAI();
         if (!ai) {
-          alert("Vui lòng thiết lập API Key để sử dụng tính năng AI.");
+          addToast("Vui lòng thiết lập API Key để sử dụng tính năng AI.", "info");
           setIsGeneratingSubtasks(false);
           return;
         }
@@ -133,7 +134,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         if (errorMessage.includes('api key not valid') || errorMessage.includes('permission_denied')) {
             onApiKeyError();
         } else {
-            alert("AI không thể phân tích công việc. Vui lòng thử lại hoặc nhập thủ công.");
+            addToast("AI không thể tạo công việc con. Vui lòng thử lại.", "error");
         }
     } finally {
         setIsGeneratingSubtasks(false);
@@ -144,6 +145,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
 
   return (
     <div className="relative overflow-hidden border-b border-slate-700/50 last:border-b-0">
+       {isGeneratingSubtasks && (
+          <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-20">
+              <Loader2 size={24} className="animate-spin text-indigo-400" />
+              <span className="ml-3 text-slate-300">AI đang chia nhỏ công việc...</span>
+          </div>
+      )}
       <div 
         className="absolute inset-0 bg-green-600 flex items-center justify-start px-6"
         style={{ opacity: Math.min(translateX / SWIPE_THRESHOLD, 1), zIndex: 0 }}
@@ -178,7 +185,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         </div>
         
         <div className="ml-0 flex-grow">
-          <p className={`${task.completed ? 'text-slate-500' : 'text-slate-200'}`}>
+          <p className={`${task.completed ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
             {task.text}
           </p>
 
@@ -278,7 +285,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                 className="text-slate-500 hover:text-indigo-400 transition-colors duration-200 z-10 disabled:text-slate-600 disabled:hover:text-slate-600 disabled:cursor-not-allowed"
                 title={hasApiKey ? "Chia nhỏ công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
             >
-                {isGeneratingSubtasks ? <Loader2 size={18} className="animate-spin text-indigo-400" /> : <ListTree size={18} />}
+                <ListTree size={18} />
             </button>
           )}
           {!task.completed && (
@@ -313,4 +320,4 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   );
 };
 
-export default TaskItem;
+export default React.memo(TaskItem);

@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Task } from '../types';
-import { Sheet, X, Save, CheckCircle, AlertTriangle, HelpCircle, Copy } from 'lucide-react';
+import { Sheet, X, Save, CheckCircle, AlertTriangle, HelpCircle, Copy, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 interface GoogleSheetSyncProps {
     tasks: Task[];
@@ -64,10 +65,10 @@ const SCRIPT_CODE = `function doPost(e) {
 
 const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
     const { userSettings, updateUserSettings } = useAuth();
+    const { addToast } = useToast();
     const [sheetUrl, setSheetUrl] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-    const [message, setMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (userSettings?.googleSheetUrl) {
@@ -87,18 +88,16 @@ const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
     
     const copyToClipboard = () => {
         navigator.clipboard.writeText(SCRIPT_CODE);
-        alert("Đã sao chép mã vào clipboard!");
+        addToast("Đã sao chép mã vào clipboard!", 'info');
     };
 
     const handleSync = async () => {
         if (!sheetUrl.trim()) {
-            setStatus('error');
-            setMessage('Vui lòng nhập URL Web App của bạn trước.');
+            addToast('Vui lòng nhập URL Web App của bạn trước.', 'error');
             return;
         }
 
-        setStatus('loading');
-        setMessage('');
+        setIsLoading(true);
 
         try {
             const formData = new FormData();
@@ -116,36 +115,19 @@ const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
             const result = await response.json();
             
             if (result.status === 'success') {
-                setStatus('success');
-                setMessage('Đồng bộ thành công!');
-                setTimeout(() => {
-                   setStatus('idle');
-                   setMessage('');
-                }, 3000);
+                addToast('Đồng bộ thành công!', 'success');
             } else {
                 throw new Error(result.message || 'Lỗi không xác định từ script.');
             }
 
         } catch (error) {
-            setStatus('error');
-            setMessage(`Lỗi đồng bộ. Hãy kiểm tra lại URL, đảm bảo bạn đã triển khai script với quyền truy cập "Anyone", và thử lại.`);
+            addToast(`Lỗi đồng bộ. Hãy kiểm tra lại URL, đảm bảo bạn đã triển khai script với quyền truy cập "Anyone", và thử lại.`, 'error');
             console.error("Sync Error:", error);
+        } finally {
+            setIsLoading(false);
         }
     };
     
-    const getButtonContent = () => {
-        switch (status) {
-            case 'loading':
-                return <><span>Đang lưu...</span></>;
-            case 'success':
-                return <><CheckCircle size={20} className="mr-2"/><span>Đã đồng bộ!</span></>;
-            case 'error':
-                 return <><AlertTriangle size={20} className="mr-2"/><span>Thất bại</span></>;
-            default:
-                return <><Save size={20} className="mr-2"/><span>Lưu vào Google Sheets</span></>;
-        }
-    };
-
     return (
         <div>
             <h2 className="text-xl font-semibold mb-4 text-slate-100 flex items-center gap-2">
@@ -168,15 +150,14 @@ const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
                  <div className="flex justify-between items-center gap-2">
                     <button
                         onClick={handleSync}
-                        disabled={status === 'loading'}
-                        className={`w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300
-                            ${status === 'loading' ? 'bg-slate-600 text-slate-400 cursor-wait' : ''}
-                            ${status === 'success' ? 'bg-green-600 text-white' : ''}
-                            ${status === 'error' ? 'bg-red-600 text-white' : ''}
-                            ${status === 'idle' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : ''}
-                        `}
+                        disabled={isLoading}
+                        className="w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300 bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-wait"
                     >
-                        {getButtonContent()}
+                        {isLoading ? (
+                            <><Loader2 size={20} className="mr-2 animate-spin"/><span>Đang lưu...</span></>
+                        ) : (
+                            <><Save size={20} className="mr-2"/><span>Lưu vào Google Sheets</span></>
+                        )}
                     </button>
                     <button
                         type="button"
@@ -187,8 +168,6 @@ const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
                         <HelpCircle size={20} />
                     </button>
                  </div>
-                {message && status === 'error' && <p className="text-sm text-red-400 mt-2">{message}</p>}
-                 {message && status === 'success' && <p className="text-sm text-green-400 mt-2">{message}</p>}
             </div>
 
             {isModalOpen && (

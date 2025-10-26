@@ -7,11 +7,15 @@ import { db } from '../firebaseConfig';
 // Fix: Import firebase for Timestamp and FieldValue, and import firestore for side effects to use v8 compat API.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
+import { useToast } from '../context/ToastContext';
+import { v4 as uuidv4 } from 'uuid';
+
 
 export const useTasks = () => {
   const { currentUser } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (!currentUser) {
@@ -52,12 +56,13 @@ export const useTasks = () => {
       },
       (error) => {
         console.error("Error fetching tasks:", error);
+        addToast('Không thể tải công việc.', 'error');
         setLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [currentUser]);
+  }, [currentUser, addToast]);
 
   const addTask = useCallback(async (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => {
     if (!text.trim() || !currentUser) return;
@@ -78,10 +83,12 @@ export const useTasks = () => {
     try {
       // Fix: Use v8 compat syntax for adding a document.
       await db.collection('tasks').add(newTask);
+      addToast('Đã thêm công việc mới!', 'success');
     } catch (error) {
       console.error("Error adding task: ", error);
+      addToast('Không thể thêm công việc.', 'error');
     }
-  }, [currentUser]);
+  }, [currentUser, addToast]);
 
   const addSubtasksBatch = useCallback(async (parentId: string, subtaskTexts: string[]) => {
     if (!currentUser || subtaskTexts.length === 0) return;
@@ -108,104 +115,148 @@ export const useTasks = () => {
 
     try {
         await batch.commit();
+        addToast(`Đã thêm ${subtaskTexts.length} công việc con.`, 'success');
     } catch (error) {
         console.error("Error adding subtasks in batch: ", error);
+        addToast('Không thể thêm công việc con.', 'error');
     }
-  }, [currentUser]);
+  }, [currentUser, addToast]);
 
   const toggleTask = useCallback(async (id: string) => {
     if (!currentUser) return;
-
-    // Fix: Use v8 compat syntax for doc reference.
-    const taskDocRef = db.collection('tasks').doc(id);
+    
+    const originalTasks = tasks;
     const taskToToggle = tasks.find(t => t.id === id);
     if (!taskToToggle) return;
 
+    // Optimistic UI update
+    if (!taskToToggle.completed && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
+        let nextDueDate: Date;
+        const currentDueDate = new Date(taskToToggle.dueDate);
+        switch (taskToToggle.recurrenceRule) {
+            case 'daily': nextDueDate = addDays(currentDueDate, 1); break;
+            case 'weekly': nextDueDate = addWeeks(currentDueDate, 1); break;
+            case 'monthly': nextDueDate = addMonths(currentDueDate, 1); break;
+            default: nextDueDate = currentDueDate; 
+        }
+        const newTaskClient: Task = {
+            id: `temp-${uuidv4()}`,
+            text: taskToToggle.text, completed: false,
+            createdAt: new Date().toISOString(),
+            dueDate: nextDueDate.toISOString(),
+            hashtags: taskToToggle.hashtags, reminderSent: false,
+            isUrgent: taskToToggle.isUrgent,
+            recurrenceRule: taskToToggle.recurrenceRule, userId: currentUser.uid,
+        };
+        const updatedTasks = tasks.map(t => 
+            t.id === id ? { ...t, completed: true, recurrenceRule: 'none' as const } : t
+        );
+        setTasks([...updatedTasks, newTaskClient]);
+    } else {
+        setTasks(currentTasks => currentTasks.map(task =>
+            task.id === id ? { ...task, completed: !task.completed } : task
+        ));
+    }
+    
+    // Firebase operation
     try {
         if (!taskToToggle.completed && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
-            
             let nextDueDate: Date;
             const currentDueDate = new Date(taskToToggle.dueDate);
-
             switch (taskToToggle.recurrenceRule) {
                 case 'daily': nextDueDate = addDays(currentDueDate, 1); break;
                 case 'weekly': nextDueDate = addWeeks(currentDueDate, 1); break;
                 case 'monthly': nextDueDate = addMonths(currentDueDate, 1); break;
                 default: nextDueDate = currentDueDate; 
             }
-
             const nextInstanceData = {
-                text: taskToToggle.text,
-                completed: false,
-                // Fix: Use firebase.firestore.FieldValue.serverTimestamp() for v8 compat syntax.
+                text: taskToToggle.text, completed: false,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                dueDate: nextDueDate,
-                hashtags: taskToToggle.hashtags,
-                reminderSent: false,
-                isUrgent: taskToToggle.isUrgent,
-                recurrenceRule: taskToToggle.recurrenceRule,
-                userId: currentUser.uid,
+                dueDate: nextDueDate, hashtags: taskToToggle.hashtags,
+                reminderSent: false, isUrgent: taskToToggle.isUrgent,
+                recurrenceRule: taskToToggle.recurrenceRule, userId: currentUser.uid,
             };
-            
-            // Fix: Use v8 compat syntax for writeBatch.
             const batch = db.batch();
+            const taskDocRef = db.collection('tasks').doc(id);
             batch.update(taskDocRef, { completed: true, recurrenceRule: 'none' });
-            
-            // Fix: Use v8 compat syntax for new doc reference.
             const newDocRef = db.collection('tasks').doc();
             batch.set(newDocRef, nextInstanceData);
             await batch.commit();
-
         } else {
-            // Fix: Use v8 compat update method.
-            await taskDocRef.update({ completed: !taskToToggle.completed });
+            await db.collection('tasks').doc(id).update({ completed: !taskToToggle.completed });
         }
     } catch (error) {
       console.error("Error toggling task: ", error);
+      addToast('Không thể cập nhật công việc.', 'error');
+      setTasks(originalTasks);
     }
-  }, [currentUser, tasks]);
+  }, [currentUser, tasks, addToast]);
 
   const deleteTask = useCallback(async (id: string) => {
     if (!currentUser) return;
+    const originalTasks = tasks;
+    setTasks(currentTasks => currentTasks.filter(task => task.id !== id && task.parentId !== id));
+    
     try {
-      // Fix: Use v8 compat syntax for deleting a document.
-      await db.collection('tasks').doc(id).delete();
+      const subtasksToDelete = tasks.filter(t => t.parentId === id).map(t => t.id);
+      const allIdsToDelete = [id, ...subtasksToDelete];
+      
+      const batch = db.batch();
+      allIdsToDelete.forEach(taskId => {
+        batch.delete(db.collection('tasks').doc(taskId));
+      });
+      await batch.commit();
+      addToast('Đã xóa công việc.', 'success');
     } catch (error) {
       console.error("Error deleting task: ", error);
+      addToast('Không thể xóa công việc.', 'error');
+      setTasks(originalTasks);
     }
-  }, [currentUser]);
+  }, [currentUser, tasks, addToast]);
 
   const toggleTaskUrgency = useCallback(async (id: string) => {
     if (!currentUser) return;
+    const originalTasks = tasks;
     const task = tasks.find(t => t.id === id);
     if (!task) return;
+    
+    setTasks(current => current.map(t => t.id === id ? {...t, isUrgent: !t.isUrgent} : t));
+
     try {
-        // Fix: Use v8 compat syntax for updating a document.
         await db.collection('tasks').doc(id).update({ isUrgent: !task.isUrgent });
     } catch (error) {
       console.error("Error updating urgency: ", error);
+      addToast('Không thể cập nhật độ khẩn cấp.', 'error');
+      setTasks(originalTasks);
     }
-  }, [currentUser, tasks]);
+  }, [currentUser, tasks, addToast]);
 
   const updateTaskDueDate = useCallback(async (id: string, newDueDate: string | null) => {
     if (!currentUser) return;
+    const originalTasks = tasks;
+    setTasks(current => current.map(t => t.id === id ? {...t, dueDate: newDueDate, reminderSent: false} : t));
+    
     try {
-        // Fix: Use v8 compat syntax for updating a document.
         await db.collection('tasks').doc(id).update({ dueDate: newDueDate ? new Date(newDueDate) : null, reminderSent: false });
     } catch (error) {
       console.error("Error updating due date: ", error);
+      addToast('Không thể cập nhật thời hạn.', 'error');
+      setTasks(originalTasks);
     }
-  }, [currentUser]);
+  }, [currentUser, tasks, addToast]);
 
   const markReminderSent = useCallback(async (id: string) => {
     if (!currentUser) return;
+    const originalTasks = tasks;
+    setTasks(current => current.map(t => t.id === id ? {...t, reminderSent: true} : t));
+
     try {
-        // Fix: Use v8 compat syntax for updating a document.
         await db.collection('tasks').doc(id).update({ reminderSent: true });
     } catch (error) {
       console.error("Error marking reminder sent: ", error);
+      setTasks(originalTasks);
     }
-  }, [currentUser]);
+  }, [currentUser, tasks]);
 
 
   return { tasks, addTask, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency };

@@ -3,6 +3,7 @@ import React from 'react';
 import { Download, CheckSquare, LogOut, KeyRound, UserCircle } from 'lucide-react';
 import { Task } from '../types';
 import firebase from 'firebase/compat/app';
+import { useToast } from '../context/ToastContext';
 
 interface HeaderProps {
     tasks: Task[];
@@ -14,10 +15,11 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onManageApiKey, onOpenSettings }) => {
+    const { addToast } = useToast();
     
     const exportToCSV = () => {
         if (tasks.length === 0) {
-            alert("Không có công việc nào để xuất.");
+            addToast("Không có công việc nào để xuất.", "info");
             return;
         }
 
@@ -44,6 +46,7 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            addToast("Đã xuất công việc ra tệp CSV.", "success");
         }
     };
     

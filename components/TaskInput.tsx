@@ -4,6 +4,7 @@ import { Plus, X, Flag, Sparkles, Loader2, Mic } from 'lucide-react';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useToast } from '../context/ToastContext';
 
 interface TaskInputProps {
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => void;
@@ -19,6 +20,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
   const [isUrgent, setIsUrgent] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
   const [isParsing, setIsParsing] = useState(false);
+  const { addToast } = useToast();
 
   const {
     transcript,
@@ -53,14 +55,14 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
   const handleParseTask = async (textToParseOverride?: string) => {
     const textToParse = textToParseOverride || text;
     if (!textToParse.trim()) {
-      alert("Vui lòng nhập nội dung công việc để AI phân tích.");
+      addToast("Vui lòng nhập nội dung công việc để AI phân tích.", "info");
       return;
     }
     setIsParsing(true);
     try {
       const ai = getGoogleGenAI();
       if (!ai) {
-          alert("Vui lòng thiết lập API Key để sử dụng tính năng AI.");
+          addToast("Vui lòng thiết lập API Key để sử dụng tính năng AI.", "info");
           setIsParsing(false);
           return;
       }
@@ -133,14 +135,14 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
             setDueDate(formattedDueDate);
         }
       }
-
+      addToast("AI đã phân tích xong công việc!", 'success');
     } catch (error: any) {
       console.error("AI parsing failed:", error);
       const errorMessage = error?.message?.toLowerCase() || '';
       if (errorMessage.includes('api key not valid') || errorMessage.includes('permission_denied')) {
         onApiKeyError();
       } else {
-        alert("AI không thể phân tích công việc. Vui lòng thử lại hoặc nhập thủ công.");
+        addToast("AI không thể phân tích công việc. Vui lòng thử lại hoặc nhập thủ công.", 'error');
       }
     } finally {
       setIsParsing(false);
