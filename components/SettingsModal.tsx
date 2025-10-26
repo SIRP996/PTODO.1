@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Save, Loader2, CheckCircle } from 'lucide-react';
+import { X, User, Mail, Save, Loader2 } from 'lucide-react';
 import firebase from 'firebase/compat/app';
+import { useToast } from '../context/ToastContext';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -13,8 +14,7 @@ interface SettingsModalProps {
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, onUpdateProfile }) => {
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (user) {
@@ -34,18 +34,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
     if (!hasChanged) return;
     
     setIsLoading(true);
-    setError(null);
-    setSuccess(null);
     
     try {
       await onUpdateProfile(displayName);
-      setSuccess('Cập nhật thông tin thành công!');
-      setTimeout(() => {
-        onClose();
-        setSuccess(null);
-      }, 1500);
+      addToast('Cập nhật thông tin thành công!', 'success');
+      onClose();
     } catch (err) {
-      setError('Không thể cập nhật thông tin. Vui lòng thử lại.');
+      addToast('Không thể cập nhật thông tin. Vui lòng thử lại.', 'error');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -94,8 +89,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
                 </div>
             </div>
             
-            {error && <p className="text-sm text-red-400">{error}</p>}
-
             <div className="flex justify-end items-center gap-3 pt-4">
                 <button
                     type="button"
@@ -106,11 +99,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
                 </button>
                 <button
                     type="submit"
-                    disabled={!hasChanged || isLoading || !!success}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:bg-indigo-800 disabled:cursor-not-allowed"
+                    disabled={!hasChanged || isLoading}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:bg-indigo-800 disabled:cursor-not-allowed min-w-[140px]"
                 >
-                    {isLoading ? <Loader2 className="animate-spin" /> : success ? <CheckCircle /> : <Save size={18}/>}
-                    <span>{isLoading ? 'Đang lưu...' : success ? 'Đã lưu!' : 'Lưu thay đổi'}</span>
+                    {isLoading ? <Loader2 className="animate-spin" /> : <Save size={18}/>}
+                    <span>{isLoading ? 'Đang lưu...' : 'Lưu thay đổi'}</span>
                 </button>
             </div>
         </form>

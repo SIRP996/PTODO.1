@@ -185,6 +185,7 @@ export const useTasks = () => {
         } else {
             await db.collection('tasks').doc(id).update({ completed: !taskToToggle.completed });
         }
+        addToast('Đã cập nhật trạng thái công việc.', 'success');
     } catch (error) {
       console.error("Error toggling task: ", error);
       addToast('Không thể cập nhật công việc.', 'error');
@@ -224,6 +225,7 @@ export const useTasks = () => {
 
     try {
         await db.collection('tasks').doc(id).update({ isUrgent: !task.isUrgent });
+        addToast('Đã cập nhật độ khẩn cấp.', 'success');
     } catch (error) {
       console.error("Error updating urgency: ", error);
       addToast('Không thể cập nhật độ khẩn cấp.', 'error');
@@ -238,6 +240,7 @@ export const useTasks = () => {
     
     try {
         await db.collection('tasks').doc(id).update({ dueDate: newDueDate ? new Date(newDueDate) : null, reminderSent: false });
+        addToast('Đã cập nhật thời hạn.', 'success');
     } catch (error) {
       console.error("Error updating due date: ", error);
       addToast('Không thể cập nhật thời hạn.', 'error');
