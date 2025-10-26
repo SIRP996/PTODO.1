@@ -13,6 +13,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<any>;
   logout: () => Promise<any>;
   resetPassword: (email: string) => Promise<any>;
+  updateUserProfile: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -54,6 +55,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return auth.sendPasswordResetEmail(email);
   }
 
+  function updateUserProfile(name: string) {
+    if (auth.currentUser) {
+      return auth.currentUser.updateProfile({
+        displayName: name
+      });
+    }
+    return Promise.reject(new Error("No user is logged in."));
+  }
+
   useEffect(() => {
     // Fix: Use auth object method for v8 compat syntax.
     const unsubscribe = auth.onAuthStateChanged(user => {
@@ -71,7 +81,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signup,
     login,
     logout,
-    resetPassword
+    resetPassword,
+    updateUserProfile
   };
 
   return (

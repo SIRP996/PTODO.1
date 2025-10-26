@@ -1,14 +1,19 @@
 
 import React from 'react';
-import { Download, CheckSquare, LogOut } from 'lucide-react';
+import { Download, CheckSquare, LogOut, KeyRound, UserCircle } from 'lucide-react';
 import { Task } from '../types';
+import firebase from 'firebase/compat/app';
 
 interface HeaderProps {
     tasks: Task[];
+    user: firebase.User | null;
     onLogout: () => void;
+    hasApiKey: boolean;
+    onManageApiKey: () => void;
+    onOpenSettings: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ tasks, onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onManageApiKey, onOpenSettings }) => {
     
     const exportToCSV = () => {
         if (tasks.length === 0) {
@@ -41,6 +46,8 @@ const Header: React.FC<HeaderProps> = ({ tasks, onLogout }) => {
             document.body.removeChild(link);
         }
     };
+    
+    const greeting = user?.displayName ? `Chào 👋, ${user.displayName}!` : 'Chào bạn! 👋';
 
     return (
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
@@ -54,21 +61,40 @@ const Header: React.FC<HeaderProps> = ({ tasks, onLogout }) => {
                 </div>
             </div>
              <div className="w-full sm:w-auto flex items-center gap-2">
+                <span className="text-indigo-300 font-medium text-base hidden lg:block">{greeting}</span>
+                <button
+                    onClick={onOpenSettings}
+                    className="flex items-center justify-center font-semibold p-2.5 rounded-lg transition-colors duration-200 bg-slate-700 hover:bg-slate-600 text-slate-300"
+                    title="Cài đặt tài khoản"
+                >
+                    <UserCircle className="h-4 w-4" />
+                </button>
+                <button 
+                    onClick={onManageApiKey}
+                    className={`flex items-center justify-center font-semibold p-2.5 rounded-lg transition-colors duration-200 ${
+                        hasApiKey
+                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                        : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                    }`}
+                    title="Quản lý API Key"
+                >
+                    <KeyRound className="h-4 w-4" />
+                </button>
                 <button 
                     onClick={exportToCSV}
-                    className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+                    className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2.5 px-4 rounded-lg transition-colors duration-200"
                     title="Xuất tất cả công việc ra tệp CSV, tương thích với Google Sheets."
                 >
                     <Download className="h-4 w-4" />
-                    <span>Xuất CSV</span>
+                    <span className="hidden sm:inline">Xuất CSV</span>
                 </button>
                 <button 
                     onClick={onLogout}
-                    className="flex items-center justify-center gap-2 bg-red-800 hover:bg-red-700 text-red-200 font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+                    className="flex items-center justify-center gap-2 bg-red-800 hover:bg-red-700 text-red-200 font-semibold py-2.5 px-4 rounded-lg transition-colors duration-200"
                     title="Đăng xuất"
                 >
                     <LogOut className="h-4 w-4" />
-                    <span>Đăng xuất</span>
+                    <span className="hidden sm:inline">Đăng xuất</span>
                 </button>
             </div>
         </header>

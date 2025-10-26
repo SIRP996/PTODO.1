@@ -1,3 +1,4 @@
+
 import React, { useState, KeyboardEvent } from 'react';
 import { Plus, X, Flag, Sparkles, Loader2 } from 'lucide-react';
 import { Type } from '@google/genai';
@@ -6,9 +7,10 @@ import { getGoogleGenAI } from '../utils/gemini';
 interface TaskInputProps {
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => void;
   onApiKeyError: () => void;
+  hasApiKey: boolean;
 }
 
-const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError }) => {
+const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiKey }) => {
   const [text, setText] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [currentTag, setCurrentTag] = useState('');
@@ -39,6 +41,11 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError }) => {
     setIsParsing(true);
     try {
       const ai = getGoogleGenAI();
+      if (!ai) {
+          alert("Vui lòng thiết lập API Key để sử dụng tính năng AI.");
+          setIsParsing(false);
+          return;
+      }
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: `You are an intelligent task parsing assistant for a to-do list application. The user is Vietnamese.
@@ -214,9 +221,9 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError }) => {
             <button
                 type="button"
                 onClick={handleParseTask}
-                disabled={isParsing || !text.trim()}
-                className="p-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-purple-800 disabled:cursor-not-allowed"
-                title="Phân tích công việc bằng AI"
+                disabled={isParsing || !text.trim() || !hasApiKey}
+                className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-indigo-900/50 disabled:text-indigo-600 disabled:cursor-not-allowed"
+                title={hasApiKey ? "Phân tích công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
             >
                 {isParsing ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
             </button>

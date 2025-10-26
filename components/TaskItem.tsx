@@ -17,11 +17,12 @@ interface TaskItemProps {
   onStartFocus: (task: Task) => void;
   onAddSubtasksBatch: (parentId: string, subtaskTexts: string[]) => Promise<void>;
   onApiKeyError: () => void;
+  hasApiKey: boolean;
 }
 
 const SWIPE_THRESHOLD = 80;
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey }) => {
   const isOverdue = task.dueDate && !task.completed && isPast(new Date(task.dueDate));
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
@@ -82,6 +83,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
     setIsGeneratingSubtasks(true);
     try {
         const ai = getGoogleGenAI();
+        if (!ai) {
+          alert("Vui lòng thiết lập API Key để sử dụng tính năng AI.");
+          setIsGeneratingSubtasks(false);
+          return;
+        }
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: `You are an expert project manager AI. Your task is to break down a large, complex task into smaller, actionable sub-tasks.
@@ -268,11 +274,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
           {!task.completed && !task.parentId && (
             <button
                 onClick={handleGenerateSubtasks}
-                disabled={isGeneratingSubtasks}
-                className="text-slate-500 hover:text-purple-400 transition-colors duration-200 z-10"
-                title="Chia nhỏ công việc bằng AI"
+                disabled={isGeneratingSubtasks || !hasApiKey}
+                className="text-slate-500 hover:text-indigo-400 transition-colors duration-200 z-10 disabled:text-slate-600 disabled:hover:text-slate-600 disabled:cursor-not-allowed"
+                title={hasApiKey ? "Chia nhỏ công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
             >
-                {isGeneratingSubtasks ? <Loader2 size={18} className="animate-spin text-purple-400" /> : <ListTree size={18} />}
+                {isGeneratingSubtasks ? <Loader2 size={18} className="animate-spin text-indigo-400" /> : <ListTree size={18} />}
             </button>
           )}
           {!task.completed && (

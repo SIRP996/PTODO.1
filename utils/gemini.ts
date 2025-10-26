@@ -1,15 +1,17 @@
+
 import { GoogleGenAI } from '@google/genai';
 
 /**
  * Creates a GoogleGenAI instance.
- * In a non-studio environment, it uses an API key from localStorage.
- * In the AI Studio environment, it relies on the automatically provided process.env.API_KEY.
+ * It uses an 'active' API key from localStorage, which is managed by the App component.
+ * This allows the key to be user-specific without this utility needing to know about the user.
+ * It falls back to the AI Studio environment key if available.
+ * Returns null if no key can be found.
  */
 export const getGoogleGenAI = () => {
-  const userApiKey = localStorage.getItem('userApiKey');
-  if (userApiKey) {
-    return new GoogleGenAI({ apiKey: userApiKey });
+  const apiKey = localStorage.getItem('active_genai_api_key') || process.env.API_KEY;
+  if (!apiKey) {
+    return null;
   }
-  // Fallback for AI Studio environment or if key is not set manually
-  return new GoogleGenAI({ apiKey: process.env.API_KEY! });
+  return new GoogleGenAI({ apiKey });
 };

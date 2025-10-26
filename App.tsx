@@ -15,11 +15,10 @@ import FocusModeOverlay from './components/FocusModeOverlay';
 import AuthPage from './components/auth/AuthPage';
 import { useAuth } from './context/AuthContext';
 import ApiKeyPrompt from './components/ApiKeyPrompt';
-
-// FIX: Removed the conflicting 'aistudio' type declaration. The global type is likely provided elsewhere in the project.
+import SettingsModal from './components/SettingsModal';
 
 const App: React.FC = () => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, updateUserProfile } = useAuth();
   
   const { 
     tasks, 
@@ -36,11 +35,16 @@ const App: React.FC = () => {
   const [notificationPermissionStatus, setNotificationPermissionStatus] = useState('default');
   const workerRef = useRef<Worker | null>(null);
 
-  // Refactored API Key State
+  // API Key State
   const [hasApiKey, setHasApiKey] = useState(false);
   const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
   const [isStudioEnv, setIsStudioEnv] = useState(false);
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [apiKeySkipped, setApiKeySkipped] = useState(() => sessionStorage.getItem('apiKeySkipped') === 'true');
+  const [isUpdateKeyModalOpen, setUpdateKeyModalOpen] = useState(false);
+
+  // Settings Modal State
+  const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
 
   // Focus Mode State
   const [focusTask, setFocusTask] = useState<Task | null>(null);
@@ -58,18 +62,29 @@ const App: React.FC = () => {
 
   const notificationSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
   
   const checkApiKey = useCallback(async () => {
+    if (!currentUser) {
+        setIsCheckingApiKey(false);
+        return;
+    }
     setIsCheckingApiKey(true);
     setApiKeyError(null);
+
+    // This key is used by the gemini util
+    localStorage.removeItem('active_genai_api_key');
+
     if ((window as any).aistudio && typeof (window as any).aistudio.hasSelectedApiKey === 'function') {
         setIsStudioEnv(true);
         try {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+            if (hasKey && process.env.API_KEY) {
+                localStorage.setItem('active_genai_api_key', process.env.API_KEY);
+            }
             setHasApiKey(hasKey);
         } catch (e) {
             console.error("Error checking AI Studio key:", e);
@@ -77,24 +92,38 @@ const App: React.FC = () => {
         }
     } else {
         setIsStudioEnv(false);
-        const storedKey = localStorage.getItem('userApiKey');
+        const storedKey = localStorage.getItem(`userApiKey_${currentUser.uid}`);
+        if (storedKey) {
+            localStorage.setItem('active_genai_api_key', storedKey);
+        }
         setHasApiKey(!!storedKey);
     }
     setIsCheckingApiKey(false);
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
-    if (currentUser) {
-        checkApiKey();
+    checkApiKey();
+  }, [checkApiKey]);
+  
+  useEffect(() => {
+    // Clean up active key on logout
+    if (!currentUser) {
+        localStorage.removeItem('active_genai_api_key');
     }
-  }, [currentUser, checkApiKey]);
+  }, [currentUser]);
 
   const handleSelectStudioKey = async () => {
     setApiKeyError(null);
     if ((window as any).aistudio && typeof (window as any).aistudio.openSelectKey === 'function') {
         try {
             await (window as any).aistudio.openSelectKey();
-            setHasApiKey(true); // Assume success to handle race condition
+            setHasApiKey(true);
+            if (process.env.API_KEY) {
+                localStorage.setItem('active_genai_api_key', process.env.API_KEY);
+            }
+            setApiKeySkipped(false);
+            sessionStorage.removeItem('apiKeySkipped');
+            setUpdateKeyModalOpen(false);
         } catch (e) {
             console.error("Could not open API key selection:", e);
             setApiKeyError("Không thể mở hộp thoại chọn API Key. Vui lòng thử làm mới trang.");
@@ -105,17 +134,28 @@ const App: React.FC = () => {
   };
     
   const handleSaveManualKey = (key: string) => {
-    localStorage.setItem('userApiKey', key);
+    if (!currentUser) return;
+    localStorage.setItem(`userApiKey_${currentUser.uid}`, key);
+    localStorage.setItem('active_genai_api_key', key);
     setHasApiKey(true);
+    setApiKeySkipped(false);
+    sessionStorage.removeItem('apiKeySkipped');
+    setUpdateKeyModalOpen(false);
   };
     
   const onApiKeyError = useCallback(() => {
-    if (!isStudioEnv) {
-        localStorage.removeItem('userApiKey');
+    if (!isStudioEnv && currentUser) {
+        localStorage.removeItem(`userApiKey_${currentUser.uid}`);
     }
+    localStorage.removeItem('active_genai_api_key');
     setHasApiKey(false);
     setApiKeyError("API Key của bạn không hợp lệ hoặc đã hết hạn. Vui lòng chọn lại hoặc nhập một key mới.");
-  }, [isStudioEnv]);
+  }, [isStudioEnv, currentUser]);
+
+  const handleSkip = () => {
+    sessionStorage.setItem('apiKeySkipped', 'true');
+    setApiKeySkipped(true);
+  };
 
   useEffect(() => {
     if (isTimerRunning && timeLeft > 0) {
@@ -254,16 +294,49 @@ const App: React.FC = () => {
     }
   }, [hashtagStatuses]);
 
+  // --- START: Refactored Task Filtering and Counting Logic ---
+  const parentTasks = useMemo(() => tasks.filter(task => !task.parentId), [tasks]);
+
+  const subtasksByParentId = useMemo(() => {
+    return tasks.reduce((acc, task) => {
+      if (task.parentId) {
+        if (!acc[task.parentId]) {
+          acc[task.parentId] = [];
+        }
+        acc[task.parentId].push(task);
+      }
+      return acc;
+    }, {} as { [key: string]: Task[] });
+  }, [tasks]);
+
+  const filteredParentTasksByHashtag = useMemo(() => {
+    if (!activeHashtag) {
+      return parentTasks;
+    }
+    return parentTasks.filter(p =>
+      p.hashtags.includes(activeHashtag) ||
+      (subtasksByParentId[p.id] || []).some(s => s.hashtags.includes(activeHashtag))
+    );
+  }, [parentTasks, subtasksByParentId, activeHashtag]);
+
+  const incompleteCount = useMemo(() => filteredParentTasksByHashtag.filter(t => !t.completed).length, [filteredParentTasksByHashtag]);
+  const completedCount = useMemo(() => filteredParentTasksByHashtag.filter(t => t.completed).length, [filteredParentTasksByHashtag]);
+
   const filteredTasks = useMemo(() => {
-    const hashtagFiltered = activeHashtag
-      ? tasks.filter(task => task.hashtags.includes(activeHashtag))
-      : tasks;
-    return hashtagFiltered.filter(task => view === 'completed' ? task.completed : !task.completed);
-  }, [tasks, activeHashtag, view]);
+    const viewFilteredParents = filteredParentTasksByHashtag.filter(p => view === 'completed' ? p.completed : !p.completed);
+
+    const tasksToShow: Task[] = [];
+    viewFilteredParents.forEach(parent => {
+      tasksToShow.push(parent);
+      if (subtasksByParentId[parent.id]) {
+        tasksToShow.push(...subtasksByParentId[parent.id]);
+      }
+    });
+    return tasksToShow;
+  }, [filteredParentTasksByHashtag, subtasksByParentId, view]);
   
-  const incompleteCount = useMemo(() => (activeHashtag ? tasks.filter(t => t.hashtags.includes(activeHashtag)) : tasks).filter(t => !t.completed).length, [tasks, activeHashtag]);
-  const completedCount = useMemo(() => (activeHashtag ? tasks.filter(t => t.hashtags.includes(activeHashtag)) : tasks).filter(t => t.completed).length, [tasks, activeHashtag]);
   const allHashtags = useMemo(() => Array.from(new Set(tasks.flatMap(task => task.hashtags.map(tag => tag.toLowerCase())))), [tasks]);
+  // --- END: Refactored Task Filtering and Counting Logic ---
 
   if (!currentUser) {
     return <AuthPage />;
@@ -277,17 +350,36 @@ const App: React.FC = () => {
     );
   }
 
-  if (!hasApiKey) {
+  if (!hasApiKey && !apiKeySkipped) {
     return <ApiKeyPrompt 
         isStudioEnv={isStudioEnv}
         onSelectKey={handleSelectStudioKey}
         onSaveManualKey={handleSaveManualKey}
+        onSkip={handleSkip}
         error={apiKeyError}
     />;
   }
 
   return (
     <div className="min-h-screen text-slate-800 dark:text-slate-200 bg-[#0F172A] p-4 sm:p-6 lg:p-8">
+      {isUpdateKeyModalOpen && (
+        <ApiKeyPrompt
+            isModal={true}
+            isStudioEnv={isStudioEnv}
+            onSelectKey={handleSelectStudioKey}
+            onSaveManualKey={handleSaveManualKey}
+            onClose={() => setUpdateKeyModalOpen(false)}
+            error={apiKeyError}
+        />
+      )}
+      {isSettingsModalOpen && (
+        <SettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setSettingsModalOpen(false)}
+          user={currentUser}
+          onUpdateProfile={updateUserProfile}
+        />
+      )}
       {isFocusModeActive && focusTask && (
         <FocusModeOverlay 
             task={focusTask}
@@ -299,13 +391,24 @@ const App: React.FC = () => {
         />
       )}
       <div className="max-w-7xl mx-auto">
-        <Header tasks={tasks} onLogout={logout} />
+        <Header 
+            tasks={tasks} 
+            user={currentUser}
+            onLogout={logout} 
+            hasApiKey={hasApiKey}
+            onManageApiKey={() => setUpdateKeyModalOpen(true)}
+            onOpenSettings={() => setSettingsModalOpen(true)}
+        />
         
         <main className="mt-8 grid grid-cols-1 lg:grid-cols-5 gap-8">
           <div className="lg:col-span-3 space-y-6">
             <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
               <h2 className="text-xl font-semibold mb-4 text-slate-100">Thêm công việc mới</h2>
-              <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} />
+              <TaskInput 
+                onAddTask={addTask} 
+                onApiKeyError={onApiKeyError} 
+                hasApiKey={hasApiKey}
+              />
             </div>
             
             <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
@@ -344,6 +447,7 @@ const App: React.FC = () => {
                 onStartFocus={handleStartFocus}
                 onAddSubtasksBatch={addSubtasksBatch}
                 onApiKeyError={onApiKeyError}
+                hasApiKey={hasApiKey}
               />
             </div>
           </div>
