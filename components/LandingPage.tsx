@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   CheckSquare, Zap, Users, BrainCircuit, Code, Database, Palette, BarChart, ArrowRight, Mic, 
-  Target, Settings, Sparkles, TrendingUp, BarChart2, Server
+  Target, Settings, Sparkles, TrendingUp, BarChart2, Server, Gamepad2
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -126,6 +126,43 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                     <li>Tự động hiểu, sắp xếp, nhắc nhở và phân tích công việc của bạn.</li>
                     <li>Giúp bạn thực sự làm ít hơn nhưng đạt hiệu quả cao hơn.</li>
                 </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Design Philosophy Section */}
+        <section className="py-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-white">Triết lý thiết kế</h2>
+            <p className="text-slate-500 mt-2">Nền tảng cho mọi trải nghiệm trên PTODO.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-[#1E293B]/60 p-8 rounded-2xl border border-slate-800 text-center">
+              <div className="flex justify-center mb-4">
+                  <div className="bg-indigo-600/20 p-3 rounded-full">
+                      <Gamepad2 size={24} className="text-indigo-400" />
+                  </div>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Tối giản & Hiện đại</h3>
+              <p className="text-slate-400">Giao diện dark mode chủ đạo, gọn gàng, không rườm rà, giúp bạn tập trung vào điều quan trọng nhất.</p>
+            </div>
+            <div className="bg-[#1E293B]/60 p-8 rounded-2xl border border-slate-800 text-center">
+              <div className="flex justify-center mb-4">
+                  <div className="bg-indigo-600/20 p-3 rounded-full">
+                      <Users size={24} className="text-indigo-400" />
+                  </div>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">UX là trung tâm</h3>
+              <p className="text-slate-400">Giảm thiểu số lần nhấp chuột, mọi luồng thao tác đều được thiết kế để mượt mà và trực quan.</p>
+            </div>
+            <div className="bg-[#1E293B]/60 p-8 rounded-2xl border border-slate-800 text-center">
+              <div className="flex justify-center mb-4">
+                  <div className="bg-indigo-600/20 p-3 rounded-full">
+                      <Zap size={24} className="text-indigo-400" />
+                  </div>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Tự động & Thông minh</h3>
+              <p className="text-slate-400">Giảm thiểu thao tác thủ công, để AI làm những công việc nặng nhọc, giải phóng thời gian cho bạn.</p>
             </div>
           </div>
         </section>
