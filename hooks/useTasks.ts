@@ -122,6 +122,30 @@ export const useTasks = () => {
     }
   }, [currentUser, addToast]);
 
+  const updateTaskText = useCallback(async (id: string, newText: string) => {
+    if (!currentUser) return;
+    const trimmedText = newText.trim();
+    if (!trimmedText) {
+      addToast('Nội dung công việc không thể để trống.', 'error');
+      return;
+    }
+    
+    const originalTasks = tasks;
+    const task = tasks.find(t => t.id === id);
+    if (!task || task.text === trimmedText) return;
+    
+    setTasks(current => current.map(t => t.id === id ? {...t, text: trimmedText} : t));
+
+    try {
+        await db.collection('tasks').doc(id).update({ text: trimmedText });
+        addToast('Đã cập nhật nội dung công việc.', 'success');
+    } catch (error) {
+      console.error("Error updating task text: ", error);
+      addToast('Không thể cập nhật công việc.', 'error');
+      setTasks(originalTasks);
+    }
+  }, [currentUser, tasks, addToast]);
+
   const toggleTask = useCallback(async (id: string) => {
     if (!currentUser) return;
     
@@ -262,5 +286,5 @@ export const useTasks = () => {
   }, [currentUser, tasks]);
 
 
-  return { tasks, addTask, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency };
+  return { tasks, addTask, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency, updateTaskText };
 };

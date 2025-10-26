@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import { Task } from '../types';
 import TaskItem from './TaskItem';
@@ -14,9 +15,10 @@ interface TaskListProps {
   onAddSubtasksBatch: (parentId: string, subtaskTexts: string[]) => Promise<void>;
   onApiKeyError: () => void;
   hasApiKey: boolean;
+  onUpdateTaskText: (id: string, newText: string) => void;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey }) => {
+const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText }) => {
 
   const { parentTasks, subtasksByParent } = useMemo(() => {
     const parentTasks: Task[] = [];
@@ -74,6 +76,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, 
           onAddSubtasksBatch={onAddSubtasksBatch}
           onApiKeyError={onApiKeyError}
           hasApiKey={hasApiKey}
+          onUpdateTaskText={onUpdateTaskText}
         />
       ))}
     </div>

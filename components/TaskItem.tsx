@@ -1,7 +1,8 @@
 
-import React, { useState, useRef, MouseEvent, TouchEvent } from 'react';
+
+import React, { useState, useRef, MouseEvent, TouchEvent, useEffect, KeyboardEvent } from 'react';
 import { Task } from '../types';
-import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
@@ -18,11 +19,12 @@ interface TaskItemProps {
   onAddSubtasksBatch: (parentId: string, subtaskTexts: string[]) => Promise<void>;
   onApiKeyError: () => void;
   hasApiKey: boolean;
+  onUpdateTaskText: (id: string, newText: string) => void;
 }
 
 const SWIPE_THRESHOLD = 80;
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText }) => {
   const isOverdue = task.dueDate && !task.completed && isPast(new Date(task.dueDate));
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
@@ -34,9 +36,56 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   const taskRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
   const currentTranslateXRef = useRef(0);
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(task.text);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        textarea.focus();
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+      }
+    }
+  }, [isEditing]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEditText(e.target.value);
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  };
+
+  const handleSave = () => {
+    if (editText.trim() && editText.trim() !== task.text) {
+      onUpdateTaskText(task.id, editText);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSave();
+    }
+    if (e.key === 'Escape') {
+      setIsEditing(false);
+      setEditText(task.text);
+    }
+  };
+
+  const startEditing = () => {
+    if (task.completed || isGeneratingSubtasks) return;
+    setEditText(task.text);
+    setIsEditing(true);
+  };
+
 
   const handleDragStart = (clientX: number) => {
-    if (isEditingDate) return;
+    if (isEditingDate || isEditing) return;
     startXRef.current = clientX;
     setIsSwiping(true);
     if(taskRef.current) {
@@ -45,7 +94,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   };
 
   const handleDragMove = (clientX: number) => {
-    if (!isSwiping || isEditingDate) return;
+    if (!isSwiping || isEditingDate || isEditing) return;
     const deltaX = clientX - startXRef.current;
     const newTranslateX = !task.completed ? Math.max(0, deltaX) : 0;
     setTranslateX(newTranslateX);
@@ -53,7 +102,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   };
 
   const handleDragEnd = () => {
-    if (!isSwiping || isEditingDate) return;
+    if (!isSwiping || isEditingDate || isEditing) return;
     setIsSwiping(false);
     if(taskRef.current) {
         taskRef.current.style.transition = 'transform 0.3s ease';
@@ -185,9 +234,24 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         </div>
         
         <div className="ml-0 flex-grow">
-          <p className={`${task.completed ? 'text-slate-500' : 'text-slate-200'}`}>
-            {task.text}
-          </p>
+          {isEditing ? (
+            <textarea
+              ref={textareaRef}
+              value={editText}
+              onChange={handleTextChange}
+              onBlur={handleSave}
+              onKeyDown={handleKeyDown}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full bg-[#293548] text-slate-200 border border-indigo-600 focus:ring-1 focus:ring-indigo-500 rounded-md p-2 -m-2 text-sm resize-none overflow-hidden block"
+              rows={1}
+            />
+          ) : (
+            <p 
+                className={`${task.completed ? 'text-slate-500 line-through' : 'text-slate-200'}`}
+            >
+                {task.text}
+            </p>
+          )}
 
           {task.hashtags && task.hashtags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
@@ -278,25 +342,35 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
 
         </div>
         <div className="ml-4 flex-shrink-0 flex items-center gap-4">
-          {!task.completed && !task.parentId && (
-            <button
-                onClick={handleGenerateSubtasks}
-                disabled={isGeneratingSubtasks || !hasApiKey}
-                className="text-slate-500 hover:text-indigo-400 transition-colors duration-200 z-10 disabled:text-slate-600 disabled:hover:text-slate-600 disabled:cursor-not-allowed"
-                title={hasApiKey ? "Chia nhỏ công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
-            >
-                <ListTree size={18} />
-            </button>
-          )}
           {!task.completed && (
-            <button 
-              onClick={() => onToggleTaskUrgency(task.id)}
-              className={`transition-colors duration-200 z-10 ${task.isUrgent ? 'text-red-500 hover:text-red-400' : 'text-slate-500 hover:text-red-500'}`}
-              aria-label={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"}
-              title={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"}
-            >
-              <Flag size={18} />
-            </button>
+            <>
+              {!task.parentId && (
+                <button
+                    onClick={handleGenerateSubtasks}
+                    disabled={isGeneratingSubtasks || !hasApiKey}
+                    className="text-slate-500 hover:text-indigo-400 transition-colors duration-200 z-10 disabled:text-slate-600 disabled:hover:text-slate-600 disabled:cursor-not-allowed"
+                    title={hasApiKey ? "Chia nhỏ công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
+                >
+                    <ListTree size={18} />
+                </button>
+              )}
+               <button
+                  onClick={startEditing}
+                  className="text-slate-500 hover:text-indigo-400 transition-colors duration-200 z-10"
+                  aria-label="Chỉnh sửa nội dung"
+                  title="Chỉnh sửa nội dung"
+              >
+                  <Pencil size={18} />
+              </button>
+              <button 
+                onClick={() => onToggleTaskUrgency(task.id)}
+                className={`transition-colors duration-200 z-10 ${task.isUrgent ? 'text-red-500 hover:text-red-400' : 'text-slate-500 hover:text-red-500'}`}
+                aria-label={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"}
+                title={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"}
+              >
+                <Flag size={18} />
+              </button>
+            </>
           )}
           <button 
             onClick={() => onToggleTask(task.id)}

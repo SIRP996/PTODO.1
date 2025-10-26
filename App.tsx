@@ -32,6 +32,7 @@ const App: React.FC = () => {
     updateTaskDueDate,
     toggleTaskUrgency,
     addSubtasksBatch,
+    updateTaskText,
   } = useTasks();
   
   // State to control view before login
@@ -479,6 +480,7 @@ const App: React.FC = () => {
                 onAddSubtasksBatch={addSubtasksBatch}
                 onApiKeyError={onApiKeyError}
                 hasApiKey={hasApiKey}
+                onUpdateTaskText={updateTaskText}
               />
             </div>
           </div>
