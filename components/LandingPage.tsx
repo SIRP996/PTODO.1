@@ -219,48 +219,95 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                 <p className="text-center text-slate-400 mb-4">Đây là hình ảnh minh họa cho dashboard phân tích mạnh mẽ trong ứng dụng, giúp bạn theo dõi tiến độ, chuỗi ngày làm việc, và hơn thế nữa.</p>
                 <div className="aspect-video bg-slate-900/50 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-700 p-4">
                   <svg viewBox="0 0 500 281.25" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full object-contain rounded-md">
+                      <defs>
+                          <style>
+                              {`
+                              .bar {
+                                  animation: bar-pulse 2.5s ease-in-out infinite;
+                              }
+                              @keyframes bar-pulse {
+                                  0%, 100% { transform: scaleY(1); }
+                                  50% { transform: scaleY(0.8); }
+                              }
+                              .donut-arc {
+                                  animation: donut-rotate 10s linear infinite;
+                                  transform-origin: 50px 45px;
+                              }
+                              @keyframes donut-rotate {
+                                  from { transform: rotate(0deg); }
+                                  to { transform: rotate(360deg); }
+                              }
+                              .text-fade {
+                                  animation: fade-in-out 3s ease-in-out infinite;
+                              }
+                              @keyframes fade-in-out {
+                                  0%, 100% { opacity: 0.7; }
+                                  50% { opacity: 1; }
+                              }
+                              `}
+                          </style>
+                      </defs>
+
+                      {/* Main Backgrounds */}
                       <rect width="500" height="281.25" rx="12" fill="#1E293B"/>
                       <rect x="12" y="12" width="120" height="257.25" rx="8" fill="#293548"/>
-                      <rect x="22" y="24" width="80" height="8" rx="4" fill="#4f46e5"/>
-                      <rect x="22" y="48" width="100" height="6" rx="3" fill="#334155"/>
-                      <rect x="22" y="64" width="100" height="6" rx="3" fill="#334155"/>
-                      <rect x="22" y="80" width="70" height="6" rx="3" fill="#334155"/>
                       <rect x="144" y="12" width="344" height="257.25" rx="8" fill="#293548"/>
+
+                      {/* Left Panel Content */}
+                      <text x="22" y="34" fontFamily="Inter, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Tiến độ tuần</text>
+                      <rect x="22" y="44" width="100" height="8" rx="4" fill="#334155"/>
+                      <rect x="22" y="44" width="75" height="8" rx="4" fill="#4f46e5"/>
+                      <text x="22" y="68" fontFamily="Inter, sans-serif" fontSize="9" fill="#94A3B8">Task A</text>
+                      <rect x="22" y="75" width="100" height="6" rx="3" fill="#334155"/>
+                      <text x="22" y="98" fontFamily="Inter, sans-serif" fontSize="9" fill="#94A3B8">Task B</text>
+                      <rect x="22" y="105" width="80" height="6" rx="3" fill="#334155"/>
+
+                      {/* Main Panel Title */}
                       <rect x="156" y="24" width="150" height="10" rx="5" fill="#334155"/>
+
+                      {/* Top Cards with numbers */}
                       <g transform="translate(156, 48)">
                           <rect width="100" height="60" rx="6" fill="#1E293B"/>
-                          <rect x="10" y="10" width="50" height="8" rx="4" fill="#334155"/>
-                          <rect x="10" y="28" width="30" height="16" rx="4" fill="#6366f1"/>
+                          <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="8" fill="#94A3B8">Hoàn thành</text>
+                          <text x="10" y="45" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="#6366f1">12</text>
                       </g>
                       <g transform="translate(268, 48)">
                           <rect width="100" height="60" rx="6" fill="#1E293B"/>
-                          <rect x="10" y="10" width="50" height="8" rx="4" fill="#334155"/>
-                          <rect x="10" y="28" width="30" height="16" rx="4" fill="#818cf8"/>
+                          <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="8" fill="#94A3B8">Đang chờ</text>
+                          <text x="10" y="45" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="#818cf8">8</text>
                       </g>
                       <g transform="translate(380, 48)">
                           <rect width="100" height="60" rx="6" fill="#1E293B"/>
-                          <rect x="10" y="10" width="50" height="8" rx="4" fill="#334155"/>
-                          <rect x="10" y="28" width="30" height="16" rx="4" fill="#a78bfa"/>
+                          <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="8" fill="#94A3B8">Quá hạn</text>
+                          <text x="10" y="45" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="#a78bfa">3</text>
                       </g>
+
+                      {/* Bar Chart */}
                       <g transform="translate(156, 120)">
                           <rect width="210" height="137.25" rx="6" fill="#1E293B"/>
-                          <rect x="10" y="107.25" width="20" height="20" rx="2" fill="#4f46e5"/>
-                          <rect x="40" y="77.25" width="20" height="50" rx="2" fill="#4f46e5"/>
-                          <rect x="70" y="92.25" width="20" height="35" rx="2" fill="#6366f1"/>
-                          <rect x="100" y="57.25" width="20" height="70" rx="2" fill="#4f46e5"/>
-                          <rect x="130" y="87.25" width="20" height="40" rx="2" fill="#4f46e5"/>
-                          <rect x="160" y="27.25" width="20" height="100" rx="2" fill="#818cf8"/>
-                          <rect x="10" y="10" width="100" height="8" rx="4" fill="#334155"/>
+                          <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Phân tích Tuần</text>
+                          <g>
+                              <rect className="bar" style={{animationDelay: '0s', transformOrigin: '20px 127.25px'}} x="10" y="107.25" width="20" height="20" rx="2" fill="#4f46e5"/>
+                              <rect className="bar" style={{animationDelay: '0.2s', transformOrigin: '50px 127.25px'}} x="40" y="77.25" width="20" height="50" rx="2" fill="#4f46e5"/>
+                              <rect className="bar" style={{animationDelay: '0.4s', transformOrigin: '80px 127.25px'}} x="70" y="92.25" width="20" height="35" rx="2" fill="#6366f1"/>
+                              <rect className="bar" style={{animationDelay: '0.6s', transformOrigin: '110px 127.25px'}} x="100" y="57.25" width="20" height="70" rx="2" fill="#4f46e5"/>
+                              <rect className="bar" style={{animationDelay: '0.8s', transformOrigin: '140px 127.25px'}} x="130" y="87.25" width="20" height="40" rx="2" fill="#6366f1"/>
+                              <rect className="bar" style={{animationDelay: '1s', transformOrigin: '170px 127.25px'}} x="160" y="27.25" width="20" height="100" rx="2" fill="#818cf8"/>
+                          </g>
                           <line x1="5" y1="127.25" x2="205" y2="127.25" stroke="#334155" strokeWidth="2"/>
                       </g>
+                      
+                      {/* Donut Chart */}
                       <g transform="translate(378, 120)">
                           <rect width="100" height="137.25" rx="6" fill="#1E293B"/>
-                          <circle cx="50" cy="45" r="25" fill="#1E293B"/>
-                          <circle cx="50" cy="45" r="20" fill="none" stroke="#4f46e5" strokeWidth="8" strokeDasharray="88 125.6" transform="rotate(-90 50 45)"/>
-                          <circle cx="50" cy="45" r="20" fill="none" stroke="#818cf8" strokeWidth="8" strokeDasharray="37.6 125.6" transform="rotate(162 50 45)"/>
-                          <rect x="10" y="85" width="80" height="6" rx="3" fill="#334155"/>
-                          <rect x="10" y="101" width="60" height="6" rx="3" fill="#334155"/>
-                          <rect x="10" y="117" width="80" height="6" rx="3" fill="#334155"/>
+                          <g className="donut-arc">
+                              <circle cx="50" cy="45" r="20" fill="none" stroke="#334155" strokeWidth="8"/>
+                              <circle cx="50" cy="45" r="20" fill="none" stroke="#4f46e5" strokeWidth="8" strokeDasharray="88 125.6" transform="rotate(-90 50 45)"/>
+                          </g>
+                          <text className="text-fade" x="50" y="49" textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="16" fontWeight="bold" fill="#E2E8F0">75%</text>
+                          <text x="50" y="95" textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Tiến độ</text>
+                          <rect x="10" y="110" width="80" height="6" rx="3" fill="#334155"/>
+                          <rect x="10" y="120" width="60" height="6" rx="3" fill="#334155"/>
                       </g>
                   </svg>
                 </div>
