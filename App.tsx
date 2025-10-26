@@ -18,6 +18,7 @@ import { useAuth } from './context/AuthContext';
 import ApiKeyPrompt from './components/ApiKeyPrompt';
 import SettingsModal from './components/SettingsModal';
 import LandingPage from './components/LandingPage';
+import SearchBar from './components/SearchBar';
 
 const App: React.FC = () => {
   const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading } = useAuth();
@@ -38,6 +39,7 @@ const App: React.FC = () => {
   const [activeHashtag, setActiveHashtag] = useState<string | null>(null);
   const [view, setView] = useState<'incomplete' | 'completed'>('incomplete');
   const [notificationPermissionStatus, setNotificationPermissionStatus] = useState('default');
+  const [searchTerm, setSearchTerm] = useState('');
   const workerRef = useRef<Worker | null>(null);
 
   // API Key State
@@ -67,7 +69,7 @@ const App: React.FC = () => {
 
   const notificationSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
@@ -316,21 +318,34 @@ const App: React.FC = () => {
     }, {} as { [key: string]: Task[] });
   }, [tasks]);
 
-  const filteredParentTasksByHashtag = useMemo(() => {
-    if (!activeHashtag) {
-      return parentTasks;
-    }
-    return parentTasks.filter(p =>
-      p.hashtags.includes(activeHashtag) ||
-      (subtasksByParentId[p.id] || []).some(s => s.hashtags.includes(activeHashtag))
-    );
-  }, [parentTasks, subtasksByParentId, activeHashtag]);
+  const filteredParentTasks = useMemo(() => {
+    let parents = parentTasks;
 
-  const incompleteCount = useMemo(() => filteredParentTasksByHashtag.filter(t => !t.completed).length, [filteredParentTasksByHashtag]);
-  const completedCount = useMemo(() => filteredParentTasksByHashtag.filter(t => t.completed).length, [filteredParentTasksByHashtag]);
+    // 1. Filter by active hashtag
+    if (activeHashtag) {
+        parents = parents.filter(p =>
+            p.hashtags.includes(activeHashtag) ||
+            (subtasksByParentId[p.id] || []).some(s => s.hashtags.includes(activeHashtag))
+        );
+    }
+
+    // 2. Filter by search term
+    if (searchTerm.trim()) {
+        const lowercasedSearchTerm = searchTerm.trim().toLowerCase();
+        parents = parents.filter(p =>
+            p.text.toLowerCase().includes(lowercasedSearchTerm) ||
+            (subtasksByParentId[p.id] || []).some(s => s.text.toLowerCase().includes(lowercasedSearchTerm))
+        );
+    }
+    
+    return parents;
+  }, [parentTasks, subtasksByParentId, activeHashtag, searchTerm]);
+
+  const incompleteCount = useMemo(() => filteredParentTasks.filter(t => !t.completed).length, [filteredParentTasks]);
+  const completedCount = useMemo(() => filteredParentTasks.filter(t => t.completed).length, [filteredParentTasks]);
 
   const filteredTasks = useMemo(() => {
-    const viewFilteredParents = filteredParentTasksByHashtag.filter(p => view === 'completed' ? p.completed : !p.completed);
+    const viewFilteredParents = filteredParentTasks.filter(p => view === 'completed' ? p.completed : !p.completed);
 
     const tasksToShow: Task[] = [];
     viewFilteredParents.forEach(parent => {
@@ -340,7 +355,7 @@ const App: React.FC = () => {
       }
     });
     return tasksToShow;
-  }, [filteredParentTasksByHashtag, subtasksByParentId, view]);
+  }, [filteredParentTasks, subtasksByParentId, view]);
   
   const allHashtags = useMemo(() => Array.from(new Set(tasks.flatMap(task => task.hashtags.map(tag => tag.toLowerCase())))), [tasks]);
   // --- END: Refactored Task Filtering and Counting Logic ---
@@ -422,6 +437,12 @@ const App: React.FC = () => {
             </div>
             
             <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
+              <div className="mb-4">
+                <SearchBar 
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                />
+              </div>
               <FilterTags 
                 hashtags={allHashtags}
                 activeHashtag={activeHashtag}
