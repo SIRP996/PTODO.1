@@ -12,7 +12,6 @@ import {
     endOfMonth,
     getWeek,
     eachWeekOfInterval,
-    subMonths
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -110,37 +109,46 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
         });
     }, [completedTasks]);
 
-    const heatmapData = useMemo(() => {
-        const today = new Date();
-        const fourMonthsAgo = subMonths(today, 4);
-        const dateCounts: { [key: string]: number } = {};
+    const peakHoursHeatmapData = useMemo(() => {
+        const days = 7; // Mon-Sun
+        const slots = 5; // Sáng, Trưa, Chiều, Tối, Đêm
+        const grid = Array.from({ length: days }, () => Array(slots).fill(0));
+        let maxCount = 0;
+
+        const getTimeSlotIndex = (hour: number) => {
+            if (hour >= 5 && hour < 12) return 0; // Sáng
+            if (hour >= 12 && hour < 14) return 1; // Trưa
+            if (hour >= 14 && hour < 18) return 2; // Chiều
+            if (hour >= 18 && hour < 22) return 3; // Tối
+            return 4; // Đêm (22-4)
+        };
         
         completedTasks.forEach(task => {
-            const date = format(parseISO(task.createdAt), 'yyyy-MM-dd');
-            if (parseISO(date) >= fourMonthsAgo) {
-                dateCounts[date] = (dateCounts[date] || 0) + 1;
+            const createdAt = parseISO(task.createdAt);
+            // getDay(): 0=Sun, 1=Mon... We want Mon=0, ..., Sun=6
+            const day = createdAt.getDay();
+            const dayIndex = day === 0 ? 6 : day - 1;
+            
+            const hour = createdAt.getHours();
+            const slotIndex = getTimeSlotIndex(hour);
+            grid[dayIndex][slotIndex]++;
+            if (grid[dayIndex][slotIndex] > maxCount) {
+                maxCount = grid[dayIndex][slotIndex];
             }
         });
-        
-        const data = [];
-        let currentDate = new Date(fourMonthsAgo);
-        currentDate.setDate(currentDate.getDate() - currentDate.getDay());
-        while (currentDate <= today) {
-            const dateStr = format(currentDate, 'yyyy-MM-dd');
-            data.push({
-                date: dateStr,
-                count: dateCounts[dateStr] || 0
-            });
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-        return data;
+
+        return { grid, maxCount };
     }, [completedTasks]);
 
-    const getHeatmapColor = (count: number) => {
-        if (count === 0) return 'bg-slate-700/50';
-        if (count <= 2) return 'bg-indigo-800';
-        if (count <= 5) return 'bg-indigo-600';
-        return 'bg-indigo-400';
+    const getPeakHoursColor = (count: number, maxCount: number) => {
+        if (count === 0) return 'bg-slate-700';
+        if (maxCount === 0) return 'bg-slate-700';
+
+        const intensity = count / maxCount;
+        if (intensity > 0.75) return 'bg-purple-400';
+        if (intensity > 0.5) return 'bg-purple-500';
+        if (intensity > 0.25) return 'bg-purple-700';
+        return 'bg-purple-900';
     };
     
     return (
@@ -270,20 +278,29 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
                 </div>
 
                 <div className="bg-slate-800/50 p-4 rounded-xl">
-                    <h3 className="text-md font-semibold text-slate-300 mb-2">Lịch sử hoạt động</h3>
-                    <div className="overflow-x-auto pb-2">
-                        <div className="grid grid-rows-7 grid-flow-col gap-1">
-                            {heatmapData.map(item => (
-                                <div key={item.date} title={`${item.count} công việc vào ${format(parseISO(item.date), 'dd/MM/yyyy', {locale: vi})}`} className={`w-3.5 h-3.5 rounded-sm ${getHeatmapColor(item.count)}`}></div>
+                    <h3 className="text-md font-semibold text-slate-300 mb-4">Heatmap hoạt động (Giờ cao điểm)</h3>
+                    <div className="max-w-xs mx-auto">
+                        <div className="grid grid-cols-[1.75rem_repeat(5,1fr)] gap-1 text-xs">
+                            {/* Top Headers */}
+                            <div></div> {/* Corner */}
+                            {['Sáng', 'Trưa', 'Chiều', 'Tối', 'Đêm'].map(header => (
+                                <div key={header} className="text-center text-slate-400 font-medium pb-1">{header}</div>
+                            ))}
+
+                            {/* Rows */}
+                            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((dayLabel, dayIndex) => (
+                                <React.Fragment key={dayLabel}>
+                                    <div className="flex items-center justify-end text-slate-400 font-medium">{dayLabel}</div>
+                                    {peakHoursHeatmapData.grid[dayIndex].map((count, slotIndex) => (
+                                        <div
+                                          key={slotIndex}
+                                          className={`w-full h-5 rounded-sm ${getPeakHoursColor(count, peakHoursHeatmapData.maxCount)}`}
+                                          title={`${count} công việc hoàn thành`}
+                                        ></div>
+                                    ))}
+                                </React.Fragment>
                             ))}
                         </div>
-                    </div>
-                    <div className="flex justify-end items-center gap-2 text-xs text-slate-500 mt-2">
-                        <span>Ít</span>
-                        <div className="w-3 h-3 rounded-sm bg-indigo-800"></div>
-                        <div className="w-3 h-3 rounded-sm bg-indigo-600"></div>
-                        <div className="w-3 h-3 rounded-sm bg-indigo-400"></div>
-                        <span>Nhiều</span>
                     </div>
                 </div>
             </div>
