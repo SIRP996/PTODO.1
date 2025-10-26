@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -16,6 +17,7 @@ import AuthPage from './components/auth/AuthPage';
 import { useAuth } from './context/AuthContext';
 import ApiKeyPrompt from './components/ApiKeyPrompt';
 import SettingsModal from './components/SettingsModal';
+import LandingPage from './components/LandingPage';
 
 const App: React.FC = () => {
   const { currentUser, logout, updateUserProfile } = useAuth();
@@ -30,6 +32,9 @@ const App: React.FC = () => {
     toggleTaskUrgency,
     addSubtasksBatch,
   } = useTasks();
+  
+  // State to control view before login
+  const [showAuthPage, setShowAuthPage] = useState(false);
   const [activeHashtag, setActiveHashtag] = useState<string | null>(null);
   const [view, setView] = useState<'incomplete' | 'completed'>('incomplete');
   const [notificationPermissionStatus, setNotificationPermissionStatus] = useState('default');
@@ -51,7 +56,8 @@ const App: React.FC = () => {
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Fix: Use `number` for timer ID in browser environments instead of `NodeJS.Timeout`.
+  const timerRef = useRef<number | null>(null);
   
   const focusCompletionSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
@@ -62,7 +68,7 @@ const App: React.FC = () => {
 
   const notificationSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
@@ -159,7 +165,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isTimerRunning && timeLeft > 0) {
-      timerRef.current = setInterval(() => {
+      timerRef.current = window.setInterval(() => {
         setTimeLeft(prev => prev - 1);
       }, 1000);
     } else if (timeLeft === 0) {
@@ -339,6 +345,9 @@ const App: React.FC = () => {
   // --- END: Refactored Task Filtering and Counting Logic ---
 
   if (!currentUser) {
+    if (!showAuthPage) {
+      return <LandingPage onNavigateToAuth={() => setShowAuthPage(true)} />;
+    }
     return <AuthPage />;
   }
 

@@ -42,7 +42,8 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
 
     const currentStreak = useMemo(() => {
         if (completedTasks.length === 0) return 0;
-        const completionDates = [...new Set(completedTasks.map(t => format(parseISO(t.createdAt), 'yyyy-MM-dd')))].sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
+        // Fix: Explicitly type `completionDates` as string[] to aid type inference, and use localeCompare for robust string sorting.
+        const completionDates: string[] = [...new Set(completedTasks.map(t => format(parseISO(t.createdAt), 'yyyy-MM-dd')))].sort((a, b) => b.localeCompare(a));
         
         let streak = 0;
         let currentDate = new Date();
@@ -71,8 +72,9 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
             return acc;
         }, {} as { [key: string]: number });
         
+        // Fix: Add an explicit return type to map() to ensure correct type inference for the subsequent sort() operation.
         return Object.entries(tagCounts)
-            .map(([name, value]) => ({ name: `#${name}`, value }))
+            .map(([name, value]): { name: string; value: number } => ({ name: `#${name}`, value }))
             .sort((a, b) => b.value - a.value);
     }, [tasks]);
 
