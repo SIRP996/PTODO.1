@@ -279,28 +279,26 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
 
                 <div className="bg-slate-800/50 p-4 rounded-xl">
                     <h3 className="text-md font-semibold text-slate-300 mb-4">Heatmap hoạt động (Giờ cao điểm)</h3>
-                    <div className="max-w-xs mx-auto">
-                        <div className="grid grid-cols-[1.75rem_repeat(5,1fr)] gap-1 text-xs">
-                            {/* Top Headers */}
-                            <div></div> {/* Corner */}
-                            {['Sáng', 'Trưa', 'Chiều', 'Tối', 'Đêm'].map(header => (
-                                <div key={header} className="text-center text-slate-400 font-medium pb-1">{header}</div>
-                            ))}
+                    <div className="grid grid-cols-[1.75rem_repeat(5,1fr)] gap-1 text-xs">
+                        {/* Top Headers */}
+                        <div></div> {/* Corner */}
+                        {['Sáng', 'Trưa', 'Chiều', 'Tối', 'Đêm'].map(header => (
+                            <div key={header} className="text-center text-slate-400 font-medium pb-1">{header}</div>
+                        ))}
 
-                            {/* Rows */}
-                            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((dayLabel, dayIndex) => (
-                                <React.Fragment key={dayLabel}>
-                                    <div className="flex items-center justify-end text-slate-400 font-medium">{dayLabel}</div>
-                                    {peakHoursHeatmapData.grid[dayIndex].map((count, slotIndex) => (
-                                        <div
-                                          key={slotIndex}
-                                          className={`w-full h-5 rounded-sm ${getPeakHoursColor(count, peakHoursHeatmapData.maxCount)}`}
-                                          title={`${count} công việc hoàn thành`}
-                                        ></div>
-                                    ))}
-                                </React.Fragment>
-                            ))}
-                        </div>
+                        {/* Rows */}
+                        {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((dayLabel, dayIndex) => (
+                            <React.Fragment key={dayLabel}>
+                                <div className="flex items-center justify-end text-slate-400 font-medium">{dayLabel}</div>
+                                {peakHoursHeatmapData.grid[dayIndex].map((count, slotIndex) => (
+                                    <div
+                                      key={slotIndex}
+                                      className={`w-full h-5 rounded-sm ${getPeakHoursColor(count, peakHoursHeatmapData.maxCount)}`}
+                                      title={`${count} công việc hoàn thành`}
+                                    ></div>
+                                ))}
+                            </React.Fragment>
+                        ))}
                     </div>
                 </div>
             </div>

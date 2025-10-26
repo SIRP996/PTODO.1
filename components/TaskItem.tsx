@@ -185,7 +185,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         </div>
         
         <div className="ml-0 flex-grow">
-          <p className={`${task.completed ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+          <p className={`${task.completed ? 'text-slate-500' : 'text-slate-200'}`}>
             {task.text}
           </p>
 
@@ -258,7 +258,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                             <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
                                 {subtask.completed ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
                             </button>
-                            <p className={`text-sm ${subtask.completed ? 'line-through text-slate-500' : 'text-slate-300'}`}>
+                            <p className={`text-sm ${subtask.completed ? 'text-slate-500' : 'text-slate-300'}`}>
                                 {subtask.text}
                             </p>
                         </div>
