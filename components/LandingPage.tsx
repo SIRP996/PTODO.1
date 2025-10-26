@@ -301,10 +301,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                       <g transform="translate(378, 120)">
                           <rect width="100" height="137.25" rx="6" fill="#1E293B"/>
                           <g className="donut-arc">
-                              <circle cx="50" cy="45" r="20" fill="none" stroke="#334155" strokeWidth="8"/>
-                              <circle cx="50" cy="45" r="20" fill="none" stroke="#4f46e5" strokeWidth="8" strokeDasharray="88 125.6" transform="rotate(-90 50 45)"/>
+                              <circle cx="50" cy="45" r="30" fill="none" stroke="#334155" strokeWidth="8"/>
+                              <circle cx="50" cy="45" r="30" fill="none" stroke="#4f46e5" strokeWidth="8" strokeDasharray="141.4 188.5" transform="rotate(-90 50 45)"/>
                           </g>
-                          <text className="text-fade" x="50" y="49" textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="16" fontWeight="bold" fill="#E2E8F0">75%</text>
+                          <text className="text-fade" x="50" y="45.5" textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="#E2E8F0">75%</text>
                           <text x="50" y="95" textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Tiến độ</text>
                           <rect x="10" y="110" width="80" height="6" rx="3" fill="#334155"/>
                           <rect x="10" y="120" width="60" height="6" rx="3" fill="#334155"/>
