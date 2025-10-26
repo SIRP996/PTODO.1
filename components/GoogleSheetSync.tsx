@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { Task } from '../types';
 import { Sheet, X, Save, CheckCircle, AlertTriangle, HelpCircle, Copy } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface GoogleSheetSyncProps {
     tasks: Task[];
@@ -61,21 +63,26 @@ const SCRIPT_CODE = `function doPost(e) {
 }`;
 
 const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
+    const { userSettings, updateUserSettings } = useAuth();
     const [sheetUrl, setSheetUrl] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
 
     useEffect(() => {
-        const savedUrl = localStorage.getItem('googleSheetUrl');
-        if (savedUrl) {
-            setSheetUrl(savedUrl);
+        if (userSettings?.googleSheetUrl) {
+            setSheetUrl(userSettings.googleSheetUrl);
+        } else {
+            setSheetUrl('');
         }
-    }, []);
+    }, [userSettings]);
 
     const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSheetUrl(e.target.value);
-        localStorage.setItem('googleSheetUrl', e.target.value);
+        const newUrl = e.target.value;
+        setSheetUrl(newUrl);
+        if (updateUserSettings) {
+            updateUserSettings({ googleSheetUrl: newUrl });
+        }
     };
     
     const copyToClipboard = () => {

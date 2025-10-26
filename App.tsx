@@ -20,7 +20,7 @@ import SettingsModal from './components/SettingsModal';
 import LandingPage from './components/LandingPage';
 
 const App: React.FC = () => {
-  const { currentUser, logout, updateUserProfile } = useAuth();
+  const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading } = useAuth();
   
   const { 
     tasks, 
@@ -42,7 +42,6 @@ const App: React.FC = () => {
 
   // API Key State
   const [hasApiKey, setHasApiKey] = useState(false);
-  const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
   const [isStudioEnv, setIsStudioEnv] = useState(false);
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [apiKeySkipped, setApiKeySkipped] = useState(() => sessionStorage.getItem('apiKeySkipped') === 'true');
@@ -68,48 +67,45 @@ const App: React.FC = () => {
 
   const notificationSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
-  
-  const checkApiKey = useCallback(async () => {
-    if (!currentUser) {
-        setIsCheckingApiKey(false);
-        return;
-    }
-    setIsCheckingApiKey(true);
-    setApiKeyError(null);
-
-    // This key is used by the gemini util
-    localStorage.removeItem('active_genai_api_key');
-
-    if ((window as any).aistudio && typeof (window as any).aistudio.hasSelectedApiKey === 'function') {
-        setIsStudioEnv(true);
-        try {
-            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-            if (hasKey && process.env.API_KEY) {
-                localStorage.setItem('active_genai_api_key', process.env.API_KEY);
-            }
-            setHasApiKey(hasKey);
-        } catch (e) {
-            console.error("Error checking AI Studio key:", e);
-            setHasApiKey(false);
-        }
-    } else {
-        setIsStudioEnv(false);
-        const storedKey = localStorage.getItem(`userApiKey_${currentUser.uid}`);
-        if (storedKey) {
-            localStorage.setItem('active_genai_api_key', storedKey);
-        }
-        setHasApiKey(!!storedKey);
-    }
-    setIsCheckingApiKey(false);
-  }, [currentUser]);
 
   useEffect(() => {
-    checkApiKey();
-  }, [checkApiKey]);
+    setApiKeyError(null);
+    localStorage.removeItem('active_genai_api_key'); // This is used by the gemini util
+
+    // Handle AI Studio environment separately as it's session-based
+    if ((window as any).aistudio && typeof (window as any).aistudio.hasSelectedApiKey === 'function') {
+        setIsStudioEnv(true);
+        (async () => {
+            try {
+                const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+                if (hasKey && process.env.API_KEY) {
+                    localStorage.setItem('active_genai_api_key', process.env.API_KEY);
+                }
+                setHasApiKey(hasKey);
+            } catch (e) {
+                console.error("Error checking AI Studio key:", e);
+                setHasApiKey(false);
+            }
+        })();
+        return;
+    }
+
+    // Handle standard environment with Firestore-backed keys
+    setIsStudioEnv(false);
+    if (userSettings) {
+        const storedKey = userSettings.apiKey;
+        if (storedKey) {
+            localStorage.setItem('active_genai_api_key', storedKey);
+            setHasApiKey(true);
+        } else {
+            setHasApiKey(false);
+        }
+    }
+  }, [userSettings]);
   
   useEffect(() => {
     // Clean up active key on logout
@@ -139,24 +135,29 @@ const App: React.FC = () => {
     }
   };
     
-  const handleSaveManualKey = (key: string) => {
-    if (!currentUser) return;
-    localStorage.setItem(`userApiKey_${currentUser.uid}`, key);
-    localStorage.setItem('active_genai_api_key', key);
-    setHasApiKey(true);
-    setApiKeySkipped(false);
-    sessionStorage.removeItem('apiKeySkipped');
-    setUpdateKeyModalOpen(false);
+  const handleSaveManualKey = async (key: string) => {
+    if (!currentUser || !updateUserSettings) return;
+    try {
+        await updateUserSettings({ apiKey: key });
+        // The UI will update reactively from the Firestore listener in AuthContext
+        localStorage.setItem('active_genai_api_key', key);
+        setApiKeySkipped(false);
+        sessionStorage.removeItem('apiKeySkipped');
+        setUpdateKeyModalOpen(false);
+    } catch (e) {
+        console.error("Failed to save API key:", e);
+        setApiKeyError("Không thể lưu API Key của bạn. Vui lòng thử lại.");
+    }
   };
     
-  const onApiKeyError = useCallback(() => {
-    if (!isStudioEnv && currentUser) {
-        localStorage.removeItem(`userApiKey_${currentUser.uid}`);
+  const onApiKeyError = useCallback(async () => {
+    if (!isStudioEnv && currentUser && updateUserSettings) {
+        await updateUserSettings({ apiKey: '' });
     }
     localStorage.removeItem('active_genai_api_key');
-    setHasApiKey(false);
+    // hasApiKey state will be updated reactively by the useEffect hook watching userSettings
     setApiKeyError("API Key của bạn không hợp lệ hoặc đã hết hạn. Vui lòng chọn lại hoặc nhập một key mới.");
-  }, [isStudioEnv, currentUser]);
+  }, [isStudioEnv, currentUser, updateUserSettings]);
 
   const handleSkip = () => {
     sessionStorage.setItem('apiKeySkipped', 'true');
@@ -351,7 +352,7 @@ const App: React.FC = () => {
     return <AuthPage />;
   }
 
-  if (isCheckingApiKey) {
+  if (loading) {
     return (
         <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
             <Loader2 className="h-12 w-12 text-indigo-400 animate-spin" />
