@@ -1,8 +1,9 @@
 
-import React, { useState, KeyboardEvent } from 'react';
-import { Plus, X, Flag, Sparkles, Loader2 } from 'lucide-react';
+import React, { useState, KeyboardEvent, useEffect } from 'react';
+import { Plus, X, Flag, Sparkles, Loader2, Mic } from 'lucide-react';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 interface TaskInputProps {
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => void;
@@ -19,6 +20,22 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
   const [recurrenceRule, setRecurrenceRule] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
   const [isParsing, setIsParsing] = useState(false);
 
+  const {
+    transcript,
+    isListening,
+    startListening,
+    stopListening,
+    hasSupport: hasSpeechRecognitionSupport,
+  } = useSpeechRecognition();
+
+  useEffect(() => {
+    if (transcript) {
+      setText(transcript);
+      handleParseTask(transcript); // Automatically parse when speech recognition gives a final result
+    }
+  }, [transcript]);
+
+
   const handleTagKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && currentTag.trim()) {
       e.preventDefault();
@@ -33,8 +50,9 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
-  const handleParseTask = async () => {
-    if (!text.trim()) {
+  const handleParseTask = async (textToParseOverride?: string) => {
+    const textToParse = textToParseOverride || text;
+    if (!textToParse.trim()) {
       alert("Vui lòng nhập nội dung công việc để AI phân tích.");
       return;
     }
@@ -64,7 +82,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
         7.  **Tags**: Extract all hashtags (words starting with '#'). In the output array, remove the '#' prefix and use lowercase.
         8.  **Strict JSON**: Return ONLY a valid JSON object matching the schema. No markdown.
         
-        User Input: "${text}"`,
+        User Input: "${textToParse}"`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -151,16 +169,28 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
+      <div className="relative">
         <label htmlFor="task-content" className="block text-sm font-medium text-slate-400 mb-1">Nội dung công việc</label>
         <textarea
           id="task-content"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Ví dụ: Gặp đội thiết kế vào 4h chiều mai #họp"
-          className="w-full bg-[#293548] text-slate-200 border border-indigo-600 focus:border-indigo-500 focus:ring-0 rounded-lg px-4 py-2 transition"
+          className="w-full bg-[#293548] text-slate-200 border border-indigo-600 focus:border-indigo-500 focus:ring-0 rounded-lg px-4 py-2 transition pr-12"
           rows={3}
         />
+        {hasSpeechRecognitionSupport && (
+           <button
+             type="button"
+             onClick={isListening ? stopListening : startListening}
+             className={`absolute bottom-2.5 right-2.5 p-2 rounded-full transition-colors duration-200 ${
+                isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+             }`}
+             title={isListening ? "Dừng ghi âm" : "Ghi âm công việc"}
+           >
+             <Mic size={18} />
+           </button>
+        )}
       </div>
       
       <div>
@@ -220,7 +250,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
       <div className="flex justify-end items-center gap-2 pt-2">
             <button
                 type="button"
-                onClick={handleParseTask}
+                onClick={() => handleParseTask()}
                 disabled={isParsing || !text.trim() || !hasApiKey}
                 className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-indigo-900/50 disabled:text-indigo-600 disabled:cursor-not-allowed"
                 title={hasApiKey ? "Phân tích công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
