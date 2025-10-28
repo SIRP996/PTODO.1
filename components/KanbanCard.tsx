@@ -1,8 +1,9 @@
 
+
 import React, { useState } from 'react';
 import { Task } from '../types';
 import { format, isPast } from 'date-fns';
-import { Flag, Calendar, ListTree, Trash2, Play, ChevronRight, ChevronDown, Circle, CheckCircle2 } from 'lucide-react';
+import { Flag, Calendar, ListTree, Trash2, Play, ChevronRight, ChevronDown, Circle, CheckCircle2, StickyNote } from 'lucide-react';
 
 interface KanbanCardProps {
   task: Task;
@@ -13,16 +14,27 @@ interface KanbanCardProps {
   onDeleteTask: (id: string) => void;
   onStartFocus: (task: Task) => void;
   onToggleTask: (id: string) => void;
+  onUpdateTaskNote: (id: string, note: string) => void;
 }
 
-const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, isDragging, onToggleTaskUrgency, onDeleteTask, onStartFocus, onToggleTask }) => {
+const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, isDragging, onToggleTaskUrgency, onDeleteTask, onStartFocus, onToggleTask, onUpdateTaskNote }) => {
   const isOverdue = task.dueDate && task.status !== 'completed' && isPast(new Date(task.dueDate));
   const [areSubtasksVisible, setAreSubtasksVisible] = useState(false);
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [editNoteText, setEditNoteText] = useState(task.note || '');
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     onDragStart(task.id);
     e.dataTransfer.effectAllowed = 'move';
   };
+
+  const handleSaveNote = () => {
+    if (editNoteText.trim() !== (task.note || '').trim()) {
+        onUpdateTaskNote(task.id, editNoteText.trim());
+    }
+    setIsEditingNote(false);
+  };
+
 
   return (
     <div
@@ -47,6 +59,25 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, is
           <Calendar size={14} className="mr-1.5" />
           <span>{format(new Date(task.dueDate), "dd/MM/yyyy")}</span>
           {isOverdue && <span className="ml-2 px-1.5 py-0.5 bg-red-500 text-white rounded-md font-bold text-[10px]">Quá hạn</span>}
+        </div>
+      )}
+
+      {(task.note || isEditingNote) && (
+        <div className="mt-3">
+            {isEditingNote ? (
+                <textarea
+                    value={editNoteText}
+                    onChange={(e) => setEditNoteText(e.target.value)}
+                    onBlur={handleSaveNote}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveNote(); } if (e.key === 'Escape') { setIsEditingNote(false); setEditNoteText(task.note || ''); } }}
+                    placeholder="Thêm ghi chú..."
+                    className="w-full bg-[#293548] text-slate-300 border border-indigo-600 focus:ring-1 focus:ring-indigo-500 rounded-md p-2 text-sm resize-none overflow-hidden block"
+                    autoFocus
+                />
+            ) : (
+                <p className="text-sm text-slate-400 whitespace-pre-wrap bg-slate-700/50 p-2 rounded-md">{task.note}</p>
+            )}
         </div>
       )}
 
@@ -92,6 +123,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, is
         </div>
         <div className="flex items-center gap-1">
             {task.status !== 'completed' && (
+              <>
                 <button 
                     onClick={(e) => { e.stopPropagation(); onStartFocus(task); }}
                     className="text-slate-500 hover:text-indigo-400 p-1 rounded-full transition-colors"
@@ -99,6 +131,14 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, is
                 >
                     <Play size={16} />
                 </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsEditingNote(prev => !prev); if(!isEditingNote) setEditNoteText(task.note || '') }}
+                  className="text-slate-500 hover:text-indigo-400 p-1 rounded-full transition-colors"
+                  title="Thêm/Sửa ghi chú"
+                >
+                  <StickyNote size={16} />
+                </button>
+              </>
             )}
              <button
                 onClick={(e) => { e.stopPropagation(); onToggleTaskUrgency(task.id); }}

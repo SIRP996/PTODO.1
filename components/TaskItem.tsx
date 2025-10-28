@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, MouseEvent, TouchEvent, useEffect, KeyboardEvent } from 'react';
 import { Task, TaskStatus } from '../types';
-import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Activity } from 'lucide-react';
+import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Cog, StickyNote } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
@@ -21,11 +21,12 @@ interface TaskItemProps {
   hasApiKey: boolean;
   onUpdateTaskText: (id: string, newText: string) => void;
   onUpdateTaskStatus: (id: string, status: TaskStatus) => void;
+  onUpdateTaskNote: (id: string, note: string) => void;
 }
 
 const SWIPE_THRESHOLD = 80;
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote }) => {
   const isOverdue = task.dueDate && task.status !== 'completed' && isPast(new Date(task.dueDate));
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
@@ -42,6 +43,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   const [editText, setEditText] = useState(task.text);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [editNoteText, setEditNoteText] = useState(task.note || '');
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
+
   useEffect(() => {
     if (isEditing) {
       const textarea = textareaRef.current;
@@ -52,6 +57,14 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
       }
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    if (isEditingNote && noteTextareaRef.current) {
+        noteTextareaRef.current.focus();
+        noteTextareaRef.current.style.height = 'auto';
+        noteTextareaRef.current.style.height = `${noteTextareaRef.current.scrollHeight}px`;
+    }
+  }, [isEditingNote]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setEditText(e.target.value);
@@ -84,6 +97,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
     setIsEditing(true);
   };
 
+  const handleSaveNote = () => {
+    if (editNoteText.trim() !== (task.note || '').trim()) {
+        onUpdateTaskNote(task.id, editNoteText.trim());
+    }
+    setIsEditingNote(false);
+  };
 
   const handleDragStart = (clientX: number) => {
     if (isEditingDate || isEditing) return;
@@ -306,6 +325,37 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
             </div>
           )}
 
+          {(task.note || isEditingNote) && !isEditing && (
+            <div className="mt-3 pt-3 border-t border-slate-700/50">
+              {isEditingNote ? (
+                <textarea
+                  ref={noteTextareaRef}
+                  value={editNoteText}
+                  onChange={(e) => {
+                    setEditNoteText(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  onBlur={handleSaveNote}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSaveNote();
+                    }
+                    if (e.key === 'Escape') {
+                      setIsEditingNote(false);
+                      setEditNoteText(task.note || '');
+                    }
+                  }}
+                  placeholder="Thêm ghi chú..."
+                  className="w-full bg-[#293548] text-slate-300 border border-indigo-600 focus:ring-1 focus:ring-indigo-500 rounded-md p-2 text-sm resize-none overflow-hidden block"
+                />
+              ) : (
+                <p className="text-sm text-slate-400 whitespace-pre-wrap bg-slate-700/40 p-2 rounded-md">{task.note}</p>
+              )}
+            </div>
+          )}
+
           {subtasks && subtasks.length > 0 && (
             <div className="mt-4 pt-3 pl-4 border-t border-slate-700/50">
               <button 
@@ -356,6 +406,14 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                 </button>
               )}
                <button
+                  onClick={() => { setIsEditingNote(prev => !prev); if(!isEditingNote) setEditNoteText(task.note || '') }}
+                  className="text-slate-500 hover:text-indigo-400 transition-colors duration-200 z-10"
+                  aria-label="Thêm/Sửa ghi chú"
+                  title="Thêm/Sửa ghi chú"
+                >
+                  <StickyNote size={18} />
+                </button>
+               <button
                   onClick={startEditing}
                   className="text-slate-500 hover:text-indigo-400 transition-colors duration-200 z-10"
                   aria-label="Chỉnh sửa nội dung"
@@ -372,7 +430,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                   }`}
                   title={task.status === 'inprogress' ? 'Dừng làm' : 'Bắt đầu làm'}
               >
-                  <Activity size={18} />
+                  <Cog size={18} className={task.status === 'inprogress' ? 'animate-spin' : ''} />
               </button>
               <button 
                 onClick={() => onToggleTaskUrgency(task.id)}

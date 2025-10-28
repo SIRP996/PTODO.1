@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Task } from '../types';
 import { Sheet, X, Save, CheckCircle, AlertTriangle, HelpCircle, Copy, Loader2 } from 'lucide-react';
@@ -24,9 +25,9 @@ const SCRIPT_CODE = `function doPost(e) {
     sheet.clear();
 
     // Set headers for the columns
-    var headers = ["ID", "Task Content", "Status", "Created At", "Due Date", "Tags", "Urgent"];
+    var headers = ["ID", "Task Content", "Status", "Created At", "Due Date", "Tags", "Urgent", "Note"];
     sheet.appendRow(headers);
-    sheet.getRange("A1:G1").setFontWeight("bold");
+    sheet.getRange("A1:H1").setFontWeight("bold");
 
     if (tasks.length === 0) {
        return ContentService.createTextOutput(JSON.stringify({ "status": "success", "message": "No tasks to sync. Sheet cleared." }))
@@ -48,7 +49,8 @@ const SCRIPT_CODE = `function doPost(e) {
         task.createdAt ? new Date(task.createdAt) : null,
         task.dueDate ? new Date(task.dueDate) : null,
         task.hashtags.join(", "),
-        task.isUrgent ? "Yes" : "No"
+        task.isUrgent ? "Yes" : "No",
+        task.note || ""
       ];
     });
 

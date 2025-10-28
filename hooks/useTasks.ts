@@ -53,6 +53,7 @@ export const useTasks = () => {
             createdAt,
             dueDate,
             status,
+            note: data.note || '',
           } as Task;
         });
         setTasks(tasksData);
@@ -82,6 +83,7 @@ export const useTasks = () => {
       isUrgent,
       recurrenceRule,
       userId: currentUser.uid,
+      note: '',
     };
 
     try {
@@ -113,6 +115,7 @@ export const useTasks = () => {
             recurrenceRule: 'none' as const,
             userId: currentUser.uid,
             parentId: parentId,
+            note: '',
         };
         batch.set(newDocRef, subtaskData);
     });
@@ -150,6 +153,25 @@ export const useTasks = () => {
     }
   }, [currentUser, tasks, addToast]);
 
+  const updateTaskNote = useCallback(async (id: string, newNote: string) => {
+    if (!currentUser) return;
+    const originalTasks = tasks;
+    const task = tasks.find(t => t.id === id);
+    if (!task || task.note === newNote) return;
+    
+    setTasks(current => current.map(t => t.id === id ? {...t, note: newNote} : t));
+
+    try {
+        await db.collection('tasks').doc(id).update({ note: newNote });
+        addToast('Đã cập nhật ghi chú.', 'success');
+    } catch (error) {
+      console.error("Error updating task note: ", error);
+      addToast('Không thể cập nhật ghi chú.', 'error');
+      setTasks(originalTasks);
+    }
+  }, [currentUser, tasks, addToast]);
+
+
   const toggleTask = useCallback(async (id: string) => {
     if (!currentUser) return;
     
@@ -177,6 +199,7 @@ export const useTasks = () => {
             hashtags: taskToToggle.hashtags, reminderSent: false,
             isUrgent: taskToToggle.isUrgent,
             recurrenceRule: taskToToggle.recurrenceRule, userId: currentUser.uid,
+            note: taskToToggle.note,
         };
         const updatedTasks = tasks.map(t => 
             t.id === id ? { ...t, status: 'completed' as TaskStatus, recurrenceRule: 'none' as const } : t
@@ -205,6 +228,7 @@ export const useTasks = () => {
                 dueDate: nextDueDate, hashtags: taskToToggle.hashtags,
                 reminderSent: false, isUrgent: taskToToggle.isUrgent,
                 recurrenceRule: taskToToggle.recurrenceRule, userId: currentUser.uid,
+                note: taskToToggle.note || ''
             };
             const batch = db.batch();
             const taskDocRef = db.collection('tasks').doc(id);
@@ -310,5 +334,5 @@ export const useTasks = () => {
   }, [currentUser, tasks, addToast]);
 
 
-  return { tasks, addTask, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency, updateTaskText, updateTaskStatus };
+  return { tasks, addTask, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency, updateTaskText, updateTaskStatus, updateTaskNote };
 };

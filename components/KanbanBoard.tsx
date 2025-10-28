@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Task, TaskStatus } from '../types';
 import KanbanColumn from './KanbanColumn';
@@ -11,6 +12,7 @@ interface KanbanBoardProps {
   onDeleteTask: (id: string) => void;
   onStartFocus: (task: Task) => void;
   onToggleTask: (id: string) => void;
+  onUpdateTaskNote: (id: string, note: string) => void;
 }
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
@@ -20,7 +22,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onToggleTaskUrgency, 
   onDeleteTask, 
   onStartFocus, 
-  onToggleTask 
+  onToggleTask,
+  onUpdateTaskNote
 }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
@@ -64,6 +67,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           onDeleteTask={onDeleteTask}
           onStartFocus={onStartFocus}
           onToggleTask={onToggleTask}
+          onUpdateTaskNote={onUpdateTaskNote}
         />
       ))}
     </div>

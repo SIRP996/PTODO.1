@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Task, TaskStatus } from '../types';
 import KanbanCard from './KanbanCard';
@@ -15,6 +16,7 @@ interface KanbanColumnProps {
   onDeleteTask: (id: string) => void;
   onStartFocus: (task: Task) => void;
   onToggleTask: (id: string) => void;
+  onUpdateTaskNote: (id: string, note: string) => void;
 }
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
@@ -28,7 +30,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onToggleTaskUrgency, 
   onDeleteTask, 
   onStartFocus,
-  onToggleTask
+  onToggleTask,
+  onUpdateTaskNote
 }) => {
   const [isOver, setIsOver] = useState(false);
 
@@ -72,6 +75,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             onDeleteTask={onDeleteTask}
             onStartFocus={onStartFocus}
             onToggleTask={onToggleTask}
+            onUpdateTaskNote={onUpdateTaskNote}
           />
         ))}
       </div>

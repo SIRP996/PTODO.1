@@ -12,4 +12,5 @@ export interface Task {
   recurrenceRule?: 'none' | 'daily' | 'weekly' | 'monthly';
   userId?: string;
   parentId?: string;
+  note?: string;
 }

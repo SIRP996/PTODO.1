@@ -17,9 +17,10 @@ interface TaskListProps {
   hasApiKey: boolean;
   onUpdateTaskText: (id: string, newText: string) => void;
   onUpdateTaskStatus: (id: string, status: TaskStatus) => void;
+  onUpdateTaskNote: (id: string, note: string) => void;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus }) => {
+const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote }) => {
 
   const { parentTasks, subtasksByParent } = useMemo(() => {
     const parentTasks: Task[] = [];
@@ -79,6 +80,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, 
           hasApiKey={hasApiKey}
           onUpdateTaskText={onUpdateTaskText}
           onUpdateTaskStatus={onUpdateTaskStatus}
+          onUpdateTaskNote={onUpdateTaskNote}
         />
       ))}
     </div>

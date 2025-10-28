@@ -35,6 +35,7 @@ const App: React.FC = () => {
     addSubtasksBatch,
     updateTaskText,
     updateTaskStatus,
+    updateTaskNote,
   } = useTasks();
   
   // State to control view before login
@@ -518,6 +519,7 @@ const App: React.FC = () => {
                     hasApiKey={hasApiKey}
                     onUpdateTaskText={updateTaskText}
                     onUpdateTaskStatus={updateTaskStatus}
+                    onUpdateTaskNote={updateTaskNote}
                   />
                 </>
               )}
@@ -531,6 +533,7 @@ const App: React.FC = () => {
                     onDeleteTask={deleteTask}
                     onStartFocus={handleStartFocus}
                     onToggleTask={toggleTask}
+                    onUpdateTaskNote={updateTaskNote}
                  />
               )}
 
