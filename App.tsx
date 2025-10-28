@@ -8,8 +8,8 @@ import AdvancedDashboard from './components/AdvancedDashboard';
 import TaskInput from './components/TaskInput';
 import FilterTags from './components/FilterTags';
 import TaskList from './components/TaskList';
-import { BellRing, ShieldCheck, ShieldOff, Loader2 } from 'lucide-react';
-import { Task } from './types';
+import { BellRing, ShieldCheck, ShieldOff, Loader2, List, LayoutGrid } from 'lucide-react';
+import { Task, TaskStatus } from './types';
 import { isPast } from 'date-fns';
 import GoogleSheetSync from './components/GoogleSheetSync';
 import FocusModeOverlay from './components/FocusModeOverlay';
@@ -19,6 +19,7 @@ import ApiKeyPrompt from './components/ApiKeyPrompt';
 import SettingsModal from './components/SettingsModal';
 import LandingPage from './components/LandingPage';
 import SearchBar from './components/SearchBar';
+import KanbanBoard from './components/KanbanBoard';
 
 const App: React.FC = () => {
   const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading } = useAuth();
@@ -33,14 +34,16 @@ const App: React.FC = () => {
     toggleTaskUrgency,
     addSubtasksBatch,
     updateTaskText,
+    updateTaskStatus,
   } = useTasks();
   
   // State to control view before login
   const [showAuthPage, setShowAuthPage] = useState(false);
   const [activeHashtag, setActiveHashtag] = useState<string | null>(null);
-  const [view, setView] = useState<'incomplete' | 'completed'>('incomplete');
+  const [view, setView] = useState<TaskStatus>('todo');
   const [notificationPermissionStatus, setNotificationPermissionStatus] = useState('default');
   const [searchTerm, setSearchTerm] = useState('');
+  const [displayMode, setDisplayMode] = useState<'list' | 'kanban'>('list');
   const workerRef = useRef<Worker | null>(null);
 
   // API Key State
@@ -63,14 +66,14 @@ const App: React.FC = () => {
   
   const focusCompletionSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
 
   const notificationSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
@@ -216,7 +219,7 @@ const App: React.FC = () => {
       setInterval(() => {
         const now = new Date();
         tasks.forEach(task => {
-          if (!task.completed && !task.reminderSent && task.dueDate && new Date(task.dueDate) < now) {
+          if (task.status !== 'completed' && !task.reminderSent && task.dueDate && new Date(task.dueDate) < now) {
             self.postMessage(task);
           }
         });
@@ -281,9 +284,9 @@ const App: React.FC = () => {
 
     Object.keys(tasksByTag).forEach(tag => {
       const associatedTasks = tasksByTag[tag];
-      if (associatedTasks.some(t => t.dueDate && !t.completed && isPast(new Date(t.dueDate)))) {
+      if (associatedTasks.some(t => t.dueDate && t.status !== 'completed' && isPast(new Date(t.dueDate)))) {
         statuses[tag] = 'overdue';
-      } else if (associatedTasks.some(t => !t.completed)) {
+      } else if (associatedTasks.some(t => t.status !== 'completed')) {
         statuses[tag] = 'pending';
       } else {
         statuses[tag] = 'completed';
@@ -297,7 +300,7 @@ const App: React.FC = () => {
     if (hashtag) {
       const status = hashtagStatuses[hashtag];
       if (status === 'overdue' || status === 'pending') {
-        setView('incomplete');
+        setView('todo');
       } else if (status === 'completed') {
         setView('completed');
       }
@@ -342,11 +345,12 @@ const App: React.FC = () => {
     return parents;
   }, [parentTasks, subtasksByParentId, activeHashtag, searchTerm]);
 
-  const incompleteCount = useMemo(() => filteredParentTasks.filter(t => !t.completed).length, [filteredParentTasks]);
-  const completedCount = useMemo(() => filteredParentTasks.filter(t => t.completed).length, [filteredParentTasks]);
+  const todoCount = useMemo(() => filteredParentTasks.filter(t => t.status === 'todo').length, [filteredParentTasks]);
+  const inProgressCount = useMemo(() => filteredParentTasks.filter(t => t.status === 'inprogress').length, [filteredParentTasks]);
+  const completedCount = useMemo(() => filteredParentTasks.filter(t => t.status === 'completed').length, [filteredParentTasks]);
 
-  const filteredTasks = useMemo(() => {
-    const viewFilteredParents = filteredParentTasks.filter(p => view === 'completed' ? p.completed : !p.completed);
+  const filteredTasksForList = useMemo(() => {
+    const viewFilteredParents = filteredParentTasks.filter(p => p.status === view);
 
     const tasksToShow: Task[] = [];
     viewFilteredParents.forEach(parent => {
@@ -438,50 +442,98 @@ const App: React.FC = () => {
             </div>
             
             <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
-              <div className="mb-4">
-                <SearchBar 
-                  searchTerm={searchTerm}
-                  onSearchChange={setSearchTerm}
-                />
+              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <div className="flex-grow">
+                    <SearchBar 
+                      searchTerm={searchTerm}
+                      onSearchChange={setSearchTerm}
+                    />
+                </div>
+                <div className="flex-shrink-0 flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
+                    <button 
+                        onClick={() => setDisplayMode('list')} 
+                        className={`p-2 rounded-md transition-colors ${displayMode === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}
+                        title="Chế độ danh sách"
+                        aria-label="Chế độ danh sách"
+                    >
+                        <List size={18} />
+                    </button>
+                    <button 
+                        onClick={() => setDisplayMode('kanban')} 
+                        className={`p-2 rounded-md transition-colors ${displayMode === 'kanban' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}
+                        title="Chế độ Kanban"
+                        aria-label="Chế độ Kanban"
+                    >
+                        <LayoutGrid size={18} />
+                    </button>
+                </div>
               </div>
+
               <FilterTags 
                 hashtags={allHashtags}
                 activeHashtag={activeHashtag}
                 onSelectHashtag={handleSelectHashtag}
                 hashtagStatuses={hashtagStatuses}
               />
-              <div className="flex justify-end my-4">
-                <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
-                    <button 
-                        onClick={() => setView('incomplete')} 
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-36 text-center ${
-                            view === 'incomplete' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
-                        }`}
-                    >
-                        Cần làm ({incompleteCount})
-                    </button>
-                    <button 
-                        onClick={() => setView('completed')} 
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-36 text-center ${
-                            view === 'completed' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
-                        }`}
-                    >
-                        Hoàn thành ({completedCount})
-                    </button>
-                </div>
-              </div>
-              <TaskList 
-                tasks={filteredTasks} 
-                onToggleTask={toggleTask}
-                onDeleteTask={deleteTask}
-                onUpdateTaskDueDate={updateTaskDueDate}
-                onToggleTaskUrgency={toggleTaskUrgency}
-                onStartFocus={handleStartFocus}
-                onAddSubtasksBatch={addSubtasksBatch}
-                onApiKeyError={onApiKeyError}
-                hasApiKey={hasApiKey}
-                onUpdateTaskText={updateTaskText}
-              />
+              
+              {displayMode === 'list' && (
+                <>
+                  <div className="flex justify-end my-4">
+                    <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
+                        <button 
+                            onClick={() => setView('todo')} 
+                            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-32 text-center ${
+                                view === 'todo' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
+                            }`}
+                        >
+                            Cần làm ({todoCount})
+                        </button>
+                         <button 
+                            onClick={() => setView('inprogress')} 
+                            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-32 text-center ${
+                                view === 'inprogress' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
+                            }`}
+                        >
+                            Đang làm ({inProgressCount})
+                        </button>
+                        <button 
+                            onClick={() => setView('completed')} 
+                            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-32 text-center ${
+                                view === 'completed' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
+                            }`}
+                        >
+                            Hoàn thành ({completedCount})
+                        </button>
+                    </div>
+                  </div>
+                  <TaskList 
+                    tasks={filteredTasksForList} 
+                    onToggleTask={toggleTask}
+                    onDeleteTask={deleteTask}
+                    onUpdateTaskDueDate={updateTaskDueDate}
+                    onToggleTaskUrgency={toggleTaskUrgency}
+                    onStartFocus={handleStartFocus}
+                    onAddSubtasksBatch={addSubtasksBatch}
+                    onApiKeyError={onApiKeyError}
+                    hasApiKey={hasApiKey}
+                    onUpdateTaskText={updateTaskText}
+                    onUpdateTaskStatus={updateTaskStatus}
+                  />
+                </>
+              )}
+
+              {displayMode === 'kanban' && (
+                 <KanbanBoard
+                    tasks={filteredParentTasks}
+                    subtasksByParentId={subtasksByParentId}
+                    onUpdateTaskStatus={updateTaskStatus}
+                    onToggleTaskUrgency={toggleTaskUrgency}
+                    onDeleteTask={deleteTask}
+                    onStartFocus={handleStartFocus}
+                    onToggleTask={toggleTask}
+                 />
+              )}
+
             </div>
           </div>
 

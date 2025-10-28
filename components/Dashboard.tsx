@@ -11,9 +11,9 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ tasks }) => {
     const stats = useMemo(() => {
         const total = tasks.length;
-        const completed = tasks.filter(t => t.completed).length;
-        const overdue = tasks.filter(t => t.dueDate && !t.completed && isPast(parseISO(t.dueDate))).length;
-        const urgent = tasks.filter(t => t.isUrgent && !t.completed).length;
+        const completed = tasks.filter(t => t.status === 'completed').length;
+        const overdue = tasks.filter(t => t.dueDate && t.status !== 'completed' && isPast(parseISO(t.dueDate))).length;
+        const urgent = tasks.filter(t => t.isUrgent && t.status !== 'completed').length;
         const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
         return { total, completed, overdue, urgent, percentage };
     }, [tasks]);

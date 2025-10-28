@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Task } from '../types';
+import { Task, TaskStatus } from '../types';
 import { addDays, addWeeks, addMonths } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebaseConfig';
@@ -44,11 +44,15 @@ export const useTasks = () => {
           const createdAt = createdAtData instanceof firebase.firestore.Timestamp ? createdAtData.toDate().toISOString() : createdAtData;
           const dueDate = dueDateData instanceof firebase.firestore.Timestamp ? dueDateData.toDate().toISOString() : dueDateData;
           
+          const status: TaskStatus = data.status || (data.completed ? 'completed' : 'todo');
+          const { completed, ...restData } = data;
+
           return {
             id: docSnapshot.id,
-            ...data,
+            ...restData,
             createdAt,
             dueDate,
+            status,
           } as Task;
         });
         setTasks(tasksData);
@@ -69,7 +73,7 @@ export const useTasks = () => {
 
     const newTask = {
       text: text.trim(),
-      completed: false,
+      status: 'todo' as TaskStatus,
       // Fix: Use firebase.firestore.FieldValue.serverTimestamp() for v8 compat syntax.
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       dueDate: dueDate ? new Date(dueDate) : null,
@@ -100,7 +104,7 @@ export const useTasks = () => {
         const newDocRef = tasksCollectionRef.doc();
         const subtaskData = {
             text: text.trim(),
-            completed: false,
+            status: 'todo' as TaskStatus,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             dueDate: null,
             hashtags: [],
@@ -153,8 +157,10 @@ export const useTasks = () => {
     const taskToToggle = tasks.find(t => t.id === id);
     if (!taskToToggle) return;
 
+    const newStatus = taskToToggle.status === 'completed' ? 'todo' : 'completed';
+
     // Optimistic UI update
-    if (!taskToToggle.completed && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
+    if (taskToToggle.status !== 'completed' && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
         let nextDueDate: Date;
         const currentDueDate = new Date(taskToToggle.dueDate);
         switch (taskToToggle.recurrenceRule) {
@@ -165,7 +171,7 @@ export const useTasks = () => {
         }
         const newTaskClient: Task = {
             id: `temp-${uuidv4()}`,
-            text: taskToToggle.text, completed: false,
+            text: taskToToggle.text, status: 'todo',
             createdAt: new Date().toISOString(),
             dueDate: nextDueDate.toISOString(),
             hashtags: taskToToggle.hashtags, reminderSent: false,
@@ -173,18 +179,18 @@ export const useTasks = () => {
             recurrenceRule: taskToToggle.recurrenceRule, userId: currentUser.uid,
         };
         const updatedTasks = tasks.map(t => 
-            t.id === id ? { ...t, completed: true, recurrenceRule: 'none' as const } : t
+            t.id === id ? { ...t, status: 'completed' as TaskStatus, recurrenceRule: 'none' as const } : t
         );
         setTasks([...updatedTasks, newTaskClient]);
     } else {
         setTasks(currentTasks => currentTasks.map(task =>
-            task.id === id ? { ...task, completed: !task.completed } : task
+            task.id === id ? { ...task, status: newStatus } : task
         ));
     }
     
     // Firebase operation
     try {
-        if (!taskToToggle.completed && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
+        if (taskToToggle.status !== 'completed' && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
             let nextDueDate: Date;
             const currentDueDate = new Date(taskToToggle.dueDate);
             switch (taskToToggle.recurrenceRule) {
@@ -194,7 +200,7 @@ export const useTasks = () => {
                 default: nextDueDate = currentDueDate; 
             }
             const nextInstanceData = {
-                text: taskToToggle.text, completed: false,
+                text: taskToToggle.text, status: 'todo',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 dueDate: nextDueDate, hashtags: taskToToggle.hashtags,
                 reminderSent: false, isUrgent: taskToToggle.isUrgent,
@@ -202,12 +208,12 @@ export const useTasks = () => {
             };
             const batch = db.batch();
             const taskDocRef = db.collection('tasks').doc(id);
-            batch.update(taskDocRef, { completed: true, recurrenceRule: 'none' });
+            batch.update(taskDocRef, { status: 'completed', recurrenceRule: 'none' });
             const newDocRef = db.collection('tasks').doc();
             batch.set(newDocRef, nextInstanceData);
             await batch.commit();
         } else {
-            await db.collection('tasks').doc(id).update({ completed: !taskToToggle.completed });
+            await db.collection('tasks').doc(id).update({ status: newStatus });
         }
         addToast('Đã cập nhật trạng thái công việc.', 'success');
     } catch (error) {
@@ -285,6 +291,24 @@ export const useTasks = () => {
     }
   }, [currentUser, tasks]);
 
+  const updateTaskStatus = useCallback(async (id: string, status: TaskStatus) => {
+    if (!currentUser) return;
+    const originalTasks = tasks;
+    const task = tasks.find(t => t.id === id);
+    if (!task || task.status === status) return;
+    
+    setTasks(current => current.map(t => t.id === id ? {...t, status: status} : t));
 
-  return { tasks, addTask, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency, updateTaskText };
+    try {
+        await db.collection('tasks').doc(id).update({ status: status });
+        addToast('Đã cập nhật trạng thái công việc.', 'success');
+    } catch (error) {
+      console.error("Error updating task status: ", error);
+      addToast('Không thể cập nhật trạng thái.', 'error');
+      setTasks(originalTasks);
+    }
+  }, [currentUser, tasks, addToast]);
+
+
+  return { tasks, addTask, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency, updateTaskText, updateTaskStatus };
 };

@@ -1,7 +1,9 @@
+export type TaskStatus = 'todo' | 'inprogress' | 'completed';
+
 export interface Task {
   id: string;
   text: string;
-  completed: boolean;
+  status: TaskStatus;
   createdAt: string;
   dueDate: string | null;
   hashtags: string[];

@@ -1,7 +1,7 @@
 
 
 import React, { useMemo } from 'react';
-import { Task } from '../types';
+import { Task, TaskStatus } from '../types';
 import TaskItem from './TaskItem';
 import { ClipboardList } from 'lucide-react';
 
@@ -16,9 +16,10 @@ interface TaskListProps {
   onApiKeyError: () => void;
   hasApiKey: boolean;
   onUpdateTaskText: (id: string, newText: string) => void;
+  onUpdateTaskStatus: (id: string, status: TaskStatus) => void;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText }) => {
+const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus }) => {
 
   const { parentTasks, subtasksByParent } = useMemo(() => {
     const parentTasks: Task[] = [];
@@ -44,7 +45,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, 
   }, [tasks]);
 
   const sortedTasks = [...parentTasks].sort((a, b) => {
-    if (!a.completed && !b.completed) {
+    if (a.status !== 'completed' && b.status !== 'completed') {
         if (a.isUrgent && !b.isUrgent) return -1;
         if (!a.isUrgent && b.isUrgent) return 1;
     }
@@ -77,6 +78,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, 
           onApiKeyError={onApiKeyError}
           hasApiKey={hasApiKey}
           onUpdateTaskText={onUpdateTaskText}
+          onUpdateTaskStatus={onUpdateTaskStatus}
         />
       ))}
     </div>

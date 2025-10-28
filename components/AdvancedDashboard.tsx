@@ -23,12 +23,12 @@ const COLORS = ['#818cf8', '#a78bfa', '#c084fc', '#f472b6', '#fb7185'];
 
 const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
     
-    const completedTasks = useMemo(() => tasks.filter(t => t.completed && t.createdAt), [tasks]);
+    const completedTasks = useMemo(() => tasks.filter(t => t.status === 'completed' && t.createdAt), [tasks]);
 
     const dailyStats = useMemo(() => {
         const today = new Date();
         const todayStr = format(today, 'yyyy-MM-dd');
-        const todaysIncompleteTasks = tasks.filter(t => !t.completed && t.dueDate && format(parseISO(t.dueDate), 'yyyy-MM-dd') === todayStr).length;
+        const todaysIncompleteTasks = tasks.filter(t => t.status !== 'completed' && t.dueDate && format(parseISO(t.dueDate), 'yyyy-MM-dd') === todayStr).length;
         const completedToday = completedTasks.filter(t => format(parseISO(t.createdAt), 'yyyy-MM-dd') === todayStr).length;
         const totalToday = completedToday + todaysIncompleteTasks;
         

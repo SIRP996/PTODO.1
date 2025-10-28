@@ -1,8 +1,8 @@
 
 
 import React, { useState, useRef, MouseEvent, TouchEvent, useEffect, KeyboardEvent } from 'react';
-import { Task } from '../types';
-import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
+import { Task, TaskStatus } from '../types';
+import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Activity } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
@@ -20,12 +20,13 @@ interface TaskItemProps {
   onApiKeyError: () => void;
   hasApiKey: boolean;
   onUpdateTaskText: (id: string, newText: string) => void;
+  onUpdateTaskStatus: (id: string, status: TaskStatus) => void;
 }
 
 const SWIPE_THRESHOLD = 80;
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText }) => {
-  const isOverdue = task.dueDate && !task.completed && isPast(new Date(task.dueDate));
+const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus }) => {
+  const isOverdue = task.dueDate && task.status !== 'completed' && isPast(new Date(task.dueDate));
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
   const [areSubtasksVisible, setAreSubtasksVisible] = useState(true);
@@ -78,7 +79,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   };
 
   const startEditing = () => {
-    if (task.completed || isGeneratingSubtasks) return;
+    if (task.status === 'completed' || isGeneratingSubtasks) return;
     setEditText(task.text);
     setIsEditing(true);
   };
@@ -96,7 +97,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   const handleDragMove = (clientX: number) => {
     if (!isSwiping || isEditingDate || isEditing) return;
     const deltaX = clientX - startXRef.current;
-    const newTranslateX = !task.completed ? Math.max(0, deltaX) : 0;
+    const newTranslateX = task.status !== 'completed' ? Math.max(0, deltaX) : 0;
     setTranslateX(newTranslateX);
     currentTranslateXRef.current = newTranslateX;
   };
@@ -210,8 +211,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
       <div
         ref={taskRef}
         className={`relative flex items-start p-4 transition-colors duration-200 ${
-          task.completed ? 'bg-slate-800/40' : 'bg-slate-800/80'
-        } ${task.isUrgent && !task.completed ? 'border-l-4 border-red-500 pl-3' : ''}`}
+          task.status === 'completed' ? 'bg-slate-800/40' : 'bg-slate-800/80'
+        } ${task.isUrgent && task.status !== 'completed' ? 'border-l-4 border-red-500 pl-3' : ''} ${task.status === 'inprogress' ? 'border-l-4 border-indigo-500 pl-3' : ''}`}
         style={{ transform: `translateX(${translateX}px)`, zIndex: 1, touchAction: 'pan-y' }}
         onMouseDown={onMouseDown}
         onMouseMove={isSwiping ? onMouseMove : undefined}
@@ -222,7 +223,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         onTouchEnd={onTouchEnd}
       >
         <div className="flex-shrink-0 mt-1">
-            {!task.completed && (
+            {task.status !== 'completed' && (
                 <button 
                     onClick={() => onStartFocus(task)}
                     className="mr-3 text-slate-500 hover:text-indigo-400 transition-colors"
@@ -247,7 +248,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
             />
           ) : (
             <p 
-                className={`${task.completed ? 'text-slate-500 line-through' : 'text-slate-200'}`}
+                className={`${task.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-200'}`}
             >
                 {task.text}
             </p>
@@ -266,9 +267,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
           <div className="flex items-center gap-4">
             {!isEditingDate && (
               <div 
-                className={`flex items-center text-xs mt-2 ${isOverdue ? 'text-red-400' : task.dueDate ? 'text-slate-400' : 'text-slate-500'} ${task.completed ? '' : 'cursor-pointer'}`}
-                onClick={() => !task.completed && setIsEditingDate(true)}
-                title={!task.completed ? (task.dueDate ? "Chỉnh sửa ngày hết hạn" : "Thêm ngày hết hạn") : ""}
+                className={`flex items-center text-xs mt-2 ${isOverdue ? 'text-red-400' : task.dueDate ? 'text-slate-400' : 'text-slate-500'} ${task.status === 'completed' ? '' : 'cursor-pointer'}`}
+                onClick={() => task.status !== 'completed' && setIsEditingDate(true)}
+                title={task.status !== 'completed' ? (task.dueDate ? "Chỉnh sửa ngày hết hạn" : "Thêm ngày hết hạn") : ""}
               >
                 <Calendar size={14} className="mr-1.5" />
                 {task.dueDate ? (
@@ -282,7 +283,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
               </div>
             )}
             
-            {task.recurrenceRule && task.recurrenceRule !== 'none' && !task.completed && (
+            {task.recurrenceRule && task.recurrenceRule !== 'none' && task.status !== 'completed' && (
               <div className="flex items-center text-xs mt-2 text-slate-400" title={`Lặp lại ${task.recurrenceRule === 'daily' ? 'hàng ngày' : task.recurrenceRule === 'weekly' ? 'hàng tuần' : 'hàng tháng'}`}>
                 <Repeat size={14} className="mr-1.5" />
               </div>
@@ -320,9 +321,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                     <div key={subtask.id} className="flex items-center justify-between gap-3 group">
                         <div className="flex items-center gap-3">
                             <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
-                                {subtask.completed ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
+                                {subtask.status === 'completed' ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
                             </button>
-                            <p className={`text-sm ${subtask.completed ? 'text-slate-500' : 'text-slate-300'}`}>
+                            <p className={`text-sm ${subtask.status === 'completed' ? 'text-slate-500' : 'text-slate-300'}`}>
                                 {subtask.text}
                             </p>
                         </div>
@@ -342,7 +343,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
 
         </div>
         <div className="ml-4 flex-shrink-0 flex items-center gap-4">
-          {!task.completed && (
+          {task.status !== 'completed' && (
             <>
               {!task.parentId && (
                 <button
@@ -362,6 +363,17 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
               >
                   <Pencil size={18} />
               </button>
+               <button
+                  onClick={() => onUpdateTaskStatus(task.id, task.status === 'inprogress' ? 'todo' : 'inprogress')}
+                  className={`transition-colors duration-200 z-10 ${
+                      task.status === 'inprogress'
+                      ? 'text-indigo-400 hover:text-indigo-300'
+                      : 'text-slate-500 hover:text-indigo-400'
+                  }`}
+                  title={task.status === 'inprogress' ? 'Dừng làm' : 'Bắt đầu làm'}
+              >
+                  <Activity size={18} />
+              </button>
               <button 
                 onClick={() => onToggleTaskUrgency(task.id)}
                 className={`transition-colors duration-200 z-10 ${task.isUrgent ? 'text-red-500 hover:text-red-400' : 'text-slate-500 hover:text-red-500'}`}
@@ -375,10 +387,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
           <button 
             onClick={() => onToggleTask(task.id)}
             className="text-slate-500 hover:text-green-500 transition-colors duration-200 z-10"
-            aria-label={task.completed ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"}
-            title={task.completed ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"}
+            aria-label={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"}
+            title={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"}
           >
-            <CheckCircle2 size={20} className={task.completed ? "text-green-500" : ""} />
+            <CheckCircle2 size={20} className={task.status === 'completed' ? "text-green-500" : ""} />
           </button>
           <button 
             onClick={() => onDeleteTask(task.id)}

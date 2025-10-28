@@ -35,10 +35,16 @@ const SCRIPT_CODE = `function doPost(e) {
     
     // Prepare all task data to be written in a single operation
     var rows = tasks.map(function(task) {
+      var statusText;
+      switch(task.status) {
+        case 'completed': statusText = 'Completed'; break;
+        case 'inprogress': statusText = 'In Progress'; break;
+        default: statusText = 'Pending';
+      }
       return [
         task.id,
         task.text,
-        task.completed ? "Completed" : "Pending",
+        statusText,
         task.createdAt ? new Date(task.createdAt) : null,
         task.dueDate ? new Date(task.dueDate) : null,
         task.hashtags.join(", "),
