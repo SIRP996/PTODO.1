@@ -1,6 +1,6 @@
 
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Task, TaskStatus } from '../types';
 import KanbanCard from './KanbanCard';
 
@@ -35,6 +35,18 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 }) => {
   const [isOver, setIsOver] = useState(false);
 
+  const sortedTasks = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      // For 'todo' and 'inprogress' columns, prioritize urgent tasks.
+      if (status !== 'completed') {
+          if (a.isUrgent && !b.isUrgent) return -1; // a is urgent, b is not -> a comes first
+          if (!a.isUrgent && b.isUrgent) return 1;  // b is urgent, a is not -> b comes first
+      }
+      // For tasks with same urgency or in 'completed' column, sort by creation date (newest first).
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [tasks, status]);
+
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsOver(true);
@@ -64,7 +76,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
         </h3>
       </div>
       <div className="space-y-4 p-4 pr-3 min-h-[150px] flex-grow overflow-y-auto">
-        {tasks.map(task => (
+        {sortedTasks.map(task => (
           <KanbanCard
             key={task.id}
             task={task}

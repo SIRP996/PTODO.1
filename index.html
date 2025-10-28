@@ -33,6 +33,13 @@
       .blinking {
         animation: blink 1.2s linear infinite;
       }
+      .kanban-wrapper::-webkit-scrollbar {
+        display: none;
+      }
+      .kanban-wrapper {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+      }
     </style>
   <script type="importmap">
 {
