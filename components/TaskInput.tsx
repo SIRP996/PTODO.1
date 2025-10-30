@@ -178,7 +178,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Ví dụ: Gặp đội thiết kế vào 4h chiều mai #họp"
-          className="w-full bg-[#293548] text-slate-200 border border-indigo-600 focus:border-indigo-500 focus:ring-0 rounded-lg px-4 py-2 transition pr-12"
+          className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition pr-12"
           rows={3}
         />
         {hasSpeechRecognitionSupport && (
@@ -197,11 +197,11 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
       
       <div>
         <label htmlFor="task-tags" className="block text-sm font-medium text-slate-400 mb-1">Thẻ (gõ rồi nhấn Enter)</label>
-        <div className="flex flex-wrap items-center gap-2 p-2 bg-[#293548] border border-indigo-600 rounded-lg focus-within:border-indigo-500">
+        <div className="flex flex-wrap items-center gap-2 p-2 bg-[#293548] border border-primary-600 rounded-lg focus-within:border-primary-500">
             {tags.map(tag => (
-              <span key={tag} className="flex items-center bg-indigo-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
+              <span key={tag} className="flex items-center bg-primary-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
                 #{tag}
-                <button type="button" onClick={() => removeTag(tag)} className="ml-1.5 text-indigo-200 hover:text-white">
+                <button type="button" onClick={() => removeTag(tag)} className="ml-1.5 text-primary-200 hover:text-white">
                   <X size={12} />
                 </button>
               </span>
@@ -226,7 +226,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
             type="datetime-local"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            className="w-full bg-[#293548] text-slate-200 border border-indigo-600 focus:border-indigo-500 focus:ring-0 rounded-lg px-4 py-2 transition"
+            className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition"
           />
         </div>
         <div>
@@ -239,7 +239,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
                         onClick={() => setRecurrenceRule(opt.id)}
                         disabled={!dueDate && opt.id !== 'none'}
                         className={`flex-1 px-2 py-1 text-xs font-medium rounded-md transition-colors text-center disabled:opacity-50 disabled:cursor-not-allowed
-                            ${recurrenceRule === opt.id ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'}`
+                            ${recurrenceRule === opt.id ? 'bg-primary-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'}`
                         }
                     >
                         {opt.label}
@@ -254,7 +254,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
                 type="button"
                 onClick={() => handleParseTask()}
                 disabled={isParsing || !text.trim() || !hasApiKey}
-                className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-indigo-900/50 disabled:text-indigo-600 disabled:cursor-not-allowed"
+                className="p-2.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-primary-900/50 disabled:text-primary-600 disabled:cursor-not-allowed"
                 title={hasApiKey ? "Phân tích công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
             >
                 {isParsing ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
@@ -269,7 +269,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
             </button>
             <button 
                 type="submit"
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-indigo-800 disabled:cursor-not-allowed"
+                className="bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-primary-800 disabled:cursor-not-allowed"
                 disabled={!text.trim() || (recurrenceRule !== 'none' && !dueDate)}
             >
                 <Plus size={20} />

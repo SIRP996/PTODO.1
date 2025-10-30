@@ -47,7 +47,7 @@ const FocusModeOverlay: React.FC<FocusModeOverlayProps> = ({
 
         <button
           onClick={onToggleTimer}
-          className="w-20 h-20 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full transition-all duration-200 shadow-lg"
+          className="w-20 h-20 flex items-center justify-center bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-full transition-all duration-200 shadow-lg"
           title={isTimerRunning ? 'Tạm dừng' : 'Tiếp tục'}
           disabled={timeLeft === 0}
         >

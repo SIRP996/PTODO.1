@@ -4,10 +4,12 @@ import { auth, db } from '../firebaseConfig';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
+import { Theme } from '../types';
 
 interface UserSettings {
   apiKey?: string;
   googleSheetUrl?: string;
+  theme?: Theme;
 }
 
 interface AuthContextType {
@@ -19,7 +21,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<any>;
   updateUserProfile: (name: string) => Promise<void>;
   userSettings: UserSettings | null;
-  updateUserSettings: (settings: UserSettings) => Promise<void>;
+  updateUserSettings: (settings: Partial<UserSettings>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +51,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return db.collection('users').doc(userCredential.user.uid).set({
             apiKey: '',
             googleSheetUrl: '',
+            theme: 'default',
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           });
         }
@@ -76,7 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return Promise.reject(new Error("No user is logged in."));
   }
   
-  async function updateUserSettings(settings: UserSettings) {
+  async function updateUserSettings(settings: Partial<UserSettings>) {
     if (currentUser) {
         const userDocRef = db.collection('users').doc(currentUser.uid);
         return userDocRef.set(settings, { merge: true });
@@ -103,9 +106,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 db.collection('users').doc(user.uid).set({
                     apiKey: '',
                     googleSheetUrl: '',
+                    theme: 'default',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 });
-                setUserSettings({});
+                setUserSettings({ theme: 'default'});
             }
             setLoading(false);
         }, error => {

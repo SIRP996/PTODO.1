@@ -1,4 +1,5 @@
 export type TaskStatus = 'todo' | 'inprogress' | 'completed';
+export type Theme = 'default' | 'azure' | 'teal' | 'sunset' | 'ocean';
 
 export interface Task {
   id: string;

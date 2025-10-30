@@ -22,7 +22,6 @@
       }
       ::-webkit-scrollbar-thumb {
         background: #4f46e5;
-        border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #6366f1;
@@ -39,6 +38,48 @@
       .kanban-wrapper {
         -ms-overflow-style: none;  /* IE and Edge */
         scrollbar-width: none;  /* Firefox */
+      }
+
+      /* --- THEME DEFINITIONS --- */
+      :root, [data-theme="default"] {
+        --color-primary-50: #eef2ff; --color-primary-100: #e0e7ff;
+        --color-primary-200: #c7d2fe; --color-primary-300: #a5b4fc;
+        --color-primary-400: #818cf8; --color-primary-500: #6366f1;
+        --color-primary-600: #4f46e5; --color-primary-700: #4338ca;
+        --color-primary-800: #3730a3; --color-primary-900: #312e81;
+        --color-primary-950: #1e1b4b;
+      }
+      [data-theme="azure"] {
+        --color-primary-50: #f0f9ff; --color-primary-100: #e0f2fe;
+        --color-primary-200: #bae6fd; --color-primary-300: #7dd3fc;
+        --color-primary-400: #38bdf8; --color-primary-500: #0ea5e9;
+        --color-primary-600: #0284c7; --color-primary-700: #0369a1;
+        --color-primary-800: #075985; --color-primary-900: #0c4a6e;
+        --color-primary-950: #082f49;
+      }
+      [data-theme="teal"] {
+        --color-primary-50: #f0fdfa; --color-primary-100: #ccfbf1;
+        --color-primary-200: #99f6e4; --color-primary-300: #5eead4;
+        --color-primary-400: #2dd4bf; --color-primary-500: #14b8a6;
+        --color-primary-600: #0d9488; --color-primary-700: #0f766e;
+        --color-primary-800: #115e59; --color-primary-900: #134e4a;
+        --color-primary-950: #042f2e;
+      }
+      [data-theme="sunset"] {
+        --color-primary-50: #fffbeb; --color-primary-100: #fef3c7;
+        --color-primary-200: #fde68a; --color-primary-300: #fcd34d;
+        --color-primary-400: #fbbf24; --color-primary-500: #f59e0b;
+        --color-primary-600: #d97706; --color-primary-700: #b45309;
+        --color-primary-800: #92400e; --color-primary-900: #78350f;
+        --color-primary-950: #451a03;
+      }
+      [data-theme="ocean"] {
+        --color-primary-50: #ecfeff; --color-primary-100: #cffafe;
+        --color-primary-200: #a5f3fc; --color-primary-300: #67e8f9;
+        --color-primary-400: #22d3ee; --color-primary-500: #06b6d4;
+        --color-primary-600: #0891b2; --color-primary-700: #0e7490;
+        --color-primary-800: #155e75; --color-primary-900: #164e63;
+        --color-primary-950: #083344;
       }
     </style>
   <script type="importmap">
@@ -60,6 +101,29 @@
     "firebase/": "https://aistudiocdn.com/firebase@^12.4.0/"
   }
 }
+</script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          primary: {
+            50: 'var(--color-primary-50)',
+            100: 'var(--color-primary-100)',
+            200: 'var(--color-primary-200)',
+            300: 'var(--color-primary-300)',
+            400: 'var(--color-primary-400)',
+            500: 'var(--color-primary-500)',
+            600: 'var(--color-primary-600)',
+            700: 'var(--color-primary-700)',
+            800: 'var(--color-primary-800)',
+            900: 'var(--color-primary-900)',
+            950: 'var(--color-primary-950)',
+          }
+        }
+      }
+    }
+  }
 </script>
 </head>
   <body class="bg-[#0F172A]">

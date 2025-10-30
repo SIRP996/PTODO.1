@@ -69,7 +69,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
       <header className="sticky top-0 z-40 bg-[#0F172A]/80 backdrop-blur-lg border-b border-slate-800">
         <nav className="max-w-7xl mx-auto flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
-            <div className="bg-[#4F46E5] p-2 rounded-lg">
+            <div className="bg-primary-600 p-2 rounded-lg">
               <CheckSquare className="h-6 w-6 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white">PTODO</h1>
@@ -83,7 +83,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
           </div>
           <button
             onClick={onNavigateToAuth}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+            className="bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
           >
             Bắt đầu ngay
           </button>
@@ -97,12 +97,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
             PTODO
           </h1>
           <p className="text-2xl md:text-3xl font-medium text-slate-300 mb-4">Trình Quản Lý Công Việc Cá Nhân Thông Minh</p>
-          <p className="text-4xl md:text-5xl font-bold text-indigo-400 mb-8">
+          <p className="text-4xl md:text-5xl font-bold text-primary-400 mb-8">
             Think Less. Do More.
           </p>
           <button
             onClick={onNavigateToAuth}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full text-lg transition-transform hover:scale-105"
+            className="bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-8 rounded-full text-lg transition-transform hover:scale-105"
           >
             Trải nghiệm miễn phí
           </button>
@@ -139,8 +139,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
           <div className="grid md:grid-cols-3 gap-8">
             <div className="bg-[#1E293B]/60 p-8 rounded-2xl border border-slate-800 text-center">
               <div className="flex justify-center mb-4">
-                  <div className="bg-indigo-600/20 p-3 rounded-full">
-                      <Gamepad2 size={24} className="text-indigo-400" />
+                  <div className="bg-primary-600/20 p-3 rounded-full">
+                      <Gamepad2 size={24} className="text-primary-400" />
                   </div>
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Tối giản & Hiện đại</h3>
@@ -148,8 +148,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
             </div>
             <div className="bg-[#1E293B]/60 p-8 rounded-2xl border border-slate-800 text-center">
               <div className="flex justify-center mb-4">
-                  <div className="bg-indigo-600/20 p-3 rounded-full">
-                      <Users size={24} className="text-indigo-400" />
+                  <div className="bg-primary-600/20 p-3 rounded-full">
+                      <Users size={24} className="text-primary-400" />
                   </div>
               </div>
               <h3 className="text-xl font-bold text-white mb-2">UX là trung tâm</h3>
@@ -157,8 +157,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
             </div>
             <div className="bg-[#1E293B]/60 p-8 rounded-2xl border border-slate-800 text-center">
               <div className="flex justify-center mb-4">
-                  <div className="bg-indigo-600/20 p-3 rounded-full">
-                      <Zap size={24} className="text-indigo-400" />
+                  <div className="bg-primary-600/20 p-3 rounded-full">
+                      <Zap size={24} className="text-primary-400" />
                   </div>
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Tự động & Thông minh</h3>
@@ -180,7 +180,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                   key={group.id}
                   onClick={() => setActiveTab(group.id)}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-colors duration-200 ${
-                    activeTab === group.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'
+                    activeTab === group.id ? 'bg-primary-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'
                   }`}
                 >
                   {group.icon}
@@ -197,7 +197,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                     <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-3">
                       {group.features.map(feature => (
                         <li key={feature} className="flex items-start gap-3">
-                          <CheckSquare className="h-5 w-5 mt-1 text-indigo-400 flex-shrink-0" />
+                          <CheckSquare className="h-5 w-5 mt-1 text-primary-400 flex-shrink-0" />
                           <span>{feature}</span>
                         </li>
                       ))}
@@ -256,7 +256,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                       {/* Left Panel Content */}
                       <text x="22" y="34" fontFamily="Inter, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Tiến độ tuần</text>
                       <rect x="22" y="44" width="100" height="8" rx="4" fill="#334155"/>
-                      <rect x="22" y="44" width="75" height="8" rx="4" fill="#4f46e5"/>
+                      <rect x="22" y="44" width="75" height="8" rx="4" fill="var(--color-primary-600)"/>
                       <text x="22" y="68" fontFamily="Inter, sans-serif" fontSize="9" fill="#94A3B8">Task A</text>
                       <rect x="22" y="75" width="100" height="6" rx="3" fill="#334155"/>
                       <text x="22" y="98" fontFamily="Inter, sans-serif" fontSize="9" fill="#94A3B8">Task B</text>
@@ -269,12 +269,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                       <g transform="translate(156, 48)">
                           <rect width="100" height="60" rx="6" fill="#1E293B"/>
                           <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="8" fill="#94A3B8">Hoàn thành</text>
-                          <text x="10" y="45" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="#6366f1">12</text>
+                          <text x="10" y="45" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="var(--color-primary-500)">12</text>
                       </g>
                       <g transform="translate(268, 48)">
                           <rect width="100" height="60" rx="6" fill="#1E293B"/>
                           <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="8" fill="#94A3B8">Đang chờ</text>
-                          <text x="10" y="45" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="#818cf8">8</text>
+                          <text x="10" y="45" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="var(--color-primary-400)">8</text>
                       </g>
                       <g transform="translate(380, 48)">
                           <rect width="100" height="60" rx="6" fill="#1E293B"/>
@@ -287,12 +287,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                           <rect width="210" height="137.25" rx="6" fill="#1E293B"/>
                           <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Phân tích Tuần</text>
                           <g>
-                              <rect className="bar" style={{animationDelay: '0s', transformOrigin: '20px 127.25px'}} x="10" y="107.25" width="20" height="20" rx="2" fill="#4f46e5"/>
-                              <rect className="bar" style={{animationDelay: '0.2s', transformOrigin: '50px 127.25px'}} x="40" y="77.25" width="20" height="50" rx="2" fill="#4f46e5"/>
-                              <rect className="bar" style={{animationDelay: '0.4s', transformOrigin: '80px 127.25px'}} x="70" y="92.25" width="20" height="35" rx="2" fill="#6366f1"/>
-                              <rect className="bar" style={{animationDelay: '0.6s', transformOrigin: '110px 127.25px'}} x="100" y="57.25" width="20" height="70" rx="2" fill="#4f46e5"/>
-                              <rect className="bar" style={{animationDelay: '0.8s', transformOrigin: '140px 127.25px'}} x="130" y="87.25" width="20" height="40" rx="2" fill="#6366f1"/>
-                              <rect className="bar" style={{animationDelay: '1s', transformOrigin: '170px 127.25px'}} x="160" y="27.25" width="20" height="100" rx="2" fill="#818cf8"/>
+                              <rect className="bar" style={{animationDelay: '0s', transformOrigin: '20px 127.25px'}} x="10" y="107.25" width="20" height="20" rx="2" fill="var(--color-primary-600)"/>
+                              <rect className="bar" style={{animationDelay: '0.2s', transformOrigin: '50px 127.25px'}} x="40" y="77.25" width="20" height="50" rx="2" fill="var(--color-primary-600)"/>
+                              <rect className="bar" style={{animationDelay: '0.4s', transformOrigin: '80px 127.25px'}} x="70" y="92.25" width="20" height="35" rx="2" fill="var(--color-primary-500)"/>
+                              <rect className="bar" style={{animationDelay: '0.6s', transformOrigin: '110px 127.25px'}} x="100" y="57.25" width="20" height="70" rx="2" fill="var(--color-primary-600)"/>
+                              <rect className="bar" style={{animationDelay: '0.8s', transformOrigin: '140px 127.25px'}} x="130" y="87.25" width="20" height="40" rx="2" fill="var(--color-primary-500)"/>
+                              <rect className="bar" style={{animationDelay: '1s', transformOrigin: '170px 127.25px'}} x="160" y="27.25" width="20" height="100" rx="2" fill="var(--color-primary-400)"/>
                           </g>
                           <line x1="5" y1="127.25" x2="205" y2="127.25" stroke="#334155" strokeWidth="2"/>
                       </g>
@@ -302,7 +302,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                           <rect width="100" height="137.25" rx="6" fill="#1E293B"/>
                           <g className="donut-arc">
                               <circle cx="50" cy="45" r="30" fill="none" stroke="#334155" strokeWidth="8"/>
-                              <circle cx="50" cy="45" r="30" fill="none" stroke="#4f46e5" strokeWidth="8" strokeDasharray="141.4 188.5" transform="rotate(-90 50 45)"/>
+                              <circle cx="50" cy="45" r="30" fill="none" stroke="var(--color-primary-600)" strokeWidth="8" strokeDasharray="141.4 188.5" transform="rotate(-90 50 45)"/>
                           </g>
                           <text className="text-fade" x="50" y="45.5" textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="#E2E8F0">75%</text>
                           <text x="50" y="95" textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Tiến độ</text>
@@ -323,22 +323,22 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
             <div className="flex flex-wrap items-center gap-4 text-sm font-semibold">
               <div className="bg-slate-700 px-4 py-2 rounded-lg">Người dùng</div>
               <ArrowRight className="text-slate-500" />
-              <div className="bg-indigo-600 text-white px-4 py-2 rounded-lg">Frontend (React)</div>
+              <div className="bg-primary-600 text-white px-4 py-2 rounded-lg">Frontend (React)</div>
               <ArrowRight className="text-slate-500" />
               <div className="bg-slate-700 px-4 py-2 rounded-lg">Backend (Firebase)</div>
               <ArrowRight className="text-slate-500" />
-              <div className="bg-indigo-600 text-white px-4 py-2 rounded-lg">AI (Gemini)</div>
+              <div className="bg-primary-600 text-white px-4 py-2 rounded-lg">AI (Gemini)</div>
             </div>
           </div>
           <div>
             <h3 className="text-xl font-semibold text-white mb-4">Công nghệ chính</h3>
             <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><Code className="text-indigo-400" /><div><h4 className="font-semibold text-white">React + TypeScript</h4><p className="text-xs text-slate-500">Frontend</p></div></div>
-                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><Palette className="text-indigo-400" /><div><h4 className="font-semibold text-white">Tailwind CSS</h4><p className="text-xs text-slate-500">UI/UX</p></div></div>
-                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><Database className="text-indigo-400" /><div><h4 className="font-semibold text-white">Firebase</h4><p className="text-xs text-slate-500">Auth & Firestore</p></div></div>
-                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><BrainCircuit className="text-indigo-400" /><div><h4 className="font-semibold text-white">Gemini API</h4><p className="text-xs text-slate-500">AI thông minh</p></div></div>
-                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><BarChart className="text-indigo-400" /><div><h4 className="font-semibold text-white">Recharts</h4><p className="text-xs text-slate-500">Biểu đồ</p></div></div>
-                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><Mic className="text-indigo-400" /><div><h4 className="font-semibold text-white">Web API</h4><p className="text-xs text-slate-500">Speech & Worker</p></div></div>
+                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><Code className="text-primary-400" /><div><h4 className="font-semibold text-white">React + TypeScript</h4><p className="text-xs text-slate-500">Frontend</p></div></div>
+                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><Palette className="text-primary-400" /><div><h4 className="font-semibold text-white">Tailwind CSS</h4><p className="text-xs text-slate-500">UI/UX</p></div></div>
+                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><Database className="text-primary-400" /><div><h4 className="font-semibold text-white">Firebase</h4><p className="text-xs text-slate-500">Auth & Firestore</p></div></div>
+                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><BrainCircuit className="text-primary-400" /><div><h4 className="font-semibold text-white">Gemini API</h4><p className="text-xs text-slate-500">AI thông minh</p></div></div>
+                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><BarChart className="text-primary-400" /><div><h4 className="font-semibold text-white">Recharts</h4><p className="text-xs text-slate-500">Biểu đồ</p></div></div>
+                <div className="flex items-center gap-3 bg-[#1E293B]/60 p-4 rounded-lg border border-slate-800"><Mic className="text-primary-400" /><div><h4 className="font-semibold text-white">Web API</h4><p className="text-xs text-slate-500">Speech & Worker</p></div></div>
             </div>
           </div>
         </section>
@@ -353,7 +353,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                 <div className="absolute left-4 top-0 h-full w-0.5 bg-slate-700"></div>
                 
                 <div className="relative pl-12 pb-12">
-                    <div className="absolute left-0 top-0 h-8 w-8 bg-indigo-600 rounded-full border-4 border-[#0F172A] flex items-center justify-center"><Target size={16} className="text-white"/></div>
+                    <div className="absolute left-0 top-0 h-8 w-8 bg-primary-600 rounded-full border-4 border-[#0F172A] flex items-center justify-center"><Target size={16} className="text-white"/></div>
                     <h3 className="text-xl font-semibold text-white mb-1">2025 (Hiện tại)</h3>
                     <p className="text-slate-400">Hoàn thiện 26 tính năng cốt lõi, tập trung tối ưu hóa hiệu năng, AI và trải nghiệm người dùng.</p>
                 </div>

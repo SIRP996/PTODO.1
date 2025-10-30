@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Task } from '../types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { 
@@ -14,15 +14,28 @@ import {
     eachWeekOfInterval,
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useAuth } from '../context/AuthContext';
 
 interface AdvancedDashboardProps {
     tasks: Task[];
 }
 
-const COLORS = ['#818cf8', '#a78bfa', '#c084fc', '#f472b6', '#fb7185'];
-
 const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
+    const { userSettings } = useAuth();
+    const [primaryColor, setPrimaryColor] = useState('#818cf8');
+    const [primaryColor400, setPrimaryColor400] = useState('#a78bfa');
     
+    useEffect(() => {
+        // This is necessary to get CSS variable values into JS for the chart library,
+        // as it doesn't support CSS variables in its props directly.
+        const p500 = getComputedStyle(document.documentElement).getPropertyValue('--color-primary-500').trim();
+        const p400 = getComputedStyle(document.documentElement).getPropertyValue('--color-primary-400').trim();
+        if (p500) setPrimaryColor(p500);
+        if (p400) setPrimaryColor400(p400);
+    }, [userSettings?.theme]);
+    
+    const chartTagColors = useMemo(() => [primaryColor, primaryColor400, '#c084fc', '#f472b6', '#fb7185'], [primaryColor, primaryColor400]);
+
     const completedTasks = useMemo(() => tasks.filter(t => t.status === 'completed' && t.createdAt), [tasks]);
 
     const dailyStats = useMemo(() => {
@@ -147,8 +160,10 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
         const intensity = count / maxCount;
         if (intensity > 0.75) return 'bg-purple-400';
         if (intensity > 0.5) return 'bg-purple-500';
-        if (intensity > 0.25) return 'bg-purple-700';
-        return 'bg-purple-900';
+        if (intensity > 0.75) return `bg-primary-400`;
+        if (intensity > 0.5) return `bg-primary-500`;
+        if (intensity > 0.25) return `bg-primary-700`;
+        return `bg-primary-900`;
     };
     
     return (
@@ -179,7 +194,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
                                 strokeWidth="2.5"
                             />
                             <path
-                                className="text-indigo-500 transition-all duration-500"
+                                className="text-primary-500 transition-all duration-500"
                                 strokeDasharray={`${dailyStats.percentage}, 100`}
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                 fill="none"
@@ -239,7 +254,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
                                     <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                                         <LabelList dataKey="value" position="right" offset={8} style={{ fill: '#cbd5e1', fontSize: 11 }} /> 
                                         {tagStats.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            <Cell key={`cell-${index}`} fill={chartTagColors[index % chartTagColors.length]} />
                                         ))}
                                     </Bar>
                                 </BarChart>
@@ -260,7 +275,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
                                 <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false} />
                                 <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} width={20} />
                                 <Tooltip cursor={{fill: 'rgba(71, 85, 105, 0.5)'}} contentStyle={{background: '#1e293b', border: '1px solid #334155', borderRadius: '0.5rem'}}/>
-                                <Bar dataKey="value" fill="#818cf8" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="value" fill={primaryColor} radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -271,7 +286,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
                                 <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false} />
                                 <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} width={20}/>
                                 <Tooltip cursor={{fill: 'rgba(71, 85, 105, 0.5)'}} contentStyle={{background: '#1e293b', border: '1px solid #334155', borderRadius: '0.5rem'}}/>
-                                <Bar dataKey="value" fill="#a78bfa" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="value" fill={primaryColor400} radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { Task } from '../types';
 import { Sheet, X, Save, CheckCircle, AlertTriangle, HelpCircle, Copy, Loader2 } from 'lucide-react';
@@ -139,7 +140,7 @@ const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
     return (
         <div>
             <h2 className="text-xl font-semibold mb-4 text-slate-100 flex items-center gap-2">
-                <Sheet className="text-indigo-400" />
+                <Sheet className="text-primary-400" />
                 Đồng bộ với Google Sheets
             </h2>
 
@@ -152,14 +153,14 @@ const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
                         value={sheetUrl}
                         onChange={handleUrlChange}
                         placeholder="Dán URL Web App của bạn ở đây"
-                        className="w-full bg-[#293548] text-slate-200 border border-indigo-600 focus:border-indigo-500 focus:ring-0 rounded-lg px-4 py-2 transition"
+                        className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition"
                     />
                 </div>
                  <div className="flex justify-between items-center gap-2">
                     <button
                         onClick={handleSync}
                         disabled={isLoading}
-                        className="w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300 bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-wait"
+                        className="w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300 bg-primary-600 hover:bg-primary-700 text-white disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-wait"
                     >
                         {isLoading ? (
                             <><Loader2 size={20} className="mr-2 animate-spin"/><span>Đang lưu...</span></>
@@ -188,7 +189,7 @@ const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
                         <div className="text-slate-300 space-y-4 text-sm">
                             <p>Để đồng bộ dữ liệu một cách an toàn, bạn cần tạo một Web App riêng trên Google Apps Script được liên kết với một Google Sheet.</p>
                             <ol className="list-decimal list-inside space-y-2 pl-2">
-                                <li>Tạo một Google Sheet mới (bạn có thể truy cập <a href="https://sheets.new" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline">sheets.new</a>).</li>
+                                <li>Tạo một Google Sheet mới (bạn có thể truy cập <a href="https://sheets.new" target="_blank" rel="noopener noreferrer" className="text-primary-400 underline">sheets.new</a>).</li>
                                 <li>Trong trang tính, đi tới <b className="text-white">Tiện ích mở rộng</b> (Extensions) &gt; <b className="text-white">Apps Script</b>.</li>
                                 <li>Xóa mã mặc định và dán mã bên dưới vào trình soạn thảo.</li>
                                 <li>Nhấn vào nút <b className="text-white">Triển khai</b> (Deploy) &gt; <b className="text-white">Lần triển khai mới</b> (New deployment).</li>

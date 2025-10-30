@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useRef, MouseEvent, TouchEvent, useEffect, KeyboardEvent } from 'react';
 import { Task, TaskStatus } from '../types';
 import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Cog, StickyNote } from 'lucide-react';
@@ -216,7 +217,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
     <div className="relative overflow-hidden border-b border-slate-700/50 last:border-b-0">
        {isGeneratingSubtasks && (
           <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-20">
-              <Loader2 size={24} className="animate-spin text-indigo-400" />
+              <Loader2 size={24} className="animate-spin text-primary-400" />
               <span className="ml-3 text-slate-300">AI đang chia nhỏ công việc...</span>
           </div>
       )}
@@ -231,7 +232,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         ref={taskRef}
         className={`relative flex items-start p-4 transition-colors duration-200 ${
           task.status === 'completed' ? 'bg-slate-800/40' : 'bg-slate-800/80'
-        } ${task.isUrgent && task.status !== 'completed' ? 'border-l-4 border-red-500 pl-3' : ''} ${task.status === 'inprogress' ? 'border-l-4 border-indigo-500 pl-3' : ''}`}
+        } ${task.isUrgent && task.status !== 'completed' ? 'border-l-4 border-red-500 pl-3' : ''} ${task.status === 'inprogress' ? 'border-l-4 border-primary-500 pl-3' : ''}`}
         style={{ transform: `translateX(${translateX}px)`, zIndex: 1, touchAction: 'pan-y' }}
         onMouseDown={onMouseDown}
         onMouseMove={isSwiping ? onMouseMove : undefined}
@@ -245,7 +246,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
             {task.status !== 'completed' && (
                 <button 
                     onClick={() => onStartFocus(task)}
-                    className="mr-3 text-slate-500 hover:text-indigo-400 transition-colors"
+                    className="mr-3 text-slate-500 hover:text-primary-400 transition-colors"
                     title="Bắt đầu tập trung"
                 >
                     <Play size={18} />
@@ -262,7 +263,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
               onBlur={handleSave}
               onKeyDown={handleKeyDown}
               onClick={(e) => e.stopPropagation()}
-              className="w-full bg-[#293548] text-slate-200 border border-indigo-600 focus:ring-1 focus:ring-indigo-500 rounded-md p-2 -m-2 text-sm resize-none overflow-hidden block"
+              className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:ring-1 focus:ring-primary-500 rounded-md p-2 -m-2 text-sm resize-none overflow-hidden block"
               rows={1}
             />
           ) : (
@@ -276,7 +277,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
           {task.hashtags && task.hashtags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {task.hashtags.map(tag => (
-                <span key={tag} className="px-2 py-0.5 text-xs font-medium text-indigo-200 bg-indigo-900/50 rounded-full">
+                <span key={tag} className="px-2 py-0.5 text-xs font-medium text-primary-200 bg-primary-900/50 rounded-full">
                   #{tag}
                 </span>
               ))}
@@ -320,7 +321,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                   if (e.key === 'Enter') handleDateUpdate(e.currentTarget.value);
                   if (e.key === 'Escape') setIsEditingDate(false);
                 }}
-                className="w-full sm:w-auto bg-[#293548] text-slate-200 border border-indigo-600 focus:border-indigo-500 focus:ring-0 rounded-lg px-2 py-1 text-xs transition"
+                className="w-full sm:w-auto bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-2 py-1 text-xs transition"
               />
             </div>
           )}
@@ -348,7 +349,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                     }
                   }}
                   placeholder="Thêm ghi chú..."
-                  className="w-full bg-[#293548] text-slate-300 border border-indigo-600 focus:ring-1 focus:ring-indigo-500 rounded-md p-2 text-sm resize-none overflow-hidden block"
+                  className="w-full bg-[#293548] text-slate-300 border border-primary-600 focus:ring-1 focus:ring-primary-500 rounded-md p-2 text-sm resize-none overflow-hidden block"
                 />
               ) : (
                 <p className="text-sm text-slate-400 whitespace-pre-wrap bg-slate-700/40 p-2 rounded-md">{task.note}</p>
@@ -399,7 +400,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                 <button
                     onClick={handleGenerateSubtasks}
                     disabled={isGeneratingSubtasks || !hasApiKey}
-                    className="text-slate-500 hover:text-indigo-400 transition-colors duration-200 z-10 disabled:text-slate-600 disabled:hover:text-slate-600 disabled:cursor-not-allowed"
+                    className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10 disabled:text-slate-600 disabled:hover:text-slate-600 disabled:cursor-not-allowed"
                     title={hasApiKey ? "Chia nhỏ công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
                 >
                     <ListTree size={18} />
@@ -407,7 +408,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
               )}
                <button
                   onClick={() => { setIsEditingNote(prev => !prev); if(!isEditingNote) setEditNoteText(task.note || '') }}
-                  className="text-slate-500 hover:text-indigo-400 transition-colors duration-200 z-10"
+                  className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10"
                   aria-label="Thêm/Sửa ghi chú"
                   title="Thêm/Sửa ghi chú"
                 >
@@ -415,7 +416,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                 </button>
                <button
                   onClick={startEditing}
-                  className="text-slate-500 hover:text-indigo-400 transition-colors duration-200 z-10"
+                  className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10"
                   aria-label="Chỉnh sửa nội dung"
                   title="Chỉnh sửa nội dung"
               >
@@ -425,8 +426,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                   onClick={() => onUpdateTaskStatus(task.id, task.status === 'inprogress' ? 'todo' : 'inprogress')}
                   className={`transition-colors duration-200 z-10 ${
                       task.status === 'inprogress'
-                      ? 'text-indigo-400 hover:text-indigo-300'
-                      : 'text-slate-500 hover:text-indigo-400'
+                      ? 'text-primary-400 hover:text-primary-300'
+                      : 'text-slate-500 hover:text-primary-400'
                   }`}
                   title={task.status === 'inprogress' ? 'Dừng làm' : 'Bắt đầu làm'}
               >

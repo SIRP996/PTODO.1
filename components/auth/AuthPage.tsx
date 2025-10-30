@@ -11,7 +11,7 @@ const AuthInput = ({ icon, ...props }: { icon: React.ReactNode; [key: string]: a
     </span>
     <input
       {...props}
-      className="w-full bg-[#293548] text-slate-200 border border-slate-600 focus:border-indigo-500 focus:ring-0 rounded-lg pl-10 pr-4 py-2 transition disabled:opacity-50"
+      className="w-full bg-[#293548] text-slate-200 border border-slate-600 focus:border-primary-500 focus:ring-0 rounded-lg pl-10 pr-4 py-2 transition disabled:opacity-50"
     />
   </div>
 );
@@ -118,7 +118,7 @@ const AuthPage = () => {
             <AuthInput icon={<Mail size={18} />} type="email" placeholder="Email" required value={email} onChange={(e: any) => setEmail(e.target.value)} disabled={loading} />
             <AuthInput icon={<Lock size={18} />} type="password" placeholder="Mật khẩu" required value={password} onChange={(e: any) => setPassword(e.target.value)} disabled={loading} />
             <AuthInput icon={<Lock size={18} />} type="password" placeholder="Xác nhận mật khẩu" required value={confirmPassword} onChange={(e: any) => setConfirmPassword(e.target.value)} disabled={loading} />
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center" disabled={loading}>
+            <button type="submit" className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center" disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : 'Đăng ký'}
             </button>
           </form>
@@ -129,7 +129,7 @@ const AuthPage = () => {
             <h2 className="text-2xl font-bold text-center text-white mb-1">Quên mật khẩu</h2>
             <p className="text-center text-slate-400 text-sm mb-6">Chúng tôi sẽ gửi một liên kết khôi phục cho bạn.</p>
             <AuthInput icon={<Mail size={18} />} type="email" placeholder="Email của bạn" required value={email} onChange={(e: any) => setEmail(e.target.value)} disabled={loading} />
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center" disabled={loading}>
+            <button type="submit" className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center" disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : 'Gửi liên kết'}
             </button>
           </form>
@@ -143,11 +143,11 @@ const AuthPage = () => {
             <AuthInput icon={<Mail size={18} />} type="email" placeholder="Email" required value={email} onChange={(e: any) => setEmail(e.target.value)} disabled={loading} />
             <AuthInput icon={<Lock size={18} />} type="password" placeholder="Mật khẩu" required value={password} onChange={(e: any) => setPassword(e.target.value)} disabled={loading} />
              <div className="text-right">
-                <button type="button" onClick={() => switchMode('forgotPassword')} className="text-sm text-indigo-400 hover:underline">
+                <button type="button" onClick={() => switchMode('forgotPassword')} className="text-sm text-primary-400 hover:underline">
                   Quên mật khẩu?
                 </button>
               </div>
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors" disabled={loading}>
+            <button type="submit" className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors" disabled={loading}>
                 {loading ? <Loader2 className="animate-spin" /> : <><LogIn size={18} /><span>Đăng nhập</span></>}
             </button>
           </form>
@@ -161,7 +161,7 @@ const AuthPage = () => {
         return (
           <p>
             Đã có tài khoản?{' '}
-            <button onClick={() => switchMode('login')} className="font-semibold text-indigo-400 hover:underline">
+            <button onClick={() => switchMode('login')} className="font-semibold text-primary-400 hover:underline">
               Đăng nhập
             </button>
           </p>
@@ -170,7 +170,7 @@ const AuthPage = () => {
         return (
            <p>
             Nhớ mật khẩu rồi?{' '}
-            <button onClick={() => switchMode('login')} className="font-semibold text-indigo-400 hover:underline">
+            <button onClick={() => switchMode('login')} className="font-semibold text-primary-400 hover:underline">
               Quay lại đăng nhập
             </button>
           </p>
@@ -180,7 +180,7 @@ const AuthPage = () => {
         return (
           <p>
             Chưa có tài khoản?{' '}
-            <button onClick={() => switchMode('register')} className="font-semibold text-indigo-400 hover:underline">
+            <button onClick={() => switchMode('register')} className="font-semibold text-primary-400 hover:underline">
               Đăng ký ngay
             </button>
           </p>
@@ -191,7 +191,7 @@ const AuthPage = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#0F172A] p-4">
       <div className="flex items-center mb-8">
-          <div className="bg-[#4F46E5] p-3 rounded-xl mr-4">
+          <div className="bg-primary-600 p-3 rounded-xl mr-4">
               <CheckSquare className="h-8 w-8 text-white" />
           </div>
           <div>

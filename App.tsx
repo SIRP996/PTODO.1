@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -115,6 +116,11 @@ const App: React.FC = () => {
     }
   }, [userSettings]);
   
+  useEffect(() => {
+    // Apply theme from user settings
+    document.body.dataset.theme = userSettings?.theme || 'default';
+  }, [userSettings?.theme]);
+
   useEffect(() => {
     // Clean up active key on logout
     if (!currentUser) {
@@ -377,7 +383,7 @@ const App: React.FC = () => {
   if (loading) {
     return (
         <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
-            <Loader2 className="h-12 w-12 text-indigo-400 animate-spin" />
+            <Loader2 className="h-12 w-12 text-primary-400 animate-spin" />
         </div>
     );
   }
@@ -454,7 +460,7 @@ const App: React.FC = () => {
                 <div className="flex-shrink-0 flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
                     <button 
                         onClick={() => setDisplayMode('list')} 
-                        className={`p-2 rounded-md transition-colors ${displayMode === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}
+                        className={`p-2 rounded-md transition-colors ${displayMode === 'list' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}
                         title="Chế độ danh sách"
                         aria-label="Chế độ danh sách"
                     >
@@ -462,7 +468,7 @@ const App: React.FC = () => {
                     </button>
                     <button 
                         onClick={() => setDisplayMode('kanban')} 
-                        className={`p-2 rounded-md transition-colors ${displayMode === 'kanban' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}
+                        className={`p-2 rounded-md transition-colors ${displayMode === 'kanban' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}
                         title="Chế độ Kanban"
                         aria-label="Chế độ Kanban"
                     >
@@ -485,7 +491,7 @@ const App: React.FC = () => {
                         <button 
                             onClick={() => setView('todo')} 
                             className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-32 text-center ${
-                                view === 'todo' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
+                                view === 'todo' ? 'bg-primary-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
                             }`}
                         >
                             Cần làm ({todoCount})
@@ -493,7 +499,7 @@ const App: React.FC = () => {
                          <button 
                             onClick={() => setView('inprogress')} 
                             className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-32 text-center ${
-                                view === 'inprogress' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
+                                view === 'inprogress' ? 'bg-primary-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
                             }`}
                         >
                             Đang làm ({inProgressCount})
@@ -501,7 +507,7 @@ const App: React.FC = () => {
                         <button 
                             onClick={() => setView('completed')} 
                             className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-32 text-center ${
-                                view === 'completed' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
+                                view === 'completed' ? 'bg-primary-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
                             }`}
                         >
                             Hoàn thành ({completedCount})
@@ -580,12 +586,12 @@ const App: React.FC = () => {
               </div>
             )}
             
-             <div className="bg-indigo-900/50 border border-indigo-700 text-indigo-200 p-4 rounded-xl shadow-lg" role="alert">
+             <div className="bg-primary-900/50 border border-primary-700 text-primary-200 p-4 rounded-xl shadow-lg" role="alert">
               <div className="flex items-center">
-                <BellRing className="h-5 w-5 mr-3 text-indigo-400" />
+                <BellRing className="h-5 w-5 mr-3 text-primary-400" />
                 <div>
                   <p className="font-bold">Nhắc nhở thông minh</p>
-                  <p className="text-sm text-indigo-300">Khi được cho phép, bạn sẽ nhận được thông báo và âm thanh cho các công việc quá hạn.</p>
+                  <p className="text-sm text-primary-300">Khi được cho phép, bạn sẽ nhận được thông báo và âm thanh cho các công việc quá hạn.</p>
                 </div>
               </div>
             </div>

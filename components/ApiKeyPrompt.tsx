@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { KeyRound, ShieldAlert, AlertCircle, X } from 'lucide-react';
 
@@ -36,7 +37,7 @@ const ApiKeyPrompt: React.FC<ApiKeyPromptProps> = ({
                     <X size={24} />
                 </button>
             )}
-            <div className="mx-auto bg-indigo-600/20 text-indigo-400 w-16 h-16 rounded-full flex items-center justify-center mb-6">
+            <div className="mx-auto bg-primary-600/20 text-primary-400 w-16 h-16 rounded-full flex items-center justify-center mb-6">
                 <KeyRound size={32} />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">{isModal ? 'Cập nhật API Key' : 'Yêu cầu API Key'}</h1>
@@ -58,7 +59,7 @@ const ApiKeyPrompt: React.FC<ApiKeyPromptProps> = ({
             {isStudioEnv ? (
                 <button
                     onClick={onSelectKey}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                     Chọn API Key
                 </button>
@@ -69,12 +70,12 @@ const ApiKeyPrompt: React.FC<ApiKeyPromptProps> = ({
                         value={manualKey}
                         onChange={(e) => setManualKey(e.target.value)}
                         placeholder="Dán API Key của bạn tại đây"
-                        className="w-full bg-[#293548] text-slate-200 border border-slate-600 focus:border-indigo-500 focus:ring-0 rounded-lg px-4 py-3 transition"
+                        className="w-full bg-[#293548] text-slate-200 border border-slate-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-3 transition"
                     />
                     <button
                         onClick={handleSave}
                         disabled={!manualKey.trim()}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:bg-indigo-800 disabled:cursor-not-allowed"
+                        className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:bg-primary-800 disabled:cursor-not-allowed"
                     >
                         Lưu và Tiếp tục
                     </button>
@@ -89,7 +90,7 @@ const ApiKeyPrompt: React.FC<ApiKeyPromptProps> = ({
                 <ShieldAlert size={28} className="flex-shrink-0 text-amber-500 mt-0.5" />
                 <div>
                     <strong>Lưu ý về thanh toán:</strong> Các lệnh gọi API tới mô hình Gemini có thể phát sinh chi phí. Hãy đảm bảo bạn đã thiết lập thông tin thanh toán trong dự án Google Cloud của mình.
-                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline ml-1">Tìm hiểu thêm</a>.
+                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-primary-400 hover:underline ml-1">Tìm hiểu thêm</a>.
                 </div>
             </div>
         </div>

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { Task } from '../types';
 import { format, isPast } from 'date-fns';
@@ -47,7 +48,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, is
       {task.hashtags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {task.hashtags.map(tag => (
-            <span key={tag} className="px-2 py-0.5 text-xs font-medium text-indigo-200 bg-indigo-900/50 rounded-full">
+            <span key={tag} className="px-2 py-0.5 text-xs font-medium text-primary-200 bg-primary-900/50 rounded-full">
               #{tag}
             </span>
           ))}
@@ -72,7 +73,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, is
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveNote(); } if (e.key === 'Escape') { setIsEditingNote(false); setEditNoteText(task.note || ''); } }}
                     placeholder="Thêm ghi chú..."
-                    className="w-full bg-[#293548] text-slate-300 border border-indigo-600 focus:ring-1 focus:ring-indigo-500 rounded-md p-2 text-sm resize-none overflow-hidden block"
+                    className="w-full bg-[#293548] text-slate-300 border border-primary-600 focus:ring-1 focus:ring-primary-500 rounded-md p-2 text-sm resize-none overflow-hidden block"
                     autoFocus
                 />
             ) : (
@@ -126,14 +127,14 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, is
               <>
                 <button 
                     onClick={(e) => { e.stopPropagation(); onStartFocus(task); }}
-                    className="text-slate-500 hover:text-indigo-400 p-1 rounded-full transition-colors"
+                    className="text-slate-500 hover:text-primary-400 p-1 rounded-full transition-colors"
                     title="Bắt đầu tập trung"
                 >
                     <Play size={16} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setIsEditingNote(prev => !prev); if(!isEditingNote) setEditNoteText(task.note || '') }}
-                  className="text-slate-500 hover:text-indigo-400 p-1 rounded-full transition-colors"
+                  className="text-slate-500 hover:text-primary-400 p-1 rounded-full transition-colors"
                   title="Thêm/Sửa ghi chú"
                 >
                   <StickyNote size={16} />

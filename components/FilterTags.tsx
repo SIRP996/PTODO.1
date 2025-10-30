@@ -47,7 +47,7 @@ const FilterTags: React.FC<FilterTagsProps> = ({ hashtags, activeHashtag, onSele
 
   const getTagClasses = (tag: string, isActive: boolean) => {
     if (isActive) {
-      return 'bg-indigo-500 text-white';
+      return 'bg-primary-500 text-white';
     }
     const status = hashtagStatuses[tag];
     switch (status) {
@@ -71,7 +71,7 @@ const FilterTags: React.FC<FilterTagsProps> = ({ hashtags, activeHashtag, onSele
           onClick={() => onSelectHashtag(null)}
           className={`px-3 py-1 text-sm font-medium rounded-full transition-colors self-start ${
             activeHashtag === null
-              ? 'bg-indigo-500 text-white'
+              ? 'bg-primary-500 text-white'
               : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
           }`}
         >
@@ -120,7 +120,7 @@ const FilterTags: React.FC<FilterTagsProps> = ({ hashtags, activeHashtag, onSele
                         placeholder="Tìm kiếm thẻ..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-[#293548] text-slate-200 border border-slate-600 focus:border-indigo-500 focus:ring-0 rounded-lg pl-10 pr-4 py-2 transition"
+                        className="w-full bg-[#293548] text-slate-200 border border-slate-600 focus:border-primary-500 focus:ring-0 rounded-lg pl-10 pr-4 py-2 transition"
                         autoFocus
                     />
                 </div>
