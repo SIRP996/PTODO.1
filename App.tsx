@@ -8,7 +8,7 @@ import AdvancedDashboard from './components/AdvancedDashboard';
 import TaskInput from './components/TaskInput';
 import FilterTags from './components/FilterTags';
 import TaskList from './components/TaskList';
-import { BellRing, ShieldCheck, ShieldOff, Loader2, List, LayoutGrid } from 'lucide-react';
+import { BellRing, ShieldCheck, ShieldOff, Loader2, List, LayoutGrid, Bot } from 'lucide-react';
 import { Task, TaskStatus } from './types';
 import { isPast } from 'date-fns';
 import GoogleSheetSync from './components/GoogleSheetSync';
@@ -21,6 +21,7 @@ import LandingPage from './components/LandingPage';
 import SearchBar from './components/SearchBar';
 import KanbanBoard from './components/KanbanBoard';
 import ImportAssistantModal from './components/ImportAssistantModal';
+import ChatAssistant from './components/ChatAssistant';
 
 const statusLabels: Record<TaskStatus, string> = {
   todo: 'Cần làm',
@@ -66,6 +67,9 @@ const App: React.FC = () => {
   // Settings Modal State
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
 
+  // Chat Assistant State
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
   // Focus Mode State
   const [focusTask, setFocusTask] = useState<Task | null>(null);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
@@ -76,7 +80,7 @@ const App: React.FC = () => {
   
   const focusCompletionSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
@@ -454,6 +458,16 @@ const App: React.FC = () => {
           onApiKeyError={onApiKeyError}
         />
       )}
+      
+      {hasApiKey && (
+        <ChatAssistant
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          tasks={tasks}
+          onAddTask={addTask}
+          onApiKeyError={onApiKeyError}
+        />
+      )}
 
       <div className="min-h-screen bg-[#0F172A] text-slate-100 p-4 sm:p-6 lg:p-8 font-sans">
         <div className="max-w-7xl mx-auto">
@@ -611,6 +625,18 @@ const App: React.FC = () => {
           </main>
         </div>
       </div>
+      
+      {hasApiKey && (
+        <button
+            onClick={() => setIsChatOpen(true)}
+            className="fixed bottom-6 right-6 bg-primary-600 hover:bg-primary-700 text-white p-4 rounded-full shadow-lg z-40 transition-transform hover:scale-110"
+            title="Mở Trợ lý AI"
+            aria-label="Mở Trợ lý AI"
+        >
+            <Bot size={24} />
+        </button>
+      )}
+
     </>
   );
 };
