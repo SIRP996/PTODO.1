@@ -37,12 +37,13 @@ const SCRIPT_CODE = `function doPost(e) {
     
     // Prepare all task data to be written in a single operation
     var rows = tasks.map(function(task) {
-      var statusText;
-      switch(task.status) {
-        case 'completed': statusText = 'Completed'; break;
-        case 'inprogress': statusText = 'In Progress'; break;
-        default: statusText = 'Pending';
+      var statusText = "Pending"; // Default for 'todo' status
+      if (task.status === 'inprogress') {
+        statusText = "In Progress";
+      } else if (task.status === 'completed') {
+        statusText = "Completed";
       }
+      
       return [
         task.id,
         task.text,

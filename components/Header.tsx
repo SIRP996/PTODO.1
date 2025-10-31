@@ -2,13 +2,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, CheckSquare, LogOut, KeyRound, UserCircle, Palette } from 'lucide-react';
 import { Task, Theme } from '../types';
-import firebase from 'firebase/compat/app';
+import { User } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
     tasks: Task[];
-    user: firebase.User | null;
+    user: User | null;
     onLogout: () => void;
     hasApiKey: boolean;
     onManageApiKey: () => void;

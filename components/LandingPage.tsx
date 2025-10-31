@@ -254,12 +254,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                       <rect x="144" y="12" width="344" height="257.25" rx="8" fill="#293548"/>
 
                       {/* Left Panel Content */}
-                      <text x="22" y="34" fontFamily="Inter, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Tiến độ tuần</text>
+                      <text x="22" y="34" fontFamily="Be Vietnam Pro, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Tiến độ tuần</text>
                       <rect x="22" y="44" width="100" height="8" rx="4" fill="#334155"/>
                       <rect x="22" y="44" width="75" height="8" rx="4" fill="var(--color-primary-600)"/>
-                      <text x="22" y="68" fontFamily="Inter, sans-serif" fontSize="9" fill="#94A3B8">Task A</text>
+                      <text x="22" y="68" fontFamily="Be Vietnam Pro, sans-serif" fontSize="9" fill="#94A3B8">Task A</text>
                       <rect x="22" y="75" width="100" height="6" rx="3" fill="#334155"/>
-                      <text x="22" y="98" fontFamily="Inter, sans-serif" fontSize="9" fill="#94A3B8">Task B</text>
+                      <text x="22" y="98" fontFamily="Be Vietnam Pro, sans-serif" fontSize="9" fill="#94A3B8">Task B</text>
                       <rect x="22" y="105" width="80" height="6" rx="3" fill="#334155"/>
 
                       {/* Main Panel Title */}
@@ -268,24 +268,24 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                       {/* Top Cards with numbers */}
                       <g transform="translate(156, 48)">
                           <rect width="100" height="60" rx="6" fill="#1E293B"/>
-                          <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="8" fill="#94A3B8">Hoàn thành</text>
-                          <text x="10" y="45" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="var(--color-primary-500)">12</text>
+                          <text x="10" y="22" fontFamily="Be Vietnam Pro, sans-serif" fontSize="8" fill="#94A3B8">Hoàn thành</text>
+                          <text x="10" y="45" fontFamily="Be Vietnam Pro, sans-serif" fontSize="20" fontWeight="bold" fill="var(--color-primary-500)">12</text>
                       </g>
                       <g transform="translate(268, 48)">
                           <rect width="100" height="60" rx="6" fill="#1E293B"/>
-                          <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="8" fill="#94A3B8">Đang chờ</text>
-                          <text x="10" y="45" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="var(--color-primary-400)">8</text>
+                          <text x="10" y="22" fontFamily="Be Vietnam Pro, sans-serif" fontSize="8" fill="#94A3B8">Đang chờ</text>
+                          <text x="10" y="45" fontFamily="Be Vietnam Pro, sans-serif" fontSize="20" fontWeight="bold" fill="var(--color-primary-400)">8</text>
                       </g>
                       <g transform="translate(380, 48)">
                           <rect width="100" height="60" rx="6" fill="#1E293B"/>
-                          <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="8" fill="#94A3B8">Quá hạn</text>
-                          <text x="10" y="45" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="#a78bfa">3</text>
+                          <text x="10" y="22" fontFamily="Be Vietnam Pro, sans-serif" fontSize="8" fill="#94A3B8">Quá hạn</text>
+                          <text x="10" y="45" fontFamily="Be Vietnam Pro, sans-serif" fontSize="20" fontWeight="bold" fill="#a78bfa">3</text>
                       </g>
 
                       {/* Bar Chart */}
                       <g transform="translate(156, 120)">
                           <rect width="210" height="137.25" rx="6" fill="#1E293B"/>
-                          <text x="10" y="22" fontFamily="Inter, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Phân tích Tuần</text>
+                          <text x="10" y="22" fontFamily="Be Vietnam Pro, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Phân tích Tuần</text>
                           <g>
                               <rect className="bar" style={{animationDelay: '0s', transformOrigin: '20px 127.25px'}} x="10" y="107.25" width="20" height="20" rx="2" fill="var(--color-primary-600)"/>
                               <rect className="bar" style={{animationDelay: '0.2s', transformOrigin: '50px 127.25px'}} x="40" y="77.25" width="20" height="50" rx="2" fill="var(--color-primary-600)"/>
@@ -304,8 +304,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
                               <circle cx="50" cy="45" r="30" fill="none" stroke="#334155" strokeWidth="8"/>
                               <circle cx="50" cy="45" r="30" fill="none" stroke="var(--color-primary-600)" strokeWidth="8" strokeDasharray="141.4 188.5" transform="rotate(-90 50 45)"/>
                           </g>
-                          <text className="text-fade" x="50" y="45.5" textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="bold" fill="#E2E8F0">75%</text>
-                          <text x="50" y="95" textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Tiến độ</text>
+                          <text className="text-fade" x="50" y="45.5" textAnchor="middle" dominantBaseline="middle" fontFamily="Be Vietnam Pro, sans-serif" fontSize="20" fontWeight="bold" fill="#E2E8F0">75%</text>
+                          <text x="50" y="95" textAnchor="middle" fontFamily="Be Vietnam Pro, sans-serif" fontSize="10" fontWeight="bold" fill="#E2E8F0">Tiến độ</text>
                           <rect x="10" y="110" width="80" height="6" rx="3" fill="#334155"/>
                           <rect x="10" y="120" width="60" height="6" rx="3" fill="#334155"/>
                       </g>

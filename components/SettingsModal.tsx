@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, User, Mail, Save, Loader2 } from 'lucide-react';
-import firebase from 'firebase/compat/app';
+import { User as FirebaseUser } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { Theme } from '../types';
@@ -8,7 +9,7 @@ import { Theme } from '../types';
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: firebase.User | null;
+  user: FirebaseUser | null;
   onUpdateProfile: (name: string) => Promise<void>;
 }
 
@@ -58,6 +59,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
   };
 
   const handleThemeChange = async (theme: Theme) => {
+    if (!updateUserSettings) return;
     try {
       await updateUserSettings({ theme });
       addToast('Đã đổi chủ đề!', 'success');

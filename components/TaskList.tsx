@@ -64,7 +64,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, 
   }
 
   return (
-    <div className="rounded-lg bg-slate-800/40 max-h-[500px] overflow-y-auto pr-2">
+    <div className="rounded-lg bg-slate-800/40">
       {sortedTasks.map(task => (
         <TaskItem
           key={task.id}

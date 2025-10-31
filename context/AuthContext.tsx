@@ -1,9 +1,16 @@
 
 import React, { useContext, useState, useEffect, createContext, ReactNode } from 'react';
 import { auth, db } from '../firebaseConfig';
-import firebase from 'firebase/compat/app';
-import 'firebase/compat/auth';
-import 'firebase/compat/firestore';
+import { 
+  User, 
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updateProfile
+} from 'firebase/auth';
+import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Theme } from '../types';
 
 interface UserSettings {
@@ -13,7 +20,7 @@ interface UserSettings {
 }
 
 interface AuthContextType {
-  currentUser: firebase.User | null;
+  currentUser: User | null;
   loading: boolean;
   signup: (email: string, pass: string) => Promise<any>;
   login: (email: string, pass: string) => Promise<any>;
@@ -39,40 +46,39 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<firebase.User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
-  function signup(email: string, pass: string) {
-    return auth.createUserWithEmailAndPassword(email, pass)
-      .then(userCredential => {
-        if (userCredential.user) {
-          // Create user settings document on signup
-          return db.collection('users').doc(userCredential.user.uid).set({
-            apiKey: '',
-            googleSheetUrl: '',
-            theme: 'default',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          });
-        }
+  async function signup(email: string, pass: string) {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+    if (userCredential.user) {
+      // Create user settings document on signup
+      const userDocRef = doc(db, 'users', userCredential.user.uid);
+      return setDoc(userDocRef, {
+        apiKey: '',
+        googleSheetUrl: '',
+        theme: 'default',
+        createdAt: serverTimestamp(),
       });
+    }
   }
 
   function login(email: string, pass: string) {
-    return auth.signInWithEmailAndPassword(email, pass);
+    return signInWithEmailAndPassword(auth, email, pass);
   }
   
   function logout() {
-    return auth.signOut();
+    return signOut(auth);
   }
   
   function resetPassword(email: string) {
-    return auth.sendPasswordResetEmail(email);
+    return sendPasswordResetEmail(auth, email);
   }
 
   function updateUserProfile(name: string) {
     if (auth.currentUser) {
-      return auth.currentUser.updateProfile({
+      return updateProfile(auth.currentUser, {
         displayName: name
       });
     }
@@ -81,8 +87,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
   async function updateUserSettings(settings: Partial<UserSettings>) {
     if (currentUser) {
-        const userDocRef = db.collection('users').doc(currentUser.uid);
-        return userDocRef.set(settings, { merge: true });
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        return setDoc(userDocRef, settings, { merge: true });
     } else {
         return Promise.reject(new Error("No user logged in to update settings."));
     }
@@ -91,23 +97,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     let unsubscribeSettings = () => {};
 
-    const unsubscribeAuth = auth.onAuthStateChanged(user => {
+    const unsubscribeAuth = onAuthStateChanged(auth, user => {
       setCurrentUser(user);
       unsubscribeSettings();
       setUserSettings(null);
 
       if (user) {
         setLoading(true);
-        unsubscribeSettings = db.collection('users').doc(user.uid).onSnapshot(doc => {
-            if (doc.exists) {
-                setUserSettings(doc.data() as UserSettings);
+        const userDocRef = doc(db, 'users', user.uid);
+        unsubscribeSettings = onSnapshot(userDocRef, docSnap => {
+            if (docSnap.exists()) {
+                setUserSettings(docSnap.data() as UserSettings);
             } else {
                 // This case can happen if a user was created before this feature was implemented.
-                db.collection('users').doc(user.uid).set({
+                setDoc(userDocRef, {
                     apiKey: '',
                     googleSheetUrl: '',
                     theme: 'default',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdAt: serverTimestamp(),
                 });
                 setUserSettings({ theme: 'default'});
             }

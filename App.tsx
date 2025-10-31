@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -22,6 +20,13 @@ import SettingsModal from './components/SettingsModal';
 import LandingPage from './components/LandingPage';
 import SearchBar from './components/SearchBar';
 import KanbanBoard from './components/KanbanBoard';
+import ImportAssistantModal from './components/ImportAssistantModal';
+
+const statusLabels: Record<TaskStatus, string> = {
+  todo: 'Cần làm',
+  inprogress: 'Đang làm',
+  completed: 'Hoàn thành',
+};
 
 const App: React.FC = () => {
   const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading } = useAuth();
@@ -35,6 +40,7 @@ const App: React.FC = () => {
     updateTaskDueDate,
     toggleTaskUrgency,
     addSubtasksBatch,
+    addTasksBatch,
     updateTaskText,
     updateTaskStatus,
     updateTaskNote,
@@ -55,6 +61,7 @@ const App: React.FC = () => {
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [apiKeySkipped, setApiKeySkipped] = useState(() => sessionStorage.getItem('apiKeySkipped') === 'true');
   const [isUpdateKeyModalOpen, setUpdateKeyModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Settings Modal State
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -69,17 +76,50 @@ const App: React.FC = () => {
   
   const focusCompletionSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
 
   const notificationSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
+
+  // Vertical Resizing State
+  const [taskListHeight, setTaskListHeight] = useState(600);
+  const resizeData = useRef<{ initialY: number; initialHeight: number } | null>(null);
+
+  const handleResizeMouseMove = useCallback((e: MouseEvent) => {
+      if (resizeData.current) {
+          const deltaY = e.clientY - resizeData.current.initialY;
+          const newHeight = resizeData.current.initialHeight + deltaY;
+          setTaskListHeight(Math.max(300, Math.min(1200, newHeight))); // Min 300px, Max 1200px
+      }
+  }, []);
+
+  const handleResizeMouseUp = useCallback(() => {
+      resizeData.current = null;
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+      window.removeEventListener('mousemove', handleResizeMouseMove);
+      window.removeEventListener('mouseup', handleResizeMouseUp);
+  }, [handleResizeMouseMove]);
+
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+      e.preventDefault();
+      resizeData.current = {
+          initialY: e.clientY,
+          initialHeight: taskListHeight,
+      };
+      document.body.style.cursor = 'ns-resize';
+      document.body.style.userSelect = 'none';
+      window.addEventListener('mousemove', handleResizeMouseMove);
+      window.addEventListener('mouseup', handleResizeMouseUp);
+  }, [taskListHeight, handleResizeMouseMove, handleResizeMouseUp]);
+
 
   useEffect(() => {
     setApiKeyError(null);
@@ -303,237 +343,223 @@ const App: React.FC = () => {
     return statuses;
   }, [tasks]);
 
-  const handleSelectHashtag = useCallback((hashtag: string | null) => {
-    setActiveHashtag(hashtag);
-    if (hashtag) {
-      const status = hashtagStatuses[hashtag];
-      if (status === 'overdue' || status === 'pending') {
-        setView('todo');
-      } else if (status === 'completed') {
-        setView('completed');
-      }
-    }
-  }, [hashtagStatuses]);
-
-  // --- START: Refactored Task Filtering and Counting Logic ---
-  const parentTasks = useMemo(() => tasks.filter(task => !task.parentId), [tasks]);
-
-  const subtasksByParentId = useMemo(() => {
-    return tasks.reduce((acc, task) => {
-      if (task.parentId) {
-        if (!acc[task.parentId]) {
-          acc[task.parentId] = [];
-        }
-        acc[task.parentId].push(task);
-      }
-      return acc;
-    }, {} as { [key: string]: Task[] });
+  const allHashtags = useMemo(() => {
+    const tags = new Set<string>();
+    tasks.forEach(task => {
+      task.hashtags.forEach(tag => tags.add(tag));
+    });
+    return Array.from(tags);
   }, [tasks]);
 
-  const filteredParentTasks = useMemo(() => {
-    let parents = parentTasks;
-
-    // 1. Filter by active hashtag
+  const filteredTasks = useMemo(() => {
+    let results = tasks;
     if (activeHashtag) {
-        parents = parents.filter(p =>
-            p.hashtags.includes(activeHashtag) ||
-            (subtasksByParentId[p.id] || []).some(s => s.hashtags.includes(activeHashtag))
-        );
+      results = results.filter(task => task.hashtags.includes(activeHashtag));
     }
-
-    // 2. Filter by search term
-    if (searchTerm.trim()) {
-        const lowercasedSearchTerm = searchTerm.trim().toLowerCase();
-        parents = parents.filter(p =>
-            p.text.toLowerCase().includes(lowercasedSearchTerm) ||
-            (subtasksByParentId[p.id] || []).some(s => s.text.toLowerCase().includes(lowercasedSearchTerm))
-        );
+    if (searchTerm) {
+      results = results.filter(task => task.text.toLowerCase().includes(searchTerm.toLowerCase()));
     }
-    
-    return parents;
-  }, [parentTasks, subtasksByParentId, activeHashtag, searchTerm]);
+    return results;
+  }, [tasks, activeHashtag, searchTerm]);
 
-  const todoCount = useMemo(() => filteredParentTasks.filter(t => t.status === 'todo').length, [filteredParentTasks]);
-  const inProgressCount = useMemo(() => filteredParentTasks.filter(t => t.status === 'inprogress').length, [filteredParentTasks]);
-  const completedCount = useMemo(() => filteredParentTasks.filter(t => t.status === 'completed').length, [filteredParentTasks]);
+  const parentTasks = useMemo(() => filteredTasks.filter(t => !t.parentId), [filteredTasks]);
 
-  const filteredTasksForList = useMemo(() => {
-    const viewFilteredParents = filteredParentTasks.filter(p => p.status === view);
+  const taskCounts = useMemo(() => {
+    return parentTasks.reduce((acc, task) => {
+        acc[task.status] = (acc[task.status] || 0) + 1;
+        return acc;
+    }, { todo: 0, inprogress: 0, completed: 0 } as Record<TaskStatus, number>);
+  }, [parentTasks]);
 
-    const tasksToShow: Task[] = [];
-    viewFilteredParents.forEach(parent => {
-      tasksToShow.push(parent);
-      if (subtasksByParentId[parent.id]) {
-        tasksToShow.push(...subtasksByParentId[parent.id]);
-      }
+  const subtasksByParentId = useMemo(() => {
+    const subtasksMap: { [key: string]: Task[] } = {};
+    tasks.forEach(task => {
+        if (task.parentId) {
+            if (!subtasksMap[task.parentId]) {
+                subtasksMap[task.parentId] = [];
+            }
+            subtasksMap[task.parentId].push(task);
+        }
     });
-    return tasksToShow;
-  }, [filteredParentTasks, subtasksByParentId, view]);
-  
-  const allHashtags = useMemo(() => Array.from(new Set(tasks.flatMap(task => task.hashtags.map(tag => tag.toLowerCase())))), [tasks]);
-  // --- END: Refactored Task Filtering and Counting Logic ---
+    return subtasksMap;
+  }, [tasks]);
 
-  if (!currentUser) {
-    if (!showAuthPage) {
-      return <LandingPage onNavigateToAuth={() => setShowAuthPage(true)} />;
-    }
-    return <AuthPage />;
-  }
+  const tasksForList = useMemo(() => {
+    const parentsInView = parentTasks.filter(t => t.status === view);
+    const parentIdsInView = new Set(parentsInView.map(t => t.id));
+    const subtasksForParentsInView = tasks.filter(t => t.parentId && parentIdsInView.has(t.parentId));
+    return [...parentsInView, ...subtasksForParentsInView];
+  }, [parentTasks, tasks, view]);
 
   if (loading) {
     return (
-        <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
-            <Loader2 className="h-12 w-12 text-primary-400 animate-spin" />
-        </div>
+      <div className="min-h-screen bg-[#0F172A] text-slate-100 flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary-500" />
+      </div>
     );
   }
 
+  if (!currentUser) {
+    if (showAuthPage) {
+      return <AuthPage />;
+    }
+    return <LandingPage onNavigateToAuth={() => setShowAuthPage(true)} />;
+  }
+
   if (!hasApiKey && !apiKeySkipped) {
-    return <ApiKeyPrompt 
-        isStudioEnv={isStudioEnv}
-        onSelectKey={handleSelectStudioKey}
-        onSaveManualKey={handleSaveManualKey}
-        onSkip={handleSkip}
-        error={apiKeyError}
-    />;
+      return <ApiKeyPrompt 
+          isStudioEnv={isStudioEnv}
+          onSelectKey={handleSelectStudioKey}
+          onSaveManualKey={handleSaveManualKey}
+          onSkip={handleSkip}
+          error={apiKeyError}
+      />;
   }
 
   return (
-    <div className="min-h-screen text-slate-800 dark:text-slate-200 bg-[#0F172A] p-4 sm:p-6 lg:p-8">
-      {isUpdateKeyModalOpen && (
-        <ApiKeyPrompt
-            isModal={true}
-            isStudioEnv={isStudioEnv}
-            onSelectKey={handleSelectStudioKey}
-            onSaveManualKey={handleSaveManualKey}
-            onClose={() => setUpdateKeyModalOpen(false)}
-            error={apiKeyError}
+    <>
+      {isFocusModeActive && focusTask && (
+        <FocusModeOverlay 
+          task={focusTask}
+          timeLeft={timeLeft}
+          isTimerRunning={isTimerRunning}
+          onToggleTimer={handleToggleTimer}
+          onStop={handleStopFocus}
+          onComplete={handleMarkFocusTaskDone}
         />
       )}
       {isSettingsModalOpen && (
-        <SettingsModal
+        <SettingsModal 
           isOpen={isSettingsModalOpen}
           onClose={() => setSettingsModalOpen(false)}
           user={currentUser}
           onUpdateProfile={updateUserProfile}
         />
       )}
-      {isFocusModeActive && focusTask && (
-        <FocusModeOverlay 
-            task={focusTask}
-            timeLeft={timeLeft}
-            isTimerRunning={isTimerRunning}
-            onToggleTimer={handleToggleTimer}
-            onStop={handleStopFocus}
-            onComplete={handleMarkFocusTaskDone}
+      {isUpdateKeyModalOpen && (
+          <ApiKeyPrompt 
+              isStudioEnv={isStudioEnv}
+              onSelectKey={handleSelectStudioKey}
+              onSaveManualKey={handleSaveManualKey}
+              error={apiKeyError}
+              isModal={true}
+              onClose={() => setUpdateKeyModalOpen(false)}
+          />
+      )}
+      {isImportModalOpen && (
+        <ImportAssistantModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onAddTasksBatch={addTasksBatch}
+          onApiKeyError={onApiKeyError}
         />
       )}
-      <div className="max-w-screen-2xl mx-auto">
-        <Header 
-            tasks={tasks} 
+
+      <div className="min-h-screen bg-[#0F172A] text-slate-100 p-4 sm:p-6 lg:p-8 font-sans">
+        <div className="max-w-7xl mx-auto">
+          <Header
+            tasks={tasks}
             user={currentUser}
-            onLogout={logout} 
+            onLogout={logout}
             hasApiKey={hasApiKey}
             onManageApiKey={() => setUpdateKeyModalOpen(true)}
             onOpenSettings={() => setSettingsModalOpen(true)}
-        />
-        
-        <main className="mt-8 grid grid-cols-1 lg:grid-cols-5 gap-8">
-          <div className="lg:col-span-3 space-y-6">
-            <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
-              <h2 className="text-xl font-semibold mb-4 text-slate-100">Thêm công việc mới</h2>
-              <TaskInput 
-                onAddTask={addTask} 
-                onApiKeyError={onApiKeyError} 
-                hasApiKey={hasApiKey}
-              />
-            </div>
-            
-            <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
-              <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                <div className="flex-grow">
-                    <SearchBar 
-                      searchTerm={searchTerm}
-                      onSearchChange={setSearchTerm}
-                    />
-                </div>
-                <div className="flex-shrink-0 flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
-                    <button 
-                        onClick={() => setDisplayMode('list')} 
-                        className={`p-2 rounded-md transition-colors ${displayMode === 'list' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}
-                        title="Chế độ danh sách"
-                        aria-label="Chế độ danh sách"
-                    >
-                        <List size={18} />
-                    </button>
-                    <button 
-                        onClick={() => setDisplayMode('kanban')} 
-                        className={`p-2 rounded-md transition-colors ${displayMode === 'kanban' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}
-                        title="Chế độ Kanban"
-                        aria-label="Chế độ Kanban"
-                    >
-                        <LayoutGrid size={18} />
-                    </button>
-                </div>
-              </div>
+          />
 
-              <FilterTags 
-                hashtags={allHashtags}
-                activeHashtag={activeHashtag}
-                onSelectHashtag={handleSelectHashtag}
-                hashtagStatuses={hashtagStatuses}
-              />
+          <main className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-slate-800/50 p-6 rounded-2xl">
+                <TaskInput 
+                  onAddTask={addTask} 
+                  onApiKeyError={onApiKeyError}
+                  hasApiKey={hasApiKey}
+                  onOpenImportModal={() => setIsImportModalOpen(true)}
+                />
+              </div>
               
-              {displayMode === 'list' && (
-                <>
-                  <div className="flex justify-end my-4">
+              <div className="bg-slate-800/50 p-6 rounded-2xl">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                  <div className="flex-grow w-full sm:w-auto">
+                    <FilterTags 
+                      hashtags={allHashtags} 
+                      activeHashtag={activeHashtag} 
+                      onSelectHashtag={setActiveHashtag}
+                      hashtagStatuses={hashtagStatuses}
+                    />
+                  </div>
+                  <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+                </div>
+                
+                <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
-                        <button 
-                            onClick={() => setView('todo')} 
-                            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-32 text-center ${
-                                view === 'todo' ? 'bg-primary-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
-                            }`}
+                        <button
+                          onClick={() => setDisplayMode('kanban')}
+                          className={`px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                            displayMode === 'kanban' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'
+                          }`}
                         >
-                            Cần làm ({todoCount})
+                          <LayoutGrid size={16} />
+                          <span>Bảng</span>
                         </button>
-                         <button 
-                            onClick={() => setView('inprogress')} 
-                            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-32 text-center ${
-                                view === 'inprogress' ? 'bg-primary-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
-                            }`}
+                        <button
+                          onClick={() => setDisplayMode('list')}
+                          className={`px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                            displayMode === 'list' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'
+                          }`}
                         >
-                            Đang làm ({inProgressCount})
-                        </button>
-                        <button 
-                            onClick={() => setView('completed')} 
-                            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors w-32 text-center ${
-                                view === 'completed' ? 'bg-primary-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'
-                            }`}
-                        >
-                            Hoàn thành ({completedCount})
+                          <List size={16} />
+                          <span>Danh sách</span>
                         </button>
                     </div>
+                     {displayMode === 'list' && (
+                        <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
+                            {(['todo', 'inprogress', 'completed'] as TaskStatus[]).map(status => (
+                                <button
+                                    key={status}
+                                    onClick={() => setView(status)}
+                                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                                        view === status ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'
+                                    }`}
+                                >
+                                    {`${statusLabels[status]} (${taskCounts[status]})`}
+                                </button>
+                            ))}
+                        </div>
+                     )}
+                </div>
+                
+                {displayMode === 'list' ? (
+                  <div style={{ height: `${taskListHeight}px`, position: 'relative' }}>
+                    <div className="overflow-y-auto h-full pr-2">
+                        <TaskList
+                          tasks={tasksForList}
+                          onToggleTask={toggleTask}
+                          onDeleteTask={deleteTask}
+                          onUpdateTaskDueDate={updateTaskDueDate}
+                          onToggleTaskUrgency={toggleTaskUrgency}
+                          onStartFocus={handleStartFocus}
+                          onAddSubtasksBatch={addSubtasksBatch}
+                          onApiKeyError={onApiKeyError}
+                          hasApiKey={hasApiKey}
+                          onUpdateTaskText={updateTaskText}
+                          onUpdateTaskStatus={updateTaskStatus}
+                          onUpdateTaskNote={updateTaskNote}
+                        />
+                    </div>
+                     <div 
+                        onMouseDown={handleResizeMouseDown}
+                        className="absolute bottom-0 right-0 w-6 h-6 cursor-ns-resize flex items-center justify-center group"
+                        title="Kéo để thay đổi kích thước"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-600 group-hover:text-slate-400 transition-colors">
+                          <path d="M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="M12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                      </div>
                   </div>
-                  <TaskList 
-                    tasks={filteredTasksForList} 
-                    onToggleTask={toggleTask}
-                    onDeleteTask={deleteTask}
-                    onUpdateTaskDueDate={updateTaskDueDate}
-                    onToggleTaskUrgency={toggleTaskUrgency}
-                    onStartFocus={handleStartFocus}
-                    onAddSubtasksBatch={addSubtasksBatch}
-                    onApiKeyError={onApiKeyError}
-                    hasApiKey={hasApiKey}
-                    onUpdateTaskText={updateTaskText}
-                    onUpdateTaskStatus={updateTaskStatus}
-                    onUpdateTaskNote={updateTaskNote}
-                  />
-                </>
-              )}
-
-              {displayMode === 'kanban' && (
-                 <KanbanBoard
-                    tasks={filteredParentTasks}
+                ) : (
+                  <KanbanBoard 
+                    tasks={parentTasks}
                     subtasksByParentId={subtasksByParentId}
                     onUpdateTaskStatus={updateTaskStatus}
                     onToggleTaskUrgency={toggleTaskUrgency}
@@ -541,64 +567,51 @@ const App: React.FC = () => {
                     onStartFocus={handleStartFocus}
                     onToggleTask={toggleTask}
                     onUpdateTaskNote={updateTaskNote}
-                 />
-              )}
-
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
-              <h2 className="text-xl font-semibold mb-4 text-slate-100">Bảng điều khiển</h2>
-              <Dashboard tasks={tasks} />
+                  />
+                )}
+              </div>
             </div>
 
-            <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
-              <AdvancedDashboard tasks={tasks} />
-            </div>
-
-            <div className="bg-[#1E293B]/60 p-6 rounded-2xl shadow-lg">
+            <div className="lg:col-span-1 space-y-6">
+              <div className="bg-slate-800/50 p-6 rounded-2xl">
+                <h2 className="text-xl font-semibold mb-4 text-slate-100">Bảng điều khiển</h2>
+                <Dashboard tasks={tasks} />
+              </div>
+              <div className="bg-slate-800/50 p-6 rounded-2xl">
+                <AdvancedDashboard tasks={tasks} />
+              </div>
+              <div className="bg-slate-800/50 p-6 rounded-2xl">
                 <GoogleSheetSync tasks={tasks} />
-            </div>
-            
-            {notificationPermissionStatus === 'default' && (
-              <div className="bg-blue-900/50 border border-blue-700 text-blue-200 p-4 rounded-xl shadow-lg" role="alert">
-                <div className="flex">
-                  <div className="py-1"><ShieldCheck className="h-6 w-6 text-blue-400 mr-4" /></div>
+              </div>
+              
+              {notificationPermissionStatus === 'denied' && (
+                <div className="bg-red-900/50 p-4 rounded-2xl border border-red-700 flex items-start gap-3">
+                  <ShieldOff size={24} className="text-red-400 flex-shrink-0 mt-1" />
                   <div>
-                    <p className="font-bold">Kích hoạt thông báo</p>
-                    <p className="text-sm text-blue-300">Cho phép thông báo để nhận nhắc nhở cho công việc quá hạn.</p>
-                    <button onClick={handleRequestPermission} className="mt-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition-colors">Cho phép</button>
+                    <h4 className="font-semibold text-red-300">Thông báo đã bị chặn</h4>
+                    <p className="text-sm text-red-300/80">Bạn đã chặn thông báo. Vui lòng bật lại trong cài đặt trình duyệt để nhận nhắc nhở.</p>
                   </div>
                 </div>
+              )}
+      
+              <div className="bg-primary-900/30 p-4 rounded-2xl border border-primary-700/50 flex items-start gap-3">
+                  <BellRing size={24} className="text-primary-400 flex-shrink-0 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-primary-300">Nhắc nhở thông minh</h4>
+                    <p className="text-sm text-primary-300/80">Khi được cho phép, bạn sẽ nhận được thông báo và âm thanh cho các công việc quá hạn.</p>
+                     {notificationPermissionStatus === 'default' && (
+                       <button onClick={handleRequestPermission} className="mt-2 text-xs bg-primary-600 text-white font-semibold py-1 px-2 rounded-md hover:bg-primary-700">
+                          Cho phép thông báo
+                       </button>
+                     )}
+                  </div>
               </div>
-            )}
 
-            {notificationPermissionStatus === 'denied' && (
-              <div className="bg-red-900/50 border border-red-700 text-red-200 p-4 rounded-xl shadow-lg" role="alert">
-                <div className="flex">
-                  <div className="py-1"><ShieldOff className="h-6 w-6 text-red-400 mr-4" /></div>
-                  <div>
-                    <p className="font-bold">Thông báo đã bị chặn</p>
-                    <p className="text-sm text-red-300">Bạn đã chặn thông báo. Vui lòng bật lại trong cài đặt trình duyệt để nhận nhắc nhở.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-             <div className="bg-primary-900/50 border border-primary-700 text-primary-200 p-4 rounded-xl shadow-lg" role="alert">
-              <div className="flex items-center">
-                <BellRing className="h-5 w-5 mr-3 text-primary-400" />
-                <div>
-                  <p className="font-bold">Nhắc nhở thông minh</p>
-                  <p className="text-sm text-primary-300">Khi được cho phép, bạn sẽ nhận được thông báo và âm thanh cho các công việc quá hạn.</p>
-                </div>
-              </div>
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

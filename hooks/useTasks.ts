@@ -4,9 +4,20 @@ import { Task, TaskStatus } from '../types';
 import { addDays, addWeeks, addMonths } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebaseConfig';
-// Fix: Import firebase for Timestamp and FieldValue, and import firestore for side effects to use v8 compat API.
-import firebase from 'firebase/compat/app';
-import 'firebase/compat/firestore';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -25,14 +36,11 @@ export const useTasks = () => {
     }
 
     setLoading(true);
-    // Fix: Use v8 compat syntax for collection, query, where, and orderBy.
-    const tasksCollectionRef = db.collection('tasks');
-    const q = tasksCollectionRef
-      .where('userId', '==', currentUser.uid)
-      .orderBy('createdAt', 'desc');
+    const tasksCollectionRef = collection(db, 'tasks');
+    const q = query(tasksCollectionRef, where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
 
-    // Fix: Use v8 compat syntax for onSnapshot.
-    const unsubscribe = q.onSnapshot(
+    const unsubscribe = onSnapshot(
+      q,
       (snapshot) => {
         const tasksData = snapshot.docs.map(docSnapshot => {
           const data = docSnapshot.data();
@@ -40,9 +48,8 @@ export const useTasks = () => {
           const dueDateData = data.dueDate;
 
           // Handle Firestore Timestamps, converting them to ISO strings
-          // Fix: Use firebase.firestore.Timestamp for instanceof check.
-          const createdAt = createdAtData instanceof firebase.firestore.Timestamp ? createdAtData.toDate().toISOString() : createdAtData;
-          const dueDate = dueDateData instanceof firebase.firestore.Timestamp ? dueDateData.toDate().toISOString() : dueDateData;
+          const createdAt = createdAtData instanceof Timestamp ? createdAtData.toDate().toISOString() : createdAtData;
+          const dueDate = dueDateData instanceof Timestamp ? dueDateData.toDate().toISOString() : dueDateData;
           
           const status: TaskStatus = data.status || (data.completed ? 'completed' : 'todo');
           const { completed, ...restData } = data;
@@ -75,8 +82,7 @@ export const useTasks = () => {
     const newTask = {
       text: text.trim(),
       status: 'todo' as TaskStatus,
-      // Fix: Use firebase.firestore.FieldValue.serverTimestamp() for v8 compat syntax.
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdAt: serverTimestamp(),
       dueDate: dueDate ? new Date(dueDate) : null,
       hashtags: tags.map(tag => tag.toLowerCase()),
       reminderSent: false,
@@ -87,27 +93,58 @@ export const useTasks = () => {
     };
 
     try {
-      // Fix: Use v8 compat syntax for adding a document.
-      await db.collection('tasks').add(newTask);
+      await addDoc(collection(db, 'tasks'), newTask);
       addToast('Đã thêm công việc mới!', 'success');
     } catch (error) {
       console.error("Error adding task: ", error);
       addToast('Không thể thêm công việc.', 'error');
     }
   }, [currentUser, addToast]);
+  
+  const addTasksBatch = useCallback(async (tasksToAdd: { text: string; tags: string[]; dueDate: string | null; isUrgent: boolean }[]) => {
+    if (!currentUser || tasksToAdd.length === 0) return;
+
+    const batch = writeBatch(db);
+    const tasksCollectionRef = collection(db, 'tasks');
+
+    tasksToAdd.forEach(task => {
+        const newDocRef = doc(tasksCollectionRef);
+        const taskData = {
+            text: task.text.trim(),
+            status: 'todo' as TaskStatus,
+            createdAt: serverTimestamp(),
+            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+            hashtags: task.tags.map(tag => tag.toLowerCase()),
+            reminderSent: false,
+            isUrgent: task.isUrgent,
+            recurrenceRule: 'none' as const,
+            userId: currentUser.uid,
+            note: '',
+        };
+        batch.set(newDocRef, taskData);
+    });
+
+    try {
+        await batch.commit();
+        addToast(`Đã thêm ${tasksToAdd.length} công việc mới.`, 'success');
+    } catch (error) {
+        console.error("Error adding tasks in batch: ", error);
+        addToast('Không thể thêm các công việc.', 'error');
+    }
+  }, [currentUser, addToast]);
 
   const addSubtasksBatch = useCallback(async (parentId: string, subtaskTexts: string[]) => {
     if (!currentUser || subtaskTexts.length === 0) return;
 
-    const batch = db.batch();
-    const tasksCollectionRef = db.collection('tasks');
+    const batch = writeBatch(db);
+    const tasksCollectionRef = collection(db, 'tasks');
 
     subtaskTexts.forEach(text => {
-        const newDocRef = tasksCollectionRef.doc();
+        const newDocRef = doc(tasksCollectionRef);
         const subtaskData = {
             text: text.trim(),
             status: 'todo' as TaskStatus,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdAt: serverTimestamp(),
             dueDate: null,
             hashtags: [],
             reminderSent: false,
@@ -144,7 +181,7 @@ export const useTasks = () => {
     setTasks(current => current.map(t => t.id === id ? {...t, text: trimmedText} : t));
 
     try {
-        await db.collection('tasks').doc(id).update({ text: trimmedText });
+        await updateDoc(doc(db, 'tasks', id), { text: trimmedText });
         addToast('Đã cập nhật nội dung công việc.', 'success');
     } catch (error) {
       console.error("Error updating task text: ", error);
@@ -162,7 +199,7 @@ export const useTasks = () => {
     setTasks(current => current.map(t => t.id === id ? {...t, note: newNote} : t));
 
     try {
-        await db.collection('tasks').doc(id).update({ note: newNote });
+        await updateDoc(doc(db, 'tasks', id), { note: newNote });
         addToast('Đã cập nhật ghi chú.', 'success');
     } catch (error) {
       console.error("Error updating task note: ", error);
@@ -224,20 +261,20 @@ export const useTasks = () => {
             }
             const nextInstanceData = {
                 text: taskToToggle.text, status: 'todo',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAt: serverTimestamp(),
                 dueDate: nextDueDate, hashtags: taskToToggle.hashtags,
                 reminderSent: false, isUrgent: taskToToggle.isUrgent,
                 recurrenceRule: taskToToggle.recurrenceRule, userId: currentUser.uid,
                 note: taskToToggle.note || ''
             };
-            const batch = db.batch();
-            const taskDocRef = db.collection('tasks').doc(id);
+            const batch = writeBatch(db);
+            const taskDocRef = doc(db, 'tasks', id);
             batch.update(taskDocRef, { status: 'completed', recurrenceRule: 'none' });
-            const newDocRef = db.collection('tasks').doc();
+            const newDocRef = doc(collection(db, 'tasks'));
             batch.set(newDocRef, nextInstanceData);
             await batch.commit();
         } else {
-            await db.collection('tasks').doc(id).update({ status: newStatus });
+            await updateDoc(doc(db, 'tasks', id), { status: newStatus });
         }
         addToast('Đã cập nhật trạng thái công việc.', 'success');
     } catch (error) {
@@ -256,9 +293,9 @@ export const useTasks = () => {
       const subtasksToDelete = tasks.filter(t => t.parentId === id).map(t => t.id);
       const allIdsToDelete = [id, ...subtasksToDelete];
       
-      const batch = db.batch();
+      const batch = writeBatch(db);
       allIdsToDelete.forEach(taskId => {
-        batch.delete(db.collection('tasks').doc(taskId));
+        batch.delete(doc(db, 'tasks', taskId));
       });
       await batch.commit();
       addToast('Đã xóa công việc.', 'success');
@@ -278,7 +315,7 @@ export const useTasks = () => {
     setTasks(current => current.map(t => t.id === id ? {...t, isUrgent: !t.isUrgent} : t));
 
     try {
-        await db.collection('tasks').doc(id).update({ isUrgent: !task.isUrgent });
+        await updateDoc(doc(db, 'tasks', id), { isUrgent: !task.isUrgent });
         addToast('Đã cập nhật độ khẩn cấp.', 'success');
     } catch (error) {
       console.error("Error updating urgency: ", error);
@@ -293,7 +330,7 @@ export const useTasks = () => {
     setTasks(current => current.map(t => t.id === id ? {...t, dueDate: newDueDate, reminderSent: false} : t));
     
     try {
-        await db.collection('tasks').doc(id).update({ dueDate: newDueDate ? new Date(newDueDate) : null, reminderSent: false });
+        await updateDoc(doc(db, 'tasks', id), { dueDate: newDueDate ? new Date(newDueDate) : null, reminderSent: false });
         addToast('Đã cập nhật thời hạn.', 'success');
     } catch (error) {
       console.error("Error updating due date: ", error);
@@ -308,7 +345,7 @@ export const useTasks = () => {
     setTasks(current => current.map(t => t.id === id ? {...t, reminderSent: true} : t));
 
     try {
-        await db.collection('tasks').doc(id).update({ reminderSent: true });
+        await updateDoc(doc(db, 'tasks', id), { reminderSent: true });
     } catch (error) {
       console.error("Error marking reminder sent: ", error);
       setTasks(originalTasks);
@@ -324,7 +361,7 @@ export const useTasks = () => {
     setTasks(current => current.map(t => t.id === id ? {...t, status: status} : t));
 
     try {
-        await db.collection('tasks').doc(id).update({ status: status });
+        await updateDoc(doc(db, 'tasks', id), { status: status });
         addToast('Đã cập nhật trạng thái công việc.', 'success');
     } catch (error) {
       console.error("Error updating task status: ", error);
@@ -334,5 +371,5 @@ export const useTasks = () => {
   }, [currentUser, tasks, addToast]);
 
 
-  return { tasks, addTask, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency, updateTaskText, updateTaskStatus, updateTaskNote };
+  return { tasks, addTask, addTasksBatch, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency, updateTaskText, updateTaskStatus, updateTaskNote };
 };

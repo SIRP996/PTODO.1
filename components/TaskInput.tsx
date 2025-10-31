@@ -1,6 +1,6 @@
 
 import React, { useState, KeyboardEvent, useEffect } from 'react';
-import { Plus, X, Flag, Sparkles, Loader2, Mic } from 'lucide-react';
+import { Plus, X, Flag, Sparkles, Loader2, Mic, UploadCloud } from 'lucide-react';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
@@ -10,9 +10,10 @@ interface TaskInputProps {
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => void;
   onApiKeyError: () => void;
   hasApiKey: boolean;
+  onOpenImportModal: () => void;
 }
 
-const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiKey }) => {
+const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiKey, onOpenImportModal }) => {
   const [text, setText] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [currentTag, setCurrentTag] = useState('');
@@ -72,15 +73,21 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
 
         Current Context:
         - Current Date (UTC): ${new Date().toISOString()}
+        - Current Year: ${new Date().getFullYear()}
         - User's Timezone: Asia/Ho_Chi_Minh (UTC+7)
         
         Your Instructions:
-        1.  **Timezone is Key**: All times mentioned by the user (e.g., "10 giờ sáng", "4h chiều") are in their local timezone (UTC+7).
-        2.  **Output in UTC**: Your final \`dueDate\` output MUST be an ISO 8601 string in UTC. You must convert the parsed local time to UTC. For example, "10 giờ sáng" (10:00 local) should be converted to 'T03:00:00.000Z' in the output.
-        3.  **Smart Date Logic**: If the year is not specified, choose the nearest upcoming date. For example, if it's October 2024 and the user says "November 6th", you use 2024. If it's December 2024, you use 2025.
-        4.  **Language**: The input is in Vietnamese. "sáng" = AM, "chiều"/"tối" = PM.
+        1.  **Year Logic is CRITICAL**: 
+            - If the user does not specify a year (e.g., "ngày 11/11", "thứ 6 tuần sau"), you MUST use the current year (${new Date().getFullYear()}).
+            - If the calculated date has already passed in the current year, you MUST use the next year (${new Date().getFullYear() + 1}). For example, if today is December 2024 and the user says "15 tháng 1", the date should be for January 15, 2025.
+            - NEVER default to a past year like 2001 or any other arbitrary old year. This is a critical failure.
+        2.  **Time Parsing is Crucial**:
+            - **Time Ranges**: If a time range is provided (e.g., "19:00 - 22:00", "8h-17h"), you MUST use the START time of the range for the \`dueDate\`.
+            - **Specific Times**: Parse specific times like "19:00", "8:00", "4h chiều" accurately. "sáng" = AM, "chiều"/"tối" = PM.
+        3.  **Timezone is Key**: All times mentioned by the user are in their local timezone (UTC+7).
+        4.  **Output in UTC**: Your final \`dueDate\` output MUST be a full ISO 8601 string in UTC (format: YYYY-MM-DDTHH:mm:ss.sssZ). You must convert the parsed local time to UTC.
         5.  **Defaults**: If no specific time is mentioned for a given date, default to 17:00 (5 PM) local time. If no date is mentioned at all, \`dueDate\` must be null.
-        6.  **Content**: Extract the core task description.
+        6.  **Content**: Extract the core task description, excluding date/time information that you've already processed.
         7.  **Tags**: Extract all hashtags (words starting with '#'). In the output array, remove the '#' prefix and use lowercase.
         8.  **Strict JSON**: Return ONLY a valid JSON object matching the schema. No markdown.
         
@@ -249,13 +256,23 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
         </div>
       </div>
       
-      <div className="flex justify-end items-center gap-2 pt-2">
+      <div className="flex flex-wrap justify-end items-center gap-2 pt-2">
+            <button
+                type="button"
+                onClick={onOpenImportModal}
+                disabled={!hasApiKey}
+                className="flex items-center gap-2 py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-lg transition-colors duration-200 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
+                title={hasApiKey ? "Nhập liệu thông minh từ tệp hoặc giọng nói" : "Thêm API Key để sử dụng tính năng này"}
+            >
+                <UploadCloud size={20} />
+                <span className="hidden sm:inline">Nhập liệu AI</span>
+            </button>
             <button
                 type="button"
                 onClick={() => handleParseTask()}
                 disabled={isParsing || !text.trim() || !hasApiKey}
-                className="p-2.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-primary-900/50 disabled:text-primary-600 disabled:cursor-not-allowed"
-                title={hasApiKey ? "Phân tích công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
+                className="p-2.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
+                title={hasApiKey ? "Phân tích nội dung hiện tại bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
             >
                 {isParsing ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
             </button>
