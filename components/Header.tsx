@@ -27,12 +27,17 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
     const { addToast } = useToast();
     const { userSettings, updateUserSettings } = useAuth();
     const [isThemePopoverOpen, setIsThemePopoverOpen] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const themePopoverRef = useRef<HTMLDivElement>(null);
+    const userMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (themePopoverRef.current && !themePopoverRef.current.contains(event.target as Node)) {
                 setIsThemePopoverOpen(false);
+            }
+            if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+                setIsUserMenuOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -47,15 +52,17 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
             return;
         }
 
-        const headers = "ID,Text,Completed,CreatedAt,DueDate,Hashtags\n";
+        const headers = "ID,Text,Status,CreatedAt,DueDate,Hashtags,IsUrgent,Note\n";
         const rows = tasks.map(task => 
             [
                 task.id,
                 `"${task.text.replace(/"/g, '""')}"`,
-                task.completed,
+                task.status,
                 task.createdAt,
                 task.dueDate || '',
-                `"${task.hashtags.join(',')}"`
+                `"${task.hashtags.join(',')}"`,
+                task.isUrgent,
+                `"${(task.note || '').replace(/"/g, '""')}"`
             ].join(',')
         ).join('\n');
 
@@ -85,8 +92,6 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
         }
     }
     
-    const greeting = user?.displayName ? `Chào 👋, ${user.displayName}!` : 'Chào bạn! 👋';
-
     return (
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div className="flex items-center mb-4 sm:mb-0">
@@ -98,9 +103,7 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
                     <p className="text-slate-400">Trình quản lý công việc cá nhân của bạn</p>
                 </div>
             </div>
-             <div className="w-full sm:w-auto flex items-center gap-2">
-                <span className="text-primary-300 font-medium text-base hidden lg:block">{greeting}</span>
-                
+             <div className="w-full sm:w-auto flex items-center justify-end gap-2">
                 <div className="relative">
                     <button
                         onClick={() => setIsThemePopoverOpen(prev => !prev)}
@@ -135,24 +138,6 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
                     )}
                 </div>
 
-                <button
-                    onClick={onOpenSettings}
-                    className="flex items-center justify-center font-semibold p-2.5 rounded-lg transition-colors duration-200 bg-slate-700 hover:bg-slate-600 text-slate-300"
-                    title="Cài đặt tài khoản"
-                >
-                    <UserCircle className="h-4 w-4" />
-                </button>
-                <button 
-                    onClick={onManageApiKey}
-                    className={`flex items-center justify-center font-semibold p-2.5 rounded-lg transition-colors duration-200 ${
-                        hasApiKey
-                        ? 'bg-primary-600 hover:bg-primary-700 text-white'
-                        : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                    }`}
-                    title="Quản lý API Key"
-                >
-                    <KeyRound className="h-4 w-4" />
-                </button>
                 <button 
                     onClick={exportToCSV}
                     className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2.5 px-4 rounded-lg transition-colors duration-200"
@@ -161,14 +146,56 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
                     <Download className="h-4 w-4" />
                     <span className="hidden sm:inline">Xuất CSV</span>
                 </button>
-                <button 
-                    onClick={onLogout}
-                    className="flex items-center justify-center gap-2 bg-red-800 hover:bg-red-700 text-red-200 font-semibold py-2.5 px-4 rounded-lg transition-colors duration-200"
-                    title="Đăng xuất"
-                >
-                    <LogOut className="h-4 w-4" />
-                    <span className="hidden sm:inline">Đăng xuất</span>
-                </button>
+
+                {/* User Dropdown Menu */}
+                <div className="relative" ref={userMenuRef}>
+                    <button
+                        onClick={() => setIsUserMenuOpen(prev => !prev)}
+                        className="flex items-center gap-2 p-2.5 rounded-lg transition-colors duration-200 bg-slate-700 hover:bg-slate-600 text-slate-300"
+                        title="Tài khoản"
+                    >
+                        <span className="font-semibold hidden sm:inline">{user?.displayName || 'Tài khoản'}</span>
+                        <UserCircle className="h-4 w-4" />
+                    </button>
+                    {isUserMenuOpen && (
+                        <div className="absolute top-full right-0 mt-2 w-64 bg-[#1E293B] border border-slate-700 rounded-lg shadow-xl z-50">
+                            <div className="px-4 py-3 border-b border-slate-700">
+                                <p className="text-sm font-semibold text-white truncate">{user?.displayName || 'Chào bạn'}</p>
+                                <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                            </div>
+                            <div className="p-2">
+                                <button
+                                    onClick={() => { onOpenSettings(); setIsUserMenuOpen(false); }}
+                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"
+                                >
+                                    <UserCircle className="h-4 w-4 text-slate-400" />
+                                    <span>Cài đặt tài khoản</span>
+                                </button>
+                                <button
+                                    onClick={() => { onManageApiKey(); setIsUserMenuOpen(false); }}
+                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"
+                                >
+                                    <KeyRound className="h-4 w-4 text-slate-400" />
+                                    <span>Quản lý API Key</span>
+                                    {hasApiKey ? (
+                                        <span className="ml-auto h-2 w-2 rounded-full bg-green-500" title="API Key đang hoạt động"></span>
+                                    ) : (
+                                        <span className="ml-auto h-2 w-2 rounded-full bg-red-500" title="Chưa có API Key"></span>
+                                    )}
+                                </button>
+                            </div>
+                            <div className="p-2 border-t border-slate-700">
+                                <button
+                                    onClick={() => { onLogout(); setIsUserMenuOpen(false); }}
+                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-red-400 hover:bg-red-900/50 hover:text-red-300"
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                    <span>Đăng xuất</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </header>
     );

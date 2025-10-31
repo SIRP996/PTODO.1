@@ -32,6 +32,14 @@
       .blinking {
         animation: blink 1.2s linear infinite;
       }
+      @keyframes digging {
+        0%, 100% { transform: rotate(20deg); }
+        50% { transform: rotate(-15deg); }
+      }
+      .digging-animation {
+        animation: digging 0.7s ease-in-out infinite;
+        transform-origin: 25% 75%;
+      }
       .kanban-wrapper::-webkit-scrollbar {
         display: none;
       }

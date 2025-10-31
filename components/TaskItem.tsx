@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, MouseEvent, TouchEvent, useEffect, KeyboardEvent } from 'react';
 import { Task, TaskStatus } from '../types';
-import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Cog, StickyNote } from 'lucide-react';
+import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Pickaxe, StickyNote } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
@@ -431,7 +431,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                   }`}
                   title={task.status === 'inprogress' ? 'Dừng làm' : 'Bắt đầu làm'}
               >
-                  <Cog size={18} className={task.status === 'inprogress' ? 'animate-spin' : ''} />
+                  <Pickaxe size={18} className={task.status === 'inprogress' ? 'digging-animation' : ''} />
               </button>
               <button 
                 onClick={() => onToggleTaskUrgency(task.id)}
