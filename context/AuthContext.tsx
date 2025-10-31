@@ -17,6 +17,7 @@ interface UserSettings {
   apiKey?: string;
   googleSheetUrl?: string;
   theme?: Theme;
+  avatarUrl?: string;
 }
 
 interface AuthContextType {

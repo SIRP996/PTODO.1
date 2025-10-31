@@ -92,6 +92,8 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
         }
     }
     
+    const userAvatarUrl = userSettings?.avatarUrl || user?.photoURL;
+
     return (
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div className="flex items-center mb-4 sm:mb-0">
@@ -151,11 +153,17 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
                 <div className="relative" ref={userMenuRef}>
                     <button
                         onClick={() => setIsUserMenuOpen(prev => !prev)}
-                        className="flex items-center gap-2 p-2.5 rounded-lg transition-colors duration-200 bg-slate-700 hover:bg-slate-600 text-slate-300"
+                        className="flex items-center gap-2 p-1.5 rounded-lg transition-colors duration-200 bg-slate-700 hover:bg-slate-600 text-slate-300"
                         title="Tài khoản"
                     >
-                        <span className="font-semibold hidden sm:inline">{user?.displayName || 'Tài khoản'}</span>
-                        <UserCircle className="h-4 w-4" />
+                        <span className="font-semibold hidden sm:inline px-1">{user?.displayName || 'Tài khoản'}</span>
+                        <div className="w-8 h-8 rounded-md bg-slate-800 flex items-center justify-center overflow-hidden">
+                            {userAvatarUrl ? (
+                                <img src={userAvatarUrl} alt="User Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                                <UserCircle className="h-5 w-5 text-slate-400" />
+                            )}
+                        </div>
                     </button>
                     {isUserMenuOpen && (
                         <div className="absolute top-full right-0 mt-2 w-64 bg-[#1E293B] border border-slate-700 rounded-lg shadow-xl z-50">

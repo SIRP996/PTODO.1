@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Save, Loader2 } from 'lucide-react';
+import { X, User, Mail, Save, Loader2, Image, Trash2 } from 'lucide-react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +26,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
   const [isLoading, setIsLoading] = useState(false);
   const { addToast } = useToast();
   const { userSettings, updateUserSettings } = useAuth();
+  
+  const userAvatarUrl = userSettings?.avatarUrl || user?.photoURL;
 
   useEffect(() => {
     if (user) {
@@ -42,7 +44,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!hasChanged) return;
+    if (!hasChanged) {
+        onClose(); // Still close the modal if nothing changed but user hit save
+        return;
+    };
     
     setIsLoading(true);
     
@@ -68,15 +73,64 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
     }
   }
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && updateUserSettings) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        try {
+          await updateUserSettings({ avatarUrl: base64String });
+          addToast("Đã cập nhật ảnh đại diện!", 'success');
+        } catch (err) {
+          addToast("Không thể cập nhật ảnh đại diện.", 'error');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleResetAvatar = async () => {
+    if (updateUserSettings) {
+        try {
+            await updateUserSettings({ avatarUrl: '' }); // Set to empty string to clear it
+            addToast("Đã khôi phục ảnh đại diện mặc định.", 'info');
+        } catch (err) {
+            addToast("Không thể đặt lại ảnh đại diện.", 'error');
+        }
+    }
+  };
+
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-      <div className="bg-[#1E293B] max-w-md w-full rounded-2xl shadow-2xl p-6 border border-slate-700">
+      <div className="bg-[#1E293B] max-w-md w-full rounded-2xl shadow-2xl p-6 border border-slate-700 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-white">Cài đặt Tài khoản</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {userAvatarUrl ? (
+                        <img src={userAvatarUrl} alt="User Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                        <User size={36} className="text-slate-500" />
+                    )}
+                </div>
+                <div className="space-y-2">
+                    <label htmlFor="avatar-upload" className="cursor-pointer inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-3 rounded-lg transition-colors text-sm">
+                        <Image size={16} />
+                        <span>Đổi ảnh đại diện</span>
+                    </label>
+                    <input id="avatar-upload" type="file" accept="image/*" className="sr-only" onChange={handleAvatarChange} />
+                    <button type="button" onClick={handleResetAvatar} className="inline-flex items-center gap-2 text-slate-500 hover:text-red-400 text-sm font-semibold transition-colors">
+                        <Trash2 size={14}/> Xóa ảnh
+                    </button>
+                </div>
+            </div>
+
             <div>
                 <label htmlFor="email" className="block text-sm font-medium text-slate-400 mb-1">Email</label>
                 <div className="relative">

@@ -12,6 +12,7 @@ interface ChatAssistantProps {
   tasks: Task[];
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none') => void;
   onApiKeyError: () => void;
+  userAvatarUrl?: string;
 }
 
 interface ChatMessage {
@@ -48,7 +49,7 @@ const queryTasksFunctionDeclaration: FunctionDeclaration = {
   },
 };
 
-const ChatAssistant: React.FC<ChatAssistantProps> = ({ isOpen, onClose, tasks, onAddTask, onApiKeyError }) => {
+const ChatAssistant: React.FC<ChatAssistantProps> = ({ isOpen, onClose, tasks, onAddTask, onApiKeyError, userAvatarUrl }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -288,7 +289,15 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ isOpen, onClose, tasks, o
                     <div className={`max-w-[80%] px-4 py-2 rounded-xl ${msg.role === 'user' ? 'bg-primary-700 text-white rounded-br-none' : 'bg-slate-700 text-slate-200 rounded-bl-none'}`}>
                         <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
                     </div>
-                    {msg.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center"><User size={18} className="text-white"/></div>}
+                    {msg.role === 'user' && (
+                         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center overflow-hidden">
+                            {userAvatarUrl ? (
+                                <img src={userAvatarUrl} alt="User Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                                <User size={18} className="text-white"/>
+                            )}
+                        </div>
+                    )}
                 </div>
             ))}
             {isLoading && (
