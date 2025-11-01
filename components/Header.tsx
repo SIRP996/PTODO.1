@@ -1,6 +1,7 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, CheckSquare, LogOut, KeyRound, UserCircle, Palette } from 'lucide-react';
+import { Download, CheckSquare, LogOut, KeyRound, UserCircle, Palette, UserPlus } from 'lucide-react';
 import { Task, Theme } from '../types';
 import { User } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
@@ -25,7 +26,7 @@ const themes: { id: Theme; name: string; color: string; }[] = [
 
 const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onManageApiKey, onOpenSettings }) => {
     const { addToast } = useToast();
-    const { userSettings, updateUserSettings } = useAuth();
+    const { userSettings, updateUserSettings, isGuestMode, exitGuestMode } = useAuth();
     const [isThemePopoverOpen, setIsThemePopoverOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const themePopoverRef = useRef<HTMLDivElement>(null);
@@ -94,6 +95,15 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
     
     const userAvatarUrl = userSettings?.avatarUrl || user?.photoURL;
 
+    const handleAuthAction = () => {
+        if (isGuestMode) {
+            exitGuestMode();
+        } else {
+            onLogout();
+        }
+        setIsUserMenuOpen(false);
+    }
+    
     return (
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div className="flex items-center mb-4 sm:mb-0">
@@ -156,7 +166,7 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
                         className="flex items-center gap-2 p-1.5 rounded-lg transition-colors duration-200 bg-slate-700 hover:bg-slate-600 text-slate-300"
                         title="Tài khoản"
                     >
-                        <span className="font-semibold hidden sm:inline px-1">{user?.displayName || 'Tài khoản'}</span>
+                        <span className="font-semibold hidden sm:inline px-1">{user?.displayName || (isGuestMode ? 'Khách' : 'Tài khoản')}</span>
                         <div className="w-8 h-8 rounded-md bg-slate-800 flex items-center justify-center overflow-hidden">
                             {userAvatarUrl ? (
                                 <img src={userAvatarUrl} alt="User Avatar" className="w-full h-full object-cover" />
@@ -168,37 +178,51 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
                     {isUserMenuOpen && (
                         <div className="absolute top-full right-0 mt-2 w-64 bg-[#1E293B] border border-slate-700 rounded-lg shadow-xl z-50">
                             <div className="px-4 py-3 border-b border-slate-700">
-                                <p className="text-sm font-semibold text-white truncate">{user?.displayName || 'Chào bạn'}</p>
-                                <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                                <p className="text-sm font-semibold text-white truncate">{user?.displayName || (isGuestMode ? 'Chế độ khách' : 'Chào bạn')}</p>
+                                <p className="text-xs text-slate-400 truncate">{user?.email || 'Dữ liệu được lưu trên trình duyệt'}</p>
                             </div>
-                            <div className="p-2">
-                                <button
-                                    onClick={() => { onOpenSettings(); setIsUserMenuOpen(false); }}
-                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"
-                                >
-                                    <UserCircle className="h-4 w-4 text-slate-400" />
-                                    <span>Cài đặt tài khoản</span>
-                                </button>
-                                <button
-                                    onClick={() => { onManageApiKey(); setIsUserMenuOpen(false); }}
-                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"
-                                >
-                                    <KeyRound className="h-4 w-4 text-slate-400" />
-                                    <span>Quản lý API Key</span>
-                                    {hasApiKey ? (
-                                        <span className="ml-auto h-2 w-2 rounded-full bg-green-500" title="API Key đang hoạt động"></span>
-                                    ) : (
-                                        <span className="ml-auto h-2 w-2 rounded-full bg-red-500" title="Chưa có API Key"></span>
-                                    )}
-                                </button>
-                            </div>
+                           
+                            {isGuestMode ? (
+                                <div className="p-2">
+                                    <button
+                                        onClick={() => { exitGuestMode(); setIsUserMenuOpen(false); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-white bg-primary-600 hover:bg-primary-700"
+                                    >
+                                        <UserPlus className="h-4 w-4" />
+                                        <span>Đăng ký để lưu dữ liệu</span>
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="p-2">
+                                    <button
+                                        onClick={() => { onOpenSettings(); setIsUserMenuOpen(false); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"
+                                    >
+                                        <UserCircle className="h-4 w-4 text-slate-400" />
+                                        <span>Cài đặt tài khoản</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { onManageApiKey(); setIsUserMenuOpen(false); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"
+                                    >
+                                        <KeyRound className="h-4 w-4 text-slate-400" />
+                                        <span>Quản lý API Key</span>
+                                        {hasApiKey ? (
+                                            <span className="ml-auto h-2 w-2 rounded-full bg-green-500" title="API Key đang hoạt động"></span>
+                                        ) : (
+                                            <span className="ml-auto h-2 w-2 rounded-full bg-red-500" title="Chưa có API Key"></span>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="p-2 border-t border-slate-700">
                                 <button
-                                    onClick={() => { onLogout(); setIsUserMenuOpen(false); }}
+                                    onClick={handleAuthAction}
                                     className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-red-400 hover:bg-red-900/50 hover:text-red-300"
                                 >
                                     <LogOut className="h-4 w-4" />
-                                    <span>Đăng xuất</span>
+                                    <span>{isGuestMode ? 'Thoát chế độ khách' : 'Đăng xuất'}</span>
                                 </button>
                             </div>
                         </div>

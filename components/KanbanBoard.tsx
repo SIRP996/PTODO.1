@@ -8,7 +8,7 @@ interface KanbanBoardProps {
   tasks: Task[];
   subtasksByParentId: { [key: string]: Task[] };
   onUpdateTaskStatus: (id: string, status: TaskStatus) => void;
-  onToggleTaskUrgency: (id: string) => void;
+  toggleTaskUrgency: (id: string) => void;
   onDeleteTask: (id: string) => void;
   onStartFocus: (task: Task) => void;
   onToggleTask: (id: string) => void;
@@ -19,7 +19,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   tasks, 
   subtasksByParentId, 
   onUpdateTaskStatus, 
-  onToggleTaskUrgency, 
+  toggleTaskUrgency, 
   onDeleteTask, 
   onStartFocus, 
   onToggleTask,
@@ -63,7 +63,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           onDrop={handleDrop}
           onDragStart={handleDragStart}
           draggedTaskId={draggedTaskId}
-          onToggleTaskUrgency={onToggleTaskUrgency}
+          onToggleTaskUrgency={toggleTaskUrgency}
           onDeleteTask={onDeleteTask}
           onStartFocus={onStartFocus}
           onToggleTask={onToggleTask}

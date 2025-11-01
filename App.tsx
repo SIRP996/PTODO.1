@@ -22,6 +22,7 @@ import SearchBar from './components/SearchBar';
 import KanbanBoard from './components/KanbanBoard';
 import ImportAssistantModal from './components/ImportAssistantModal';
 import ChatAssistant from './components/ChatAssistant';
+import GuestBanner from './components/GuestBanner';
 
 const statusLabels: Record<TaskStatus, string> = {
   todo: 'Cần làm',
@@ -30,7 +31,7 @@ const statusLabels: Record<TaskStatus, string> = {
 };
 
 const App: React.FC = () => {
-  const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading } = useAuth();
+  const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading, isGuestMode, exitGuestMode } = useAuth();
   
   const { 
     tasks, 
@@ -80,7 +81,7 @@ const App: React.FC = () => {
   
   const focusCompletionSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
@@ -126,6 +127,11 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
+    if (isGuestMode) {
+        setHasApiKey(false);
+        localStorage.removeItem('active_genai_api_key');
+        return;
+    }
     setApiKeyError(null);
     localStorage.removeItem('active_genai_api_key'); // This is used by the gemini util
 
@@ -158,7 +164,7 @@ const App: React.FC = () => {
             setHasApiKey(false);
         }
     }
-  }, [userSettings]);
+  }, [userSettings, isGuestMode]);
   
   useEffect(() => {
     // Apply theme from user settings
@@ -395,6 +401,11 @@ const App: React.FC = () => {
     return [...parentsInView, ...subtasksForParentsInView];
   }, [parentTasks, tasks, view]);
 
+  const handleNavigateToAuth = () => {
+    exitGuestMode();
+    setShowAuthPage(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0F172A] text-slate-100 flex items-center justify-center">
@@ -402,15 +413,15 @@ const App: React.FC = () => {
       </div>
     );
   }
-
-  if (!currentUser) {
-    if (showAuthPage) {
-      return <AuthPage />;
-    }
-    return <LandingPage onNavigateToAuth={() => setShowAuthPage(true)} />;
+  
+  if (!currentUser && !isGuestMode) {
+      if (showAuthPage) {
+        return <AuthPage />;
+      }
+      return <LandingPage onNavigateToAuth={() => setShowAuthPage(true)} />;
   }
 
-  if (!hasApiKey && !apiKeySkipped) {
+  if (currentUser && !hasApiKey && !apiKeySkipped) {
       return <ApiKeyPrompt 
           isStudioEnv={isStudioEnv}
           onSelectKey={handleSelectStudioKey}
@@ -432,7 +443,7 @@ const App: React.FC = () => {
           onComplete={handleMarkFocusTaskDone}
         />
       )}
-      {isSettingsModalOpen && (
+      {isSettingsModalOpen && currentUser && (
         <SettingsModal 
           isOpen={isSettingsModalOpen}
           onClose={() => setSettingsModalOpen(false)}
@@ -440,7 +451,7 @@ const App: React.FC = () => {
           onUpdateProfile={updateUserProfile}
         />
       )}
-      {isUpdateKeyModalOpen && (
+      {isUpdateKeyModalOpen && currentUser && (
           <ApiKeyPrompt 
               isStudioEnv={isStudioEnv}
               onSelectKey={handleSelectStudioKey}
@@ -450,7 +461,7 @@ const App: React.FC = () => {
               onClose={() => setUpdateKeyModalOpen(false)}
           />
       )}
-      {isImportModalOpen && (
+      {isImportModalOpen && currentUser && hasApiKey && (
         <ImportAssistantModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
@@ -459,7 +470,7 @@ const App: React.FC = () => {
         />
       )}
       
-      {hasApiKey && (
+      {hasApiKey && currentUser && (
         <ChatAssistant
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}
@@ -472,6 +483,7 @@ const App: React.FC = () => {
 
       <div className="min-h-screen bg-[#0F172A] text-slate-100 p-4 sm:p-6 lg:p-8 font-sans">
         <div className="max-w-7xl mx-auto">
+          {isGuestMode && <GuestBanner onSignUp={handleNavigateToAuth} />}
           <Header
             tasks={tasks}
             user={currentUser}
@@ -578,7 +590,7 @@ const App: React.FC = () => {
                     subtasksByParentId={subtasksByParentId}
                     onUpdateTaskStatus={updateTaskStatus}
                     // Fix: Changed onToggleTaskUrgency to toggleTaskUrgency to match the function from the useTasks hook.
-                    onToggleTaskUrgency={toggleTaskUrgency}
+                    toggleTaskUrgency={toggleTaskUrgency}
                     onDeleteTask={deleteTask}
                     onStartFocus={handleStartFocus}
                     onToggleTask={toggleTask}
@@ -628,7 +640,7 @@ const App: React.FC = () => {
         </div>
       </div>
       
-      {hasApiKey && (
+      {hasApiKey && currentUser && (
         <button
             onClick={() => setIsChatOpen(true)}
             className="fixed bottom-6 right-6 bg-primary-600 hover:bg-primary-700 text-white p-4 rounded-full shadow-lg z-40 transition-transform hover:scale-110"

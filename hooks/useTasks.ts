@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect, useCallback } from 'react';
 import { Task, TaskStatus } from '../types';
 import { addDays, addWeeks, addMonths } from 'date-fns';
@@ -22,13 +23,35 @@ import { useToast } from '../context/ToastContext';
 import { v4 as uuidv4 } from 'uuid';
 
 
+const GUEST_TASKS_KEY = 'ptodo-guest-tasks';
+const GUEST_TASK_LIMIT = 5;
+
 export const useTasks = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, isGuestMode } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
 
+  // Unified function to update guest tasks in state and localStorage
+  const updateGuestTasks = (newTasks: Task[]) => {
+    setTasks(newTasks);
+    localStorage.setItem(GUEST_TASKS_KEY, JSON.stringify(newTasks));
+  };
+  
+  const getGuestTasks = (): Task[] => {
+    const storedTasks = localStorage.getItem(GUEST_TASKS_KEY);
+    return storedTasks ? JSON.parse(storedTasks) : [];
+  };
+
   useEffect(() => {
+    if (isGuestMode) {
+      setLoading(true);
+      const guestTasks = getGuestTasks();
+      setTasks(guestTasks);
+      setLoading(false);
+      return () => {}; // No-op for cleanup in guest mode
+    }
+
     if (!currentUser) {
       setTasks([]);
       setLoading(false);
@@ -74,11 +97,35 @@ export const useTasks = () => {
     );
 
     return () => unsubscribe();
-  }, [currentUser, addToast]);
+  }, [currentUser, isGuestMode, addToast]);
 
   const addTask = useCallback(async (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => {
-    if (!text.trim() || !currentUser) return;
+    if (!text.trim()) return;
 
+    if (isGuestMode) {
+        const currentTasks = getGuestTasks();
+        if (currentTasks.length >= GUEST_TASK_LIMIT) {
+            addToast(`Bạn đã đạt giới hạn ${GUEST_TASK_LIMIT} công việc cho khách. Vui lòng đăng ký để thêm không giới hạn.`, 'info');
+            return;
+        }
+        const newTask: Task = {
+            id: uuidv4(),
+            text: text.trim(),
+            status: 'todo',
+            createdAt: new Date().toISOString(),
+            dueDate,
+            hashtags: tags.map(tag => tag.toLowerCase()),
+            reminderSent: false,
+            isUrgent,
+            recurrenceRule: 'none', // No recurrence for guests
+            note: '',
+        };
+        updateGuestTasks([...currentTasks, newTask]);
+        addToast('Đã thêm công việc mới!', 'success');
+        return;
+    }
+    
+    if (!currentUser) return;
     const newTask = {
       text: text.trim(),
       status: 'todo' as TaskStatus,
@@ -99,9 +146,28 @@ export const useTasks = () => {
       console.error("Error adding task: ", error);
       addToast('Không thể thêm công việc.', 'error');
     }
-  }, [currentUser, addToast]);
+  }, [currentUser, isGuestMode, addToast]);
   
   const addTasksBatch = useCallback(async (tasksToAdd: { text: string; tags: string[]; dueDate: string | null; isUrgent: boolean }[]) => {
+    if (isGuestMode) {
+        // Guest mode batch add isn't supported via UI, but useful for migration
+        const guestTasks = getGuestTasks();
+        const newTasks: Task[] = tasksToAdd.map(task => ({
+            id: uuidv4(),
+            text: task.text.trim(),
+            status: 'todo',
+            createdAt: new Date().toISOString(),
+            dueDate: task.dueDate,
+            hashtags: task.tags.map(tag => tag.toLowerCase()),
+            reminderSent: false,
+            isUrgent: task.isUrgent,
+            recurrenceRule: 'none',
+            note: '',
+        }));
+        updateGuestTasks([...guestTasks, ...newTasks].slice(0, GUEST_TASK_LIMIT));
+        return;
+    }
+    
     if (!currentUser || tasksToAdd.length === 0) return;
 
     const batch = writeBatch(db);
@@ -131,9 +197,36 @@ export const useTasks = () => {
         console.error("Error adding tasks in batch: ", error);
         addToast('Không thể thêm các công việc.', 'error');
     }
-  }, [currentUser, addToast]);
+  }, [currentUser, isGuestMode, addToast]);
 
   const addSubtasksBatch = useCallback(async (parentId: string, subtaskTexts: string[]) => {
+    if (isGuestMode) {
+        const currentTasks = getGuestTasks();
+        const availableSlots = GUEST_TASK_LIMIT - currentTasks.length;
+        if (availableSlots <= 0) {
+            addToast(`Đã đạt giới hạn ${GUEST_TASK_LIMIT} công việc. Không thể thêm công việc con.`, 'info');
+            return;
+        }
+        
+        const subtasksToAdd: Task[] = subtaskTexts.slice(0, availableSlots).map(text => ({
+            id: uuidv4(),
+            text: text.trim(),
+            status: 'todo',
+            createdAt: new Date().toISOString(),
+            dueDate: null,
+            hashtags: [],
+            reminderSent: false,
+            isUrgent: false,
+            recurrenceRule: 'none',
+            parentId: parentId,
+            note: '',
+        }));
+
+        updateGuestTasks([...currentTasks, ...subtasksToAdd]);
+        addToast(`Đã thêm ${subtasksToAdd.length} công việc con.`, 'success');
+        return;
+    }
+
     if (!currentUser || subtaskTexts.length === 0) return;
 
     const batch = writeBatch(db);
@@ -164,16 +257,24 @@ export const useTasks = () => {
         console.error("Error adding subtasks in batch: ", error);
         addToast('Không thể thêm công việc con.', 'error');
     }
-  }, [currentUser, addToast]);
+  }, [currentUser, isGuestMode, addToast]);
 
   const updateTaskText = useCallback(async (id: string, newText: string) => {
-    if (!currentUser) return;
     const trimmedText = newText.trim();
     if (!trimmedText) {
       addToast('Nội dung công việc không thể để trống.', 'error');
       return;
     }
     
+    if (isGuestMode) {
+        const currentTasks = getGuestTasks();
+        const newTasks = currentTasks.map(t => t.id === id ? { ...t, text: trimmedText } : t);
+        updateGuestTasks(newTasks);
+        addToast('Đã cập nhật nội dung công việc.', 'success');
+        return;
+    }
+    
+    if (!currentUser) return;
     const originalTasks = tasks;
     const task = tasks.find(t => t.id === id);
     if (!task || task.text === trimmedText) return;
@@ -188,9 +289,17 @@ export const useTasks = () => {
       addToast('Không thể cập nhật công việc.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, tasks, addToast]);
+  }, [currentUser, isGuestMode, tasks, addToast]);
 
   const updateTaskNote = useCallback(async (id: string, newNote: string) => {
+    if (isGuestMode) {
+        const currentTasks = getGuestTasks();
+        const newTasks = currentTasks.map(t => t.id === id ? { ...t, note: newNote } : t);
+        updateGuestTasks(newTasks);
+        addToast('Đã cập nhật ghi chú.', 'success');
+        return;
+    }
+
     if (!currentUser) return;
     const originalTasks = tasks;
     const task = tasks.find(t => t.id === id);
@@ -206,18 +315,26 @@ export const useTasks = () => {
       addToast('Không thể cập nhật ghi chú.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, tasks, addToast]);
+  }, [currentUser, isGuestMode, tasks, addToast]);
 
 
   const toggleTask = useCallback(async (id: string) => {
+    const taskToToggle = tasks.find(t => t.id === id);
+    if (!taskToToggle) return;
+    const newStatus = taskToToggle.status === 'completed' ? 'todo' : 'completed';
+
+    if (isGuestMode) {
+        const currentTasks = getGuestTasks();
+        const newTasks = currentTasks.map(t => t.id === id ? { ...t, status: newStatus } : t);
+        updateGuestTasks(newTasks);
+        addToast('Đã cập nhật trạng thái công việc.', 'success');
+        return;
+    }
+    
     if (!currentUser) return;
     
     const originalTasks = tasks;
-    const taskToToggle = tasks.find(t => t.id === id);
-    if (!taskToToggle) return;
-
-    const newStatus = taskToToggle.status === 'completed' ? 'todo' : 'completed';
-
+    
     // Optimistic UI update
     if (taskToToggle.status !== 'completed' && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
         let nextDueDate: Date;
@@ -282,9 +399,16 @@ export const useTasks = () => {
       addToast('Không thể cập nhật công việc.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, tasks, addToast]);
+  }, [currentUser, isGuestMode, tasks, addToast]);
 
   const deleteTask = useCallback(async (id: string) => {
+    if (isGuestMode) {
+        const currentTasks = getGuestTasks();
+        const newTasks = currentTasks.filter(task => task.id !== id && task.parentId !== id);
+        updateGuestTasks(newTasks);
+        addToast('Đã xóa công việc.', 'success');
+        return;
+    }
     if (!currentUser) return;
     const originalTasks = tasks;
     setTasks(currentTasks => currentTasks.filter(task => task.id !== id && task.parentId !== id));
@@ -304,9 +428,17 @@ export const useTasks = () => {
       addToast('Không thể xóa công việc.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, tasks, addToast]);
+  }, [currentUser, isGuestMode, tasks, addToast]);
 
   const toggleTaskUrgency = useCallback(async (id: string) => {
+     if (isGuestMode) {
+        const currentTasks = getGuestTasks();
+        const newTasks = currentTasks.map(t => t.id === id ? { ...t, isUrgent: !t.isUrgent } : t);
+        updateGuestTasks(newTasks);
+        addToast('Đã cập nhật độ khẩn cấp.', 'success');
+        return;
+    }
+
     if (!currentUser) return;
     const originalTasks = tasks;
     const task = tasks.find(t => t.id === id);
@@ -322,9 +454,17 @@ export const useTasks = () => {
       addToast('Không thể cập nhật độ khẩn cấp.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, tasks, addToast]);
+  }, [currentUser, isGuestMode, tasks, addToast]);
 
   const updateTaskDueDate = useCallback(async (id: string, newDueDate: string | null) => {
+    if (isGuestMode) {
+        const currentTasks = getGuestTasks();
+        const newTasks = currentTasks.map(t => t.id === id ? { ...t, dueDate: newDueDate, reminderSent: false } : t);
+        updateGuestTasks(newTasks);
+        addToast('Đã cập nhật thời hạn.', 'success');
+        return;
+    }
+    
     if (!currentUser) return;
     const originalTasks = tasks;
     setTasks(current => current.map(t => t.id === id ? {...t, dueDate: newDueDate, reminderSent: false} : t));
@@ -337,9 +477,11 @@ export const useTasks = () => {
       addToast('Không thể cập nhật thời hạn.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, tasks, addToast]);
+  }, [currentUser, isGuestMode, tasks, addToast]);
 
   const markReminderSent = useCallback(async (id: string) => {
+    if (isGuestMode) return; // Reminders are not supported for guests
+    
     if (!currentUser) return;
     const originalTasks = tasks;
     setTasks(current => current.map(t => t.id === id ? {...t, reminderSent: true} : t));
@@ -350,15 +492,26 @@ export const useTasks = () => {
       console.error("Error marking reminder sent: ", error);
       setTasks(originalTasks);
     }
-  }, [currentUser, tasks]);
+  }, [currentUser, isGuestMode, tasks]);
 
   const updateTaskStatus = useCallback(async (id: string, status: TaskStatus) => {
-    if (!currentUser) return;
-    const originalTasks = tasks;
     const task = tasks.find(t => t.id === id);
     if (!task || task.status === status) return;
     
-    setTasks(current => current.map(t => t.id === id ? {...t, status: status} : t));
+    if (isGuestMode) {
+        const currentTasks = getGuestTasks();
+        // FIX: Explicitly type `t` as `Task` to prevent type widening on the `status` property.
+        // The data from localStorage is not strictly typed, so this helps TypeScript understand the object shape.
+        const newTasks = currentTasks.map((t: Task): Task => (t.id === id ? { ...t, status: status } : t));
+        updateGuestTasks(newTasks);
+        addToast('Đã cập nhật trạng thái công việc.', 'success');
+        return;
+    }
+
+    if (!currentUser) return;
+    const originalTasks = tasks;
+    
+    setTasks(current => current.map((t): Task => (t.id === id ? {...t, status: status} : t)));
 
     try {
         await updateDoc(doc(db, 'tasks', id), { status: status });
@@ -368,7 +521,7 @@ export const useTasks = () => {
       addToast('Không thể cập nhật trạng thái.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, tasks, addToast]);
+  }, [currentUser, isGuestMode, tasks, addToast]);
 
 
   return { tasks, addTask, addTasksBatch, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency, updateTaskText, updateTaskStatus, updateTaskNote };

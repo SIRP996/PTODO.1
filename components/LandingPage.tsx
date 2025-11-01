@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { 
   CheckSquare, Zap, Users, BrainCircuit, Code, Database, Palette, BarChart, ArrowRight, Mic, 
-  Target, Settings, Sparkles, TrendingUp, BarChart2, Server, Gamepad2
+  Target, Settings, Sparkles, TrendingUp, BarChart2, Server, Gamepad2, UserPlus
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface LandingPageProps {
   onNavigateToAuth: () => void;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
+  const { enterGuestMode } = useAuth();
   const navLinks = ['Giới thiệu', 'Tính năng', 'Dashboard', 'Công nghệ', 'Lộ trình'];
   const [activeTab, setActiveTab] = useState('cot-loi');
 
@@ -81,12 +83,21 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
               </a>
             ))}
           </div>
-          <button
-            onClick={onNavigateToAuth}
-            className="bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
-          >
-            Bắt đầu ngay
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+                onClick={onNavigateToAuth}
+                className="bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+            >
+                Đăng nhập
+            </button>
+            <button
+              onClick={onNavigateToAuth}
+              className="bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 flex items-center gap-2"
+            >
+              <UserPlus size={16}/>
+              <span>Đăng ký</span>
+            </button>
+          </div>
         </nav>
       </header>
 
@@ -100,12 +111,21 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
           <p className="text-4xl md:text-5xl font-bold text-primary-400 mb-8">
             Think Less. Do More.
           </p>
-          <button
-            onClick={onNavigateToAuth}
-            className="bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-8 rounded-full text-lg transition-transform hover:scale-105"
-          >
-            Trải nghiệm miễn phí
-          </button>
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+            <button
+              onClick={onNavigateToAuth}
+              className="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-8 rounded-full text-lg transition-transform hover:scale-105 flex items-center justify-center gap-2"
+            >
+              <span>Bắt đầu ngay</span>
+              <ArrowRight size={20}/>
+            </button>
+            <button
+                onClick={enterGuestMode}
+                className="w-full sm:w-auto bg-slate-800 border-2 border-slate-700 hover:bg-slate-700 text-slate-300 font-bold py-3 px-8 rounded-full text-lg transition-all duration-300 hover:scale-105"
+            >
+                Dùng thử không cần đăng nhập
+            </button>
+          </div>
         </section>
 
         {/* Problem & Solution Section */}

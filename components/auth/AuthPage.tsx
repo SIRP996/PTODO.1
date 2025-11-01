@@ -61,6 +61,7 @@ const AuthPage = () => {
     setMessage(null);
     try {
       await login(email, password);
+      sessionStorage.removeItem('ptodo-is-guest');
       // No need to handle navigation, AuthContext will do it.
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err));
@@ -78,7 +79,7 @@ const AuthPage = () => {
     setMessage(null);
     try {
       await signup(email, password);
-      // No need to handle navigation, AuthContext will do it.
+      // No need to handle navigation, AuthContext will do it. AuthContext handles guest data migration.
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err));
       setLoading(false);
