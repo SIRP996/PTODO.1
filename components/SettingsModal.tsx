@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Save, Loader2, Image, Trash2, Calendar } from 'lucide-react';
+import { X, User, Mail, Save, Loader2, Image, Trash2, Calendar, RefreshCw } from 'lucide-react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ interface SettingsModalProps {
   onClose: () => void;
   user: FirebaseUser | null;
   onUpdateProfile: (name: string) => Promise<void>;
+  syncExistingTasksToCalendar: () => Promise<void>;
 }
 
 const themes: { id: Theme; name: string; color: string; }[] = [
@@ -20,10 +21,11 @@ const themes: { id: Theme; name: string; color: string; }[] = [
     { id: 'ocean', name: 'Đại dương', color: 'bg-cyan-500' },
 ];
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, onUpdateProfile }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, onUpdateProfile, syncExistingTasksToCalendar }) => {
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
+  const [isSyncingOld, setIsSyncingOld] = useState(false);
   const { addToast } = useToast();
   const { userSettings, updateUserSettings, linkGoogleAccount, unlinkGoogleAccount } = useAuth();
   
@@ -150,6 +152,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
         setIsLinking(false);
     }
   }
+  
+  const handleSyncOldTasks = async () => {
+    setIsSyncingOld(true);
+    await syncExistingTasksToCalendar();
+    setIsSyncingOld(false);
+  }
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 animate-fadeIn">
@@ -272,6 +280,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
                         </button>
                     )}
                 </div>
+                {userSettings?.isGoogleCalendarLinked && (
+                    <div className="pl-4">
+                        <button
+                            type="button"
+                            onClick={handleSyncOldTasks}
+                            disabled={isSyncingOld}
+                            className="flex items-center gap-2 text-sm text-slate-400 hover:text-primary-400 font-semibold disabled:text-slate-500 disabled:cursor-not-allowed"
+                        >
+                           {isSyncingOld ? <Loader2 size={16} className="animate-spin"/> : <RefreshCw size={16}/>}
+                           <span>{isSyncingOld ? 'Đang xử lý...' : 'Đồng bộ công việc cũ'}</span>
+                        </button>
+                        <p className="text-xs text-slate-500 mt-1">Chỉ cần thực hiện một lần để đưa các công việc đã có từ trước lên lịch của bạn.</p>
+                    </div>
+                )}
            </div>
 
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Task, TaskStatus } from '../types';
 import { addDays, addWeeks, addMonths } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
@@ -18,6 +18,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
+import { useLog } from '../context/LogContext';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -29,6 +30,15 @@ export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
+  const { addLog } = useLog();
+
+  // Create a ref to hold the latest tasks array to break dependency cycles in callbacks
+  const tasksRef = useRef<Task[]>(tasks);
+
+  // Keep the ref in sync with the state
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   // Unified function to update guest tasks in state and localStorage
   const updateGuestTasks = (newTasks: Task[]) => {
@@ -42,20 +52,24 @@ export const useTasks = () => {
   };
 
   const syncWithCalendar = useCallback(async (action: 'create' | 'update' | 'delete', task: Omit<Task, 'id'> & { id?: string }) => {
+    addLog(`[Sync] Bắt đầu đồng bộ: Hành động = ${action}, Công việc = ${task.text}`, 'info');
+
     if (!userSettings?.isGoogleCalendarLinked) {
+        addLog('[Sync] Thất bại: Người dùng chưa kết nối Lịch Google (kiểm tra từ userSettings).', 'warn');
         return;
     }
     if (!googleAccessToken) {
+        addLog('[Sync] Thất bại: Không tìm thấy Google Access Token.', 'error');
         addToast("Phiên kết nối Lịch Google đã hết hạn. Vui lòng kết nối lại trong Cài đặt.", 'info');
         return;
     }
+    addLog('[Sync] Trạng thái: Đã kết nối & có Access Token.', 'success');
 
     const eventData = {
         summary: task.text,
         description: task.note || `Trạng thái: ${task.status}`,
         start: { dateTime: new Date(task.dueDate!).toISOString() },
         end: { dateTime: new Date(new Date(task.dueDate!).getTime() + 60 * 60 * 1000).toISOString() }, // Default 1 hour duration
-        // Add status to description
         ...(task.status === 'completed' && { status: 'cancelled' })
     };
     
@@ -69,11 +83,12 @@ export const useTasks = () => {
         url += `/${task.googleCalendarEventId}`;
         method = 'DELETE';
     } else if ((action === 'update' || action === 'delete') && !task.googleCalendarEventId) {
-        console.warn(`Cannot ${action} calendar event for task "${task.text}" without an event ID.`);
+        addLog(`[Sync] Bỏ qua: Không thể ${action} sự kiện cho công việc "${task.text}" vì thiếu ID sự kiện.`, 'warn');
         return;
     }
 
     try {
+        addLog(`[Sync] Đang gửi yêu cầu: ${method} đến ${url}`, 'info');
         const headers = new Headers({
             'Authorization': `Bearer ${googleAccessToken}`,
             'Content-Type': 'application/json',
@@ -96,9 +111,10 @@ export const useTasks = () => {
 
         if (action === 'create') {
             const createdEvent = await response.json();
+            addLog(`[Sync] Thành công: Đã tạo sự kiện với ID: ${createdEvent.id}`, 'success');
             return createdEvent.id;
         }
-        
+        addLog(`[Sync] Thành công: Hoàn thành hành động ${action}.`, 'success');
         return null;
 
     } catch (error) {
@@ -108,6 +124,7 @@ export const useTasks = () => {
                 const errorData = await error.json();
                 const gError = errorData.error;
                 console.error("Google Calendar API Error:", gError);
+                addLog(`[Sync] Lỗi API Google (HTTP ${gError.code}): ${gError.message}`, 'error');
                 if (gError.code === 401) {
                     specificMessage = "Phiên kết nối đã hết hạn. Vui lòng kết nối lại Lịch Google trong Cài đặt.";
                 } else if (gError.code === 403 && gError.message.includes('Calendar API has not been used')) {
@@ -117,14 +134,16 @@ export const useTasks = () => {
                 }
             } catch (e) {
                  specificMessage = `Lỗi không xác định khi đồng bộ (HTTP ${error.status}). Vui lòng kiểm tra lại kết nối và quyền.`;
+                 addLog(`[Sync] Lỗi không xác định (HTTP ${error.status}).`, 'error');
             }
         } else {
+            addLog(`[Sync] Lỗi Fetch: ${error}`, 'error');
             console.error("Sync Error:", error);
         }
         addToast(specificMessage, 'error');
         return null;
     }
-  }, [userSettings?.isGoogleCalendarLinked, googleAccessToken, addToast]);
+  }, [userSettings?.isGoogleCalendarLinked, googleAccessToken, addToast, addLog]);
 
 
   useEffect(() => {
@@ -232,7 +251,7 @@ export const useTasks = () => {
 
     try {
       if (dueDate) {
-          const eventId = await syncWithCalendar('create', { ...newTaskData, dueDate });
+          const eventId = await syncWithCalendar('create', { ...newTaskData, createdAt: new Date().toISOString(), dueDate });
           if (eventId) {
             newTaskData.googleCalendarEventId = eventId;
           }
@@ -247,7 +266,6 @@ export const useTasks = () => {
   
   const addTasksBatch = useCallback(async (tasksToAdd: { text: string; tags: string[]; dueDate: string | null; isUrgent: boolean }[]) => {
     if (isGuestMode) {
-        // Guest mode batch add isn't supported via UI, but useful for migration
         const guestTasks = getGuestTasks();
         const newTasks: Task[] = tasksToAdd.map(task => ({
             id: uuidv4(),
@@ -288,7 +306,7 @@ export const useTasks = () => {
             googleCalendarEventId: '',
         };
         if (taskData.dueDate) {
-            const eventId = await syncWithCalendar('create', { ...taskData, dueDate: task.dueDate });
+            const eventId = await syncWithCalendar('create', { ...taskData, createdAt: new Date().toISOString(), dueDate: task.dueDate });
             if (eventId) {
               taskData.googleCalendarEventId = eventId;
             }
@@ -381,8 +399,8 @@ export const useTasks = () => {
     }
     
     if (!currentUser) return;
-    const originalTasks = tasks;
-    const task = tasks.find(t => t.id === id);
+    const originalTasks = tasksRef.current;
+    const task = originalTasks.find(t => t.id === id);
     if (!task || task.text === trimmedText) return;
     
     setTasks(current => current.map(t => t.id === id ? {...t, text: trimmedText} : t));
@@ -398,7 +416,7 @@ export const useTasks = () => {
       addToast('Không thể cập nhật công việc.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, isGuestMode, tasks, addToast, syncWithCalendar]);
+  }, [currentUser, isGuestMode, addToast, syncWithCalendar]);
 
   const updateTaskNote = useCallback(async (id: string, newNote: string) => {
     if (isGuestMode) {
@@ -410,8 +428,8 @@ export const useTasks = () => {
     }
 
     if (!currentUser) return;
-    const originalTasks = tasks;
-    const task = tasks.find(t => t.id === id);
+    const originalTasks = tasksRef.current;
+    const task = originalTasks.find(t => t.id === id);
     if (!task || task.note === newNote) return;
     
     setTasks(current => current.map(t => t.id === id ? {...t, note: newNote} : t));
@@ -427,11 +445,11 @@ export const useTasks = () => {
       addToast('Không thể cập nhật ghi chú.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, isGuestMode, tasks, addToast, syncWithCalendar]);
+  }, [currentUser, isGuestMode, addToast, syncWithCalendar]);
 
 
   const toggleTask = useCallback(async (id: string) => {
-    const taskToToggle = tasks.find(t => t.id === id);
+    const taskToToggle = tasksRef.current.find(t => t.id === id);
     if (!taskToToggle) return;
     const newStatus = taskToToggle.status === 'completed' ? 'todo' : 'completed';
 
@@ -444,19 +462,17 @@ export const useTasks = () => {
     }
     
     if (!currentUser) return;
-    const originalTasks = tasks;
+    const originalTasks = tasksRef.current;
     setTasks(currentTasks => currentTasks.map(task =>
         task.id === id ? { ...task, status: newStatus } : task
     ));
     
-    // Firebase operation
     try {
         if (taskToToggle.dueDate) {
            await syncWithCalendar('update', { ...taskToToggle, status: newStatus });
         }
         await updateDoc(doc(db, 'tasks', id), { status: newStatus });
         
-        // Handle recurrence separately
         if (newStatus === 'completed' && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
             let nextDueDate: Date;
             const currentDueDate = new Date(taskToToggle.dueDate);
@@ -476,10 +492,10 @@ export const useTasks = () => {
       addToast('Không thể cập nhật công việc.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, isGuestMode, tasks, addToast, syncWithCalendar, addTask]);
+  }, [currentUser, isGuestMode, addToast, syncWithCalendar, addTask]);
 
   const deleteTask = useCallback(async (id: string) => {
-    const taskToDelete = tasks.find(t => t.id === id);
+    const taskToDelete = tasksRef.current.find(t => t.id === id);
     if (!taskToDelete) return;
 
     if (isGuestMode) {
@@ -490,7 +506,7 @@ export const useTasks = () => {
         return;
     }
     if (!currentUser) return;
-    const originalTasks = tasks;
+    const originalTasks = tasksRef.current;
     setTasks(currentTasks => currentTasks.filter(task => task.id !== id && task.parentId !== id));
     
     try {
@@ -498,7 +514,7 @@ export const useTasks = () => {
         await syncWithCalendar('delete', taskToDelete);
       }
 
-      const subtasksToDelete = tasks.filter(t => t.parentId === id).map(t => t.id);
+      const subtasksToDelete = tasksRef.current.filter(t => t.parentId === id).map(t => t.id);
       const allIdsToDelete = [id, ...subtasksToDelete];
       
       const batch = writeBatch(db);
@@ -512,7 +528,7 @@ export const useTasks = () => {
       addToast('Không thể xóa công việc.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, isGuestMode, tasks, addToast, syncWithCalendar]);
+  }, [currentUser, isGuestMode, addToast, syncWithCalendar]);
 
   const toggleTaskUrgency = useCallback(async (id: string) => {
      if (isGuestMode) {
@@ -524,8 +540,8 @@ export const useTasks = () => {
     }
 
     if (!currentUser) return;
-    const originalTasks = tasks;
-    const task = tasks.find(t => t.id === id);
+    const originalTasks = tasksRef.current;
+    const task = originalTasks.find(t => t.id === id);
     if (!task) return;
     
     setTasks(current => current.map(t => t.id === id ? {...t, isUrgent: !t.isUrgent} : t));
@@ -538,10 +554,10 @@ export const useTasks = () => {
       addToast('Không thể cập nhật độ khẩn cấp.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, isGuestMode, tasks, addToast]);
+  }, [currentUser, isGuestMode, addToast]);
 
   const updateTaskDueDate = useCallback(async (id: string, newDueDate: string | null) => {
-    const task = tasks.find(t => t.id === id);
+    const task = tasksRef.current.find(t => t.id === id);
     if (!task) return;
 
     if (isGuestMode) {
@@ -553,7 +569,7 @@ export const useTasks = () => {
     }
     
     if (!currentUser) return;
-    const originalTasks = tasks;
+    const originalTasks = tasksRef.current;
     setTasks(current => current.map(t => t.id === id ? {...t, dueDate: newDueDate, reminderSent: false} : t));
     
     try {
@@ -567,7 +583,7 @@ export const useTasks = () => {
             await syncWithCalendar('update', updatedTask);
         } else if (!newDueDate && eventId) { // Delete event if date is removed
             await syncWithCalendar('delete', updatedTask);
-            eventId = ''; // Clear event ID
+            eventId = '';
         }
 
         await updateDoc(doc(db, 'tasks', id), { 
@@ -581,13 +597,13 @@ export const useTasks = () => {
       addToast('Không thể cập nhật thời hạn.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, isGuestMode, tasks, addToast, syncWithCalendar]);
+  }, [currentUser, isGuestMode, addToast, syncWithCalendar]);
 
   const markReminderSent = useCallback(async (id: string) => {
-    if (isGuestMode) return; // Reminders are not supported for guests
+    if (isGuestMode) return;
     
     if (!currentUser) return;
-    const originalTasks = tasks;
+    const originalTasks = tasksRef.current;
     setTasks(current => current.map(t => t.id === id ? {...t, reminderSent: true} : t));
 
     try {
@@ -596,25 +612,25 @@ export const useTasks = () => {
       console.error("Error marking reminder sent: ", error);
       setTasks(originalTasks);
     }
-  }, [currentUser, isGuestMode, tasks]);
+  }, [currentUser, isGuestMode]);
 
   const updateTaskStatus = useCallback(async (id: string, newStatus: TaskStatus) => {
-    const task = tasks.find(t => t.id === id);
+    const task = tasksRef.current.find(t => t.id === id);
     if (!task || task.status === newStatus) return;
     
     if (isGuestMode) {
         const currentTasks = getGuestTasks();
-        const newTasks = currentTasks.map((t) => {
+        // Fix: Explicitly type the return value of the map callback as Task to ensure type safety.
+        const newTasks = currentTasks.map((t: Task): Task => {
             return t.id === id ? { ...t, status: newStatus } : t;
         });
-        // Fix: Cast the resulting array to Task[] to resolve type mismatch from localStorage data.
-        updateGuestTasks(newTasks as Task[]);
+        updateGuestTasks(newTasks);
         addToast('Đã cập nhật trạng thái công việc.', 'success');
         return;
     }
 
     if (!currentUser) return;
-    const originalTasks = tasks;
+    const originalTasks = tasksRef.current;
     
     setTasks(current => current.map((t): Task => (
         t.id === id ? { ...t, status: newStatus } : t
@@ -631,8 +647,44 @@ export const useTasks = () => {
       addToast('Không thể cập nhật trạng thái.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, isGuestMode, tasks, addToast, syncWithCalendar]);
+  }, [currentUser, isGuestMode, addToast, syncWithCalendar]);
+
+  const syncExistingTasksToCalendar = useCallback(async () => {
+    addLog('[Manual Sync] Bắt đầu quá trình đồng bộ thủ công.', 'info');
+    const tasksToSync = tasksRef.current.filter(t => t.dueDate && !t.googleCalendarEventId);
+    
+    if (tasksToSync.length === 0) {
+      addToast("Tất cả công việc đã được đồng bộ.", 'info');
+      addLog('[Manual Sync] Không có công việc nào cần đồng bộ.', 'info');
+      return;
+    }
+
+    addToast(`Đang đồng bộ ${tasksToSync.length} công việc cũ...`, 'info');
+    addLog(`[Manual Sync] Tìm thấy ${tasksToSync.length} công việc cần đồng bộ.`, 'info');
+
+    const batch = writeBatch(db);
+    let successCount = 0;
+
+    for (const task of tasksToSync) {
+        const eventId = await syncWithCalendar('create', task);
+        if (eventId) {
+            const taskRef = doc(db, 'tasks', task.id);
+            batch.update(taskRef, { googleCalendarEventId: eventId });
+            successCount++;
+        }
+    }
+
+    try {
+        await batch.commit();
+        addToast(`Đã đồng bộ thành công ${successCount} công việc.`, 'success');
+        addLog(`[Manual Sync] Hoàn tất: Đã đồng bộ ${successCount} công việc.`, 'success');
+    } catch (error) {
+        console.error("Error during batch sync update:", error);
+        addToast("Có lỗi xảy ra khi cập nhật công việc sau khi đồng bộ.", 'error');
+        addLog(`[Manual Sync] Lỗi khi cập nhật Firestore: ${error}`, 'error');
+    }
+  }, [syncWithCalendar, addToast, addLog]);
 
 
-  return { tasks, addTask, addTasksBatch, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency, updateTaskText, updateTaskStatus, updateTaskNote };
+  return { tasks, addTask, addTasksBatch, addSubtasksBatch, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency, updateTaskText, updateTaskStatus, updateTaskNote, syncExistingTasksToCalendar };
 };

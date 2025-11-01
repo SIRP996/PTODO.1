@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { LogProvider } from './context/LogContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -15,7 +16,9 @@ root.render(
   <React.StrictMode>
     <AuthProvider>
       <ToastProvider>
-        <App />
+        <LogProvider>
+          <App />
+        </LogProvider>
       </ToastProvider>
     </AuthProvider>
   </React.StrictMode>

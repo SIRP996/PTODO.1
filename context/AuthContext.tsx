@@ -168,6 +168,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setGoogleAccessToken(credential.accessToken);
         }
         await updateUserSettings({ isGoogleCalendarLinked: true });
+        // Fix: Optimistically update local state to avoid race conditions
+        setUserSettings(current => ({...(current || {}), isGoogleCalendarLinked: true }));
     } catch (error) {
         console.error("Error linking Google account:", error);
         throw error;
@@ -181,6 +183,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         sessionStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY);
         setGoogleAccessToken(null);
         await updateUserSettings({ isGoogleCalendarLinked: false });
+        // Fix: Optimistically update local state to avoid race conditions
+        setUserSettings(current => ({...(current || {}), isGoogleCalendarLinked: false }));
     } catch (error) {
         console.error("Error unlinking Google account:", error);
         throw error;

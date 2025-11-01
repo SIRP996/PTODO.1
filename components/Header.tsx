@@ -1,7 +1,8 @@
 
 
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, CheckSquare, LogOut, KeyRound, UserCircle, Palette, UserPlus } from 'lucide-react';
+import { Download, CheckSquare, LogOut, KeyRound, UserCircle, Palette, UserPlus, BookOpen } from 'lucide-react';
 import { Task, Theme } from '../types';
 import { User } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
@@ -14,6 +15,7 @@ interface HeaderProps {
     hasApiKey: boolean;
     onManageApiKey: () => void;
     onOpenSettings: () => void;
+    onToggleLogViewer: () => void;
 }
 
 const themes: { id: Theme; name: string; color: string; }[] = [
@@ -24,7 +26,7 @@ const themes: { id: Theme; name: string; color: string; }[] = [
     { id: 'ocean', name: 'Đại dương', color: 'bg-cyan-500' },
 ];
 
-const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onManageApiKey, onOpenSettings }) => {
+const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onManageApiKey, onOpenSettings, onToggleLogViewer }) => {
     const { addToast } = useToast();
     const { userSettings, updateUserSettings, isGuestMode, exitGuestMode } = useAuth();
     const [isThemePopoverOpen, setIsThemePopoverOpen] = useState(false);
@@ -116,6 +118,13 @@ const Header: React.FC<HeaderProps> = ({ tasks, user, onLogout, hasApiKey, onMan
                 </div>
             </div>
              <div className="w-full sm:w-auto flex items-center justify-end gap-2">
+                <button
+                    onClick={onToggleLogViewer}
+                    className="flex items-center justify-center font-semibold p-2.5 rounded-lg transition-colors duration-200 bg-slate-700 hover:bg-slate-600 text-slate-300"
+                    title="Nhật ký Đồng bộ"
+                >
+                    <BookOpen className="h-4 w-4" />
+                </button>
                 <div className="relative">
                     <button
                         onClick={() => setIsThemePopoverOpen(prev => !prev)}

@@ -193,7 +193,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onToggleTask, onStar
             <div className="flex justify-between items-center border-t border-slate-700 pt-3">
                 <div className="flex items-center gap-2">
                     <button onClick={(e) => { e.stopPropagation(); onStartFocus(selectedTask); closePopover(); }} className="p-2 rounded-full text-slate-400 hover:bg-slate-700 hover:text-primary-400" title="Bắt đầu tập trung"><Play size={16} /></button>
-                    {selectedTask.isUrgent && <Flag size={16} className="text-red-500" title="Khẩn cấp" />}
+                    {/* FIX: Wrap the Flag icon in a span to apply the title attribute, as Lucide icons do not accept the title prop directly. */}
+                    {selectedTask.isUrgent && <span title="Khẩn cấp"><Flag size={16} className="text-red-500" /></span>}
                 </div>
                 <button onClick={(e) => { e.stopPropagation(); onToggleTask(selectedTask.id); closePopover(); }} className="flex items-center gap-2 text-sm bg-primary-600 hover:bg-primary-700 text-white font-semibold py-1.5 px-3 rounded-md">
                    <CheckCircle2 size={14} />

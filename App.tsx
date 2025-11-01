@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -24,6 +25,7 @@ import ImportAssistantModal from './components/ImportAssistantModal';
 import ChatAssistant from './components/ChatAssistant';
 import GuestBanner from './components/GuestBanner';
 import CalendarView from './components/CalendarView';
+import LogViewer from './components/LogViewer';
 
 const statusLabels: Record<TaskStatus, string> = {
   todo: 'Cần làm',
@@ -47,6 +49,7 @@ const App: React.FC = () => {
     updateTaskText,
     updateTaskStatus,
     updateTaskNote,
+    syncExistingTasksToCalendar,
   } = useTasks();
   
   // State to control view before login
@@ -68,6 +71,9 @@ const App: React.FC = () => {
 
   // Settings Modal State
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
+  
+  // Log Viewer State
+  const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
 
   // Chat Assistant State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -82,7 +88,7 @@ const App: React.FC = () => {
   
   const focusCompletionSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
@@ -434,6 +440,7 @@ const App: React.FC = () => {
 
   return (
     <>
+      <LogViewer isOpen={isLogViewerOpen} onClose={() => setIsLogViewerOpen(false)} />
       {isFocusModeActive && focusTask && (
         <FocusModeOverlay 
           task={focusTask}
@@ -450,6 +457,7 @@ const App: React.FC = () => {
           onClose={() => setSettingsModalOpen(false)}
           user={currentUser}
           onUpdateProfile={updateUserProfile}
+          syncExistingTasksToCalendar={syncExistingTasksToCalendar}
         />
       )}
       {isUpdateKeyModalOpen && currentUser && (
@@ -492,6 +500,7 @@ const App: React.FC = () => {
             hasApiKey={hasApiKey}
             onManageApiKey={() => setUpdateKeyModalOpen(true)}
             onOpenSettings={() => setSettingsModalOpen(true)}
+            onToggleLogViewer={() => setIsLogViewerOpen(prev => !prev)}
           />
 
           <main className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
