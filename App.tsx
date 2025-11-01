@@ -8,7 +8,7 @@ import AdvancedDashboard from './components/AdvancedDashboard';
 import TaskInput from './components/TaskInput';
 import FilterTags from './components/FilterTags';
 import TaskList from './components/TaskList';
-import { BellRing, ShieldCheck, ShieldOff, Loader2, List, LayoutGrid, Bot } from 'lucide-react';
+import { BellRing, ShieldCheck, ShieldOff, Loader2, List, LayoutGrid, Bot, Calendar } from 'lucide-react';
 import { Task, TaskStatus } from './types';
 import { isPast } from 'date-fns';
 import GoogleSheetSync from './components/GoogleSheetSync';
@@ -23,6 +23,7 @@ import KanbanBoard from './components/KanbanBoard';
 import ImportAssistantModal from './components/ImportAssistantModal';
 import ChatAssistant from './components/ChatAssistant';
 import GuestBanner from './components/GuestBanner';
+import CalendarView from './components/CalendarView';
 
 const statusLabels: Record<TaskStatus, string> = {
   todo: 'Cần làm',
@@ -54,7 +55,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<TaskStatus>('todo');
   const [notificationPermissionStatus, setNotificationPermissionStatus] = useState('default');
   const [searchTerm, setSearchTerm] = useState('');
-  const [displayMode, setDisplayMode] = useState<'list' | 'kanban'>('kanban');
+  const [displayMode, setDisplayMode] = useState<'list' | 'kanban' | 'calendar'>('kanban');
   const workerRef = useRef<Worker | null>(null);
 
   // API Key State
@@ -537,6 +538,15 @@ const App: React.FC = () => {
                           <List size={16} />
                           <span>Danh sách</span>
                         </button>
+                        <button
+                          onClick={() => setDisplayMode('calendar')}
+                          className={`px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                            displayMode === 'calendar' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'
+                          }`}
+                        >
+                          <Calendar size={16} />
+                          <span>Lịch</span>
+                        </button>
                     </div>
                      {displayMode === 'list' && (
                         <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
@@ -584,7 +594,7 @@ const App: React.FC = () => {
                         </svg>
                       </div>
                   </div>
-                ) : (
+                ) : displayMode === 'kanban' ? (
                   <KanbanBoard 
                     tasks={parentTasks}
                     subtasksByParentId={subtasksByParentId}
@@ -596,6 +606,13 @@ const App: React.FC = () => {
                     onToggleTask={toggleTask}
                     onUpdateTaskNote={updateTaskNote}
                   />
+                ) : (
+                   <CalendarView 
+                    tasks={tasks} 
+                    onToggleTask={toggleTask} 
+                    onUpdateTaskDueDate={updateTaskDueDate} 
+                    onStartFocus={handleStartFocus} 
+                   />
                 )}
               </div>
             </div>

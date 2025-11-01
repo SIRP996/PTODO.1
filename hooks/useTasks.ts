@@ -502,7 +502,7 @@ export const useTasks = () => {
         const currentTasks = getGuestTasks();
         // FIX: Explicitly type `t` as `Task` to prevent type widening on the `status` property.
         // The data from localStorage is not strictly typed, so this helps TypeScript understand the object shape.
-        const newTasks = currentTasks.map((t: Task): Task => (t.id === id ? { ...t, status: status } : t));
+        const newTasks = currentTasks.map((t: Task) => (t.id === id ? { ...t, status } : t));
         updateGuestTasks(newTasks);
         addToast('Đã cập nhật trạng thái công việc.', 'success');
         return;
