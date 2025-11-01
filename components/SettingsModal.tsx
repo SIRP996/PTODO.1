@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { X, User, Mail, Save, Loader2, Image, Trash2, Calendar } from 'lucide-react';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -129,7 +127,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
                  break;
             case 'auth/unauthorized-domain':
                 const domain = window.location.hostname;
-                errorMessage = `Lỗi Cấu Hình Tên Miền.\n\nTên miền ứng dụng của bạn chưa được phép xác thực.\n\nĐể khắc phục, bạn cần thêm tên miền sau vào cài đặt Firebase:\n\nTên miền cần thêm: ${domain}\n\nCác bước thực hiện:\n1. Mở Firebase Console của dự án.\n2. Vào mục Authentication > Settings > Authorized domains.\n3. Nhấn "Add domain" và dán "${domain}" vào.`;
+                errorMessage = `Lỗi Cấu Hình - Tên Miền Chưa Được Phép\n\nĐể khắc phục:\n1. Mở Firebase Console cho dự án của bạn.\n2. Đi đến mục Authentication > Settings > Authorized domains.\n3. Nhấn "Add domain" và nhập vào: ${domain}`;
                 break;
         }
         if (errorMessage) {
@@ -245,7 +243,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
                         <div>
                             <p className="font-semibold text-white">Lịch Google</p>
                             {userSettings?.isGoogleCalendarLinked && googleProviderData ? (
-                                <p className="text-xs text-slate-400">Đã kết nối với: {googleProviderData.email}</p>
+                                <>
+                                  <p className="text-xs text-slate-400">Đã kết nối với: {googleProviderData.email}</p>
+                                  <p className="text-xs text-slate-500 mt-1">Công việc có thời hạn sẽ được đồng bộ tự động.</p>
+                                </>
                             ) : (
                                 <p className="text-xs text-slate-400">Đồng bộ công việc có thời hạn.</p>
                             )}

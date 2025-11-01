@@ -25,7 +25,7 @@ const GUEST_TASKS_KEY = 'ptodo-guest-tasks';
 const GUEST_TASK_LIMIT = 5;
 
 export const useTasks = () => {
-  const { currentUser, isGuestMode, userSettings } = useAuth();
+  const { currentUser, isGuestMode, userSettings, googleAccessToken } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
@@ -41,17 +41,91 @@ export const useTasks = () => {
     return storedTasks ? JSON.parse(storedTasks) : [];
   };
 
-  const syncWithCalendar = useCallback((action: 'create' | 'update' | 'delete', taskText: string) => {
-    if (!userSettings?.isGoogleCalendarLinked) return;
-    const messages = {
-        create: 'Đang tạo sự kiện Lịch Google cho:',
-        update: 'Đang cập nhật sự kiện Lịch Google cho:',
-        delete: 'Đang xóa sự kiện Lịch Google cho:'
+  const syncWithCalendar = useCallback(async (action: 'create' | 'update' | 'delete', task: Omit<Task, 'id'> & { id?: string }) => {
+    if (!userSettings?.isGoogleCalendarLinked) {
+        return;
+    }
+    if (!googleAccessToken) {
+        addToast("Phiên kết nối Lịch Google đã hết hạn. Vui lòng kết nối lại trong Cài đặt.", 'info');
+        return;
+    }
+
+    const eventData = {
+        summary: task.text,
+        description: task.note || `Trạng thái: ${task.status}`,
+        start: { dateTime: new Date(task.dueDate!).toISOString() },
+        end: { dateTime: new Date(new Date(task.dueDate!).getTime() + 60 * 60 * 1000).toISOString() }, // Default 1 hour duration
+        // Add status to description
+        ...(task.status === 'completed' && { status: 'cancelled' })
     };
-    const message = `${messages[action]} "${taskText}"`;
-    addToast(message, 'info');
-    console.log(`SYNC_CALENDAR: ${message}`);
-  }, [userSettings?.isGoogleCalendarLinked, addToast]);
+    
+    let url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+    let method = 'POST';
+
+    if (action === 'update' && task.googleCalendarEventId) {
+        url += `/${task.googleCalendarEventId}`;
+        method = 'PUT';
+    } else if (action === 'delete' && task.googleCalendarEventId) {
+        url += `/${task.googleCalendarEventId}`;
+        method = 'DELETE';
+    } else if ((action === 'update' || action === 'delete') && !task.googleCalendarEventId) {
+        console.warn(`Cannot ${action} calendar event for task "${task.text}" without an event ID.`);
+        return;
+    }
+
+    try {
+        const headers = new Headers({
+            'Authorization': `Bearer ${googleAccessToken}`,
+            'Content-Type': 'application/json',
+        });
+
+        const fetchOptions: RequestInit = {
+            method,
+            headers,
+        };
+
+        if (method !== 'DELETE') {
+            fetchOptions.body = JSON.stringify(eventData);
+        }
+
+        const response = await fetch(url, fetchOptions);
+        
+        if (!response.ok) {
+            throw response;
+        }
+
+        if (action === 'create') {
+            const createdEvent = await response.json();
+            return createdEvent.id;
+        }
+        
+        return null;
+
+    } catch (error) {
+        let specificMessage = `Lỗi đồng bộ với Lịch Google.`;
+        if (error instanceof Response) {
+            try {
+                const errorData = await error.json();
+                const gError = errorData.error;
+                console.error("Google Calendar API Error:", gError);
+                if (gError.code === 401) {
+                    specificMessage = "Phiên kết nối đã hết hạn. Vui lòng kết nối lại Lịch Google trong Cài đặt.";
+                } else if (gError.code === 403 && gError.message.includes('Calendar API has not been used')) {
+                    specificMessage = "Lỗi quyền truy cập: Vui lòng bật 'Google Calendar API' trong Google Cloud Console cho dự án của bạn và kết nối lại.";
+                } else {
+                    specificMessage = `Lỗi từ Lịch Google: ${gError.message}`;
+                }
+            } catch (e) {
+                 specificMessage = `Lỗi không xác định khi đồng bộ (HTTP ${error.status}). Vui lòng kiểm tra lại kết nối và quyền.`;
+            }
+        } else {
+            console.error("Sync Error:", error);
+        }
+        addToast(specificMessage, 'error');
+        return null;
+    }
+  }, [userSettings?.isGoogleCalendarLinked, googleAccessToken, addToast]);
+
 
   useEffect(() => {
     if (isGuestMode) {
@@ -84,7 +158,13 @@ export const useTasks = () => {
           const createdAt = createdAtData instanceof Timestamp ? createdAtData.toDate().toISOString() : createdAtData;
           const dueDate = dueDateData instanceof Timestamp ? dueDateData.toDate().toISOString() : dueDateData;
           
-          const status: TaskStatus = data.status || (data.completed ? 'completed' : 'todo');
+          // Fix: Validate status from Firestore to prevent type corruption.
+          let status: TaskStatus;
+          if (data.status === 'todo' || data.status === 'inprogress' || data.status === 'completed') {
+            status = data.status;
+          } else {
+            status = data.completed ? 'completed' : 'todo';
+          }
           const { completed, ...restData } = data;
 
           return {
@@ -136,7 +216,7 @@ export const useTasks = () => {
     }
     
     if (!currentUser) return;
-    const newTask = {
+    const newTaskData = {
       text: text.trim(),
       status: 'todo' as TaskStatus,
       createdAt: serverTimestamp(),
@@ -147,13 +227,17 @@ export const useTasks = () => {
       recurrenceRule,
       userId: currentUser.uid,
       note: '',
+      googleCalendarEventId: '',
     };
 
     try {
-      await addDoc(collection(db, 'tasks'), newTask);
       if (dueDate) {
-        syncWithCalendar('create', text.trim());
+          const eventId = await syncWithCalendar('create', { ...newTaskData, dueDate });
+          if (eventId) {
+            newTaskData.googleCalendarEventId = eventId;
+          }
       }
+      await addDoc(collection(db, 'tasks'), newTaskData);
       addToast('Đã thêm công việc mới!', 'success');
     } catch (error) {
       console.error("Error adding task: ", error);
@@ -185,8 +269,10 @@ export const useTasks = () => {
 
     const batch = writeBatch(db);
     const tasksCollectionRef = collection(db, 'tasks');
+    
+    addToast(`Đang xử lý ${tasksToAdd.length} công việc...`, 'info');
 
-    tasksToAdd.forEach(task => {
+    for (const task of tasksToAdd) {
         const newDocRef = doc(tasksCollectionRef);
         const taskData = {
             text: task.text.trim(),
@@ -199,17 +285,19 @@ export const useTasks = () => {
             recurrenceRule: 'none' as const,
             userId: currentUser.uid,
             note: '',
+            googleCalendarEventId: '',
         };
+        if (taskData.dueDate) {
+            const eventId = await syncWithCalendar('create', { ...taskData, dueDate: task.dueDate });
+            if (eventId) {
+              taskData.googleCalendarEventId = eventId;
+            }
+        }
         batch.set(newDocRef, taskData);
-    });
+    }
 
     try {
         await batch.commit();
-        tasksToAdd.forEach(task => {
-          if (task.dueDate) {
-            syncWithCalendar('create', task.text.trim());
-          }
-        });
         addToast(`Đã thêm ${tasksToAdd.length} công việc mới.`, 'success');
     } catch (error) {
         console.error("Error adding tasks in batch: ", error);
@@ -300,10 +388,10 @@ export const useTasks = () => {
     setTasks(current => current.map(t => t.id === id ? {...t, text: trimmedText} : t));
 
     try {
-        await updateDoc(doc(db, 'tasks', id), { text: trimmedText });
         if (task.dueDate) {
-          syncWithCalendar('update', trimmedText);
+          await syncWithCalendar('update', { ...task, text: trimmedText });
         }
+        await updateDoc(doc(db, 'tasks', id), { text: trimmedText });
         addToast('Đã cập nhật nội dung công việc.', 'success');
     } catch (error) {
       console.error("Error updating task text: ", error);
@@ -329,6 +417,9 @@ export const useTasks = () => {
     setTasks(current => current.map(t => t.id === id ? {...t, note: newNote} : t));
 
     try {
+        if (task.dueDate) {
+          await syncWithCalendar('update', { ...task, note: newNote });
+        }
         await updateDoc(doc(db, 'tasks', id), { note: newNote });
         addToast('Đã cập nhật ghi chú.', 'success');
     } catch (error) {
@@ -336,7 +427,7 @@ export const useTasks = () => {
       addToast('Không thể cập nhật ghi chú.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, isGuestMode, tasks, addToast]);
+  }, [currentUser, isGuestMode, tasks, addToast, syncWithCalendar]);
 
 
   const toggleTask = useCallback(async (id: string) => {
@@ -353,42 +444,20 @@ export const useTasks = () => {
     }
     
     if (!currentUser) return;
-    
     const originalTasks = tasks;
-    
-    // Optimistic UI update
-    if (taskToToggle.status !== 'completed' && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
-        let nextDueDate: Date;
-        const currentDueDate = new Date(taskToToggle.dueDate);
-        switch (taskToToggle.recurrenceRule) {
-            case 'daily': nextDueDate = addDays(currentDueDate, 1); break;
-            case 'weekly': nextDueDate = addWeeks(currentDueDate, 1); break;
-            case 'monthly': nextDueDate = addMonths(currentDueDate, 1); break;
-            default: nextDueDate = currentDueDate; 
-        }
-        const newTaskClient: Task = {
-            id: `temp-${uuidv4()}`,
-            text: taskToToggle.text, status: 'todo',
-            createdAt: new Date().toISOString(),
-            dueDate: nextDueDate.toISOString(),
-            hashtags: taskToToggle.hashtags, reminderSent: false,
-            isUrgent: taskToToggle.isUrgent,
-            recurrenceRule: taskToToggle.recurrenceRule, userId: currentUser.uid,
-            note: taskToToggle.note,
-        };
-        const updatedTasks = tasks.map(t => 
-            t.id === id ? { ...t, status: 'completed' as TaskStatus, recurrenceRule: 'none' as const } : t
-        );
-        setTasks([...updatedTasks, newTaskClient]);
-    } else {
-        setTasks(currentTasks => currentTasks.map(task =>
-            task.id === id ? { ...task, status: newStatus } : task
-        ));
-    }
+    setTasks(currentTasks => currentTasks.map(task =>
+        task.id === id ? { ...task, status: newStatus } : task
+    ));
     
     // Firebase operation
     try {
-        if (taskToToggle.status !== 'completed' && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
+        if (taskToToggle.dueDate) {
+           await syncWithCalendar('update', { ...taskToToggle, status: newStatus });
+        }
+        await updateDoc(doc(db, 'tasks', id), { status: newStatus });
+        
+        // Handle recurrence separately
+        if (newStatus === 'completed' && taskToToggle.recurrenceRule && taskToToggle.recurrenceRule !== 'none' && taskToToggle.dueDate) {
             let nextDueDate: Date;
             const currentDueDate = new Date(taskToToggle.dueDate);
             switch (taskToToggle.recurrenceRule) {
@@ -397,33 +466,17 @@ export const useTasks = () => {
                 case 'monthly': nextDueDate = addMonths(currentDueDate, 1); break;
                 default: nextDueDate = currentDueDate; 
             }
-            const nextInstanceData = {
-                text: taskToToggle.text, status: 'todo',
-                createdAt: serverTimestamp(),
-                dueDate: nextDueDate, hashtags: taskToToggle.hashtags,
-                reminderSent: false, isUrgent: taskToToggle.isUrgent,
-                recurrenceRule: taskToToggle.recurrenceRule, userId: currentUser.uid,
-                note: taskToToggle.note || ''
-            };
-            const batch = writeBatch(db);
-            const taskDocRef = doc(db, 'tasks', id);
-            batch.update(taskDocRef, { status: 'completed', recurrenceRule: 'none' });
-            const newDocRef = doc(collection(db, 'tasks'));
-            batch.set(newDocRef, nextInstanceData);
-            await batch.commit();
-        } else {
-            await updateDoc(doc(db, 'tasks', id), { status: newStatus });
+             await addTask(taskToToggle.text, taskToToggle.hashtags, nextDueDate.toISOString(), taskToToggle.isUrgent, taskToToggle.recurrenceRule);
+             await updateDoc(doc(db, 'tasks', id), { recurrenceRule: 'none' });
         }
-        if (taskToToggle.dueDate) {
-          syncWithCalendar('update', taskToToggle.text);
-        }
+        
         addToast('Đã cập nhật trạng thái công việc.', 'success');
     } catch (error) {
       console.error("Error toggling task: ", error);
       addToast('Không thể cập nhật công việc.', 'error');
       setTasks(originalTasks);
     }
-  }, [currentUser, isGuestMode, tasks, addToast, syncWithCalendar]);
+  }, [currentUser, isGuestMode, tasks, addToast, syncWithCalendar, addTask]);
 
   const deleteTask = useCallback(async (id: string) => {
     const taskToDelete = tasks.find(t => t.id === id);
@@ -441,6 +494,10 @@ export const useTasks = () => {
     setTasks(currentTasks => currentTasks.filter(task => task.id !== id && task.parentId !== id));
     
     try {
+      if (taskToDelete.dueDate && taskToDelete.googleCalendarEventId) {
+        await syncWithCalendar('delete', taskToDelete);
+      }
+
       const subtasksToDelete = tasks.filter(t => t.parentId === id).map(t => t.id);
       const allIdsToDelete = [id, ...subtasksToDelete];
       
@@ -449,9 +506,6 @@ export const useTasks = () => {
         batch.delete(doc(db, 'tasks', taskId));
       });
       await batch.commit();
-      if (taskToDelete.dueDate) {
-        syncWithCalendar('delete', taskToDelete.text);
-      }
       addToast('Đã xóa công việc.', 'success');
     } catch (error) {
       console.error("Error deleting task: ", error);
@@ -503,8 +557,24 @@ export const useTasks = () => {
     setTasks(current => current.map(t => t.id === id ? {...t, dueDate: newDueDate, reminderSent: false} : t));
     
     try {
-        await updateDoc(doc(db, 'tasks', id), { dueDate: newDueDate ? new Date(newDueDate) : null, reminderSent: false });
-        syncWithCalendar(task.googleCalendarEventId || !newDueDate ? 'update' : 'create', task.text);
+        const updatedTask = { ...task, dueDate: newDueDate, reminderSent: false };
+        let eventId = task.googleCalendarEventId;
+        
+        if (newDueDate && !eventId) { // Create new event
+            const newEventId = await syncWithCalendar('create', updatedTask);
+            if (newEventId) eventId = newEventId;
+        } else if (newDueDate && eventId) { // Update existing event
+            await syncWithCalendar('update', updatedTask);
+        } else if (!newDueDate && eventId) { // Delete event if date is removed
+            await syncWithCalendar('delete', updatedTask);
+            eventId = ''; // Clear event ID
+        }
+
+        await updateDoc(doc(db, 'tasks', id), { 
+            dueDate: newDueDate ? new Date(newDueDate) : null, 
+            reminderSent: false,
+            googleCalendarEventId: eventId || '' 
+        });
         addToast('Đã cập nhật thời hạn.', 'success');
     } catch (error) {
       console.error("Error updating due date: ", error);
@@ -528,16 +598,17 @@ export const useTasks = () => {
     }
   }, [currentUser, isGuestMode, tasks]);
 
-  const updateTaskStatus = useCallback(async (id: string, status: TaskStatus) => {
+  const updateTaskStatus = useCallback(async (id: string, newStatus: TaskStatus) => {
     const task = tasks.find(t => t.id === id);
-    if (!task || task.status === status) return;
+    if (!task || task.status === newStatus) return;
     
     if (isGuestMode) {
         const currentTasks = getGuestTasks();
-        // FIX: The status property from JSON.parse is a generic string.
-        // We ensure that the new array has elements where status is explicitly TaskStatus.
-        const newTasks: Task[] = currentTasks.map((t) => (t.id === id ? { ...t, status } : t));
-        updateGuestTasks(newTasks);
+        const newTasks = currentTasks.map((t) => {
+            return t.id === id ? { ...t, status: newStatus } : t;
+        });
+        // Fix: Cast the resulting array to Task[] to resolve type mismatch from localStorage data.
+        updateGuestTasks(newTasks as Task[]);
         addToast('Đã cập nhật trạng thái công việc.', 'success');
         return;
     }
@@ -545,15 +616,15 @@ export const useTasks = () => {
     if (!currentUser) return;
     const originalTasks = tasks;
     
-    // FIX: The tasks in state could be from guest mode, so status can be a generic string.
-    // We ensure that the new array has elements where status is explicitly TaskStatus.
-    setTasks(current => current.map((t) => (t.id === id ? {...t, status: status} : t)) as Task[]);
+    setTasks(current => current.map((t): Task => (
+        t.id === id ? { ...t, status: newStatus } : t
+    )));
 
     try {
-        await updateDoc(doc(db, 'tasks', id), { status: status });
         if (task.dueDate) {
-          syncWithCalendar('update', task.text);
+          await syncWithCalendar('update', { ...task, status: newStatus });
         }
+        await updateDoc(doc(db, 'tasks', id), { status: newStatus });
         addToast('Đã cập nhật trạng thái công việc.', 'success');
     } catch (error) {
       console.error("Error updating task status: ", error);
