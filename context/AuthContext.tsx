@@ -1,5 +1,6 @@
 
 
+
 import React, { useContext, useState, useEffect, createContext, ReactNode } from 'react';
 import { auth, db } from '../firebaseConfig';
 import { 
@@ -9,17 +10,13 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
+  GoogleAuthProvider,
+  linkWithPopup,
+  unlink,
 } from 'firebase/auth';
 import { doc, onSnapshot, serverTimestamp, setDoc, writeBatch, collection } from 'firebase/firestore';
-import { Theme, Task } from '../types';
-
-interface UserSettings {
-  apiKey?: string;
-  googleSheetUrl?: string;
-  theme?: Theme;
-  avatarUrl?: string;
-}
+import { UserSettings, Task } from '../types';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -34,6 +31,8 @@ interface AuthContextType {
   updateUserProfile: (name: string) => Promise<void>;
   userSettings: UserSettings | null;
   updateUserSettings: (settings: Partial<UserSettings>) => Promise<void>;
+  linkGoogleAccount: () => Promise<void>;
+  unlinkGoogleAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -109,6 +108,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         apiKey: '',
         googleSheetUrl: '',
         theme: 'default',
+        isGoogleCalendarLinked: false,
         createdAt: serverTimestamp(),
       });
       // Migrate tasks AFTER user doc is created
@@ -154,6 +154,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
+  const linkGoogleAccount = async () => {
+    if (!currentUser) throw new Error("User not logged in");
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/calendar.events');
+    try {
+        await linkWithPopup(currentUser, provider);
+        await updateUserSettings({ isGoogleCalendarLinked: true });
+    } catch (error) {
+        console.error("Error linking Google account:", error);
+        throw error;
+    }
+  };
+  
+  const unlinkGoogleAccount = async () => {
+    if (!currentUser) throw new Error("User not logged in");
+    try {
+        await unlink(currentUser, 'google.com');
+        await updateUserSettings({ isGoogleCalendarLinked: false });
+    } catch (error) {
+        console.error("Error unlinking Google account:", error);
+        throw error;
+    }
+  };
+
   useEffect(() => {
     let unsubscribeSettings = () => {};
 
@@ -176,9 +200,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     apiKey: '',
                     googleSheetUrl: '',
                     theme: 'default',
+                    isGoogleCalendarLinked: false,
                     createdAt: serverTimestamp(),
                 });
-                setUserSettings({ theme: 'default'});
+                setUserSettings({ theme: 'default', isGoogleCalendarLinked: false});
             }
             setLoading(false);
         }, error => {
@@ -221,6 +246,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateUserProfile,
     userSettings,
     updateUserSettings,
+    linkGoogleAccount,
+    unlinkGoogleAccount,
   };
 
   return (

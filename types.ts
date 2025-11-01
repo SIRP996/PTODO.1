@@ -1,6 +1,14 @@
 export type TaskStatus = 'todo' | 'inprogress' | 'completed';
 export type Theme = 'default' | 'azure' | 'teal' | 'sunset' | 'ocean';
 
+export interface UserSettings {
+  apiKey?: string;
+  googleSheetUrl?: string;
+  theme?: Theme;
+  avatarUrl?: string;
+  isGoogleCalendarLinked?: boolean;
+}
+
 export interface Task {
   id: string;
   text: string;
@@ -14,4 +22,5 @@ export interface Task {
   userId?: string;
   parentId?: string;
   note?: string;
+  googleCalendarEventId?: string;
 }
