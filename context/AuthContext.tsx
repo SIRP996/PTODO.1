@@ -160,6 +160,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!currentUser) throw new Error("User not logged in");
     const provider = new GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/calendar.events');
+    provider.setCustomParameters({
+        'access_type': 'offline',
+        'prompt': 'consent' // This ensures a refresh token is requested.
+    });
     try {
         const result: UserCredential = await linkWithPopup(currentUser, provider);
         const credential = GoogleAuthProvider.credentialFromResult(result);
