@@ -61,11 +61,20 @@ export const useTasks = () => {
     }
 
     const performSync = async (token: string) => {
+        const startDate = new Date(task.dueDate!);
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Default 1 hour duration
+
         const eventData = {
             summary: task.text,
             description: task.note || `Trạng thái: ${task.status}`,
-            start: { dateTime: new Date(task.dueDate!).toISOString() },
-            end: { dateTime: new Date(new Date(task.dueDate!).getTime() + 60 * 60 * 1000).toISOString() }, // Default 1 hour duration
+            start: {
+                dateTime: startDate.toISOString(),
+                timeZone: 'Asia/Ho_Chi_Minh',
+            },
+            end: {
+                dateTime: endDate.toISOString(),
+                timeZone: 'Asia/Ho_Chi_Minh',
+            },
             ...(task.status === 'completed' && { status: 'cancelled' })
         };
         
@@ -107,9 +116,6 @@ export const useTasks = () => {
             addLog('[Sync] Lỗi 401: Token đã hết hạn. Thử làm mới...', 'warn');
             const provider = new GoogleAuthProvider();
             provider.addScope('https://www.googleapis.com/auth/calendar.events');
-            provider.setCustomParameters({
-                'access_type': 'offline'
-            });
 
             try {
                 const result = await reauthenticateWithPopup(currentUser, provider);
@@ -125,10 +131,15 @@ export const useTasks = () => {
                 }
             } catch (refreshError: any) {
                 addLog(`[Sync] Lỗi trong quá trình làm mới token: ${refreshError.message}`, 'error');
-                // Don't show a toast if the user simply closed the popup.
-                if (refreshError.code !== 'auth/popup-closed-by-user' && refreshError.code !== 'auth/cancelled-popup-request') {
+                
+                if (refreshError.code === 'auth/unauthorized-domain') {
+                    const domain = window.location.hostname;
+                    const detailedError = `Lỗi Cấu Hình Firebase:\nMiền "${domain}" chưa được cấp phép để xác thực. Vui lòng thêm miền này vào danh sách "Authorized domains" trong cài đặt Authentication của Firebase Console.`;
+                    addToast(detailedError, 'error');
+                } else if (refreshError.code !== 'auth/popup-closed-by-user' && refreshError.code !== 'auth/cancelled-popup-request') {
                     addToast("Phiên Google đã hết hạn và không thể tự động làm mới. Thao tác đồng bộ đã thất bại.", "error");
                 }
+
                 // We no longer set isGoogleCalendarLinked to false here.
                 // This allows the app to optimistically try to re-authenticate on the next sync action,
                 // providing a better user experience than forcing them to go to settings.
