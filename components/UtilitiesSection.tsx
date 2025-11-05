@@ -1,0 +1,34 @@
+import React from 'react';
+import { Task } from '../types';
+import GoogleSheetSync from './GoogleSheetSync';
+import { ClipboardList } from 'lucide-react';
+
+interface UtilitiesSectionProps {
+  tasks: Task[];
+  onOpenTemplateManager: () => void;
+}
+
+const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ tasks, onOpenTemplateManager }) => {
+  return (
+    <div className="space-y-6">
+      <GoogleSheetSync tasks={tasks} />
+      
+      <div>
+        <h2 className="text-xl font-semibold mb-4 text-slate-100 flex items-center gap-2">
+            <ClipboardList className="text-primary-400" />
+            Mẫu Công việc
+        </h2>
+        <p className="text-sm text-slate-400 mb-3">Tăng tốc quy trình làm việc bằng cách sử dụng các mẫu được định sẵn.</p>
+        <button
+            onClick={onOpenTemplateManager}
+            className="w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300 bg-slate-700 hover:bg-slate-600 text-slate-200"
+        >
+            Quản lý Mẫu
+        </button>
+      </div>
+
+    </div>
+  );
+};
+
+export default UtilitiesSection;

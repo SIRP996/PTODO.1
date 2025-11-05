@@ -1,19 +1,24 @@
 
-import React, { useState, KeyboardEvent, useEffect } from 'react';
-import { Plus, X, Flag, Sparkles, Loader2, Mic, UploadCloud } from 'lucide-react';
+import React, { useState, KeyboardEvent, useEffect, useRef } from 'react';
+import { Plus, X, Flag, Sparkles, Loader2, Mic, UploadCloud, ClipboardPaste } from 'lucide-react';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useToast } from '../context/ToastContext';
+import { Project, TaskTemplate } from '../types';
 
 interface TaskInputProps {
-  onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => void;
+  onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly', projectId?: string) => Promise<string | undefined>;
+  onAddSubtasksBatch: (parentId: string, subtaskTexts: string[]) => Promise<void>;
   onApiKeyError: () => void;
   hasApiKey: boolean;
   onOpenImportModal: () => void;
+  projects: Project[];
+  selectedProjectId: string | null;
+  templates: TaskTemplate[];
 }
 
-const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiKey, onOpenImportModal }) => {
+const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onAddSubtasksBatch, onApiKeyError, hasApiKey, onOpenImportModal, projects, selectedProjectId, templates }) => {
   const [text, setText] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [currentTag, setCurrentTag] = useState('');
@@ -21,7 +26,10 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
   const [isUrgent, setIsUrgent] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
   const [isParsing, setIsParsing] = useState(false);
+  const [projectId, setProjectId] = useState<string>('');
+  const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
   const { addToast } = useToast();
+  const templateMenuRef = useRef<HTMLDivElement>(null);
 
   const {
     transcript,
@@ -30,14 +38,27 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
     stopListening,
     hasSupport: hasSpeechRecognitionSupport,
   } = useSpeechRecognition();
+  
+  useEffect(() => {
+      setProjectId(selectedProjectId || '');
+  }, [selectedProjectId]);
 
   useEffect(() => {
     if (transcript) {
       setText(transcript);
-      handleParseTask(transcript); // Automatically parse when speech recognition gives a final result
+      handleParseTask(transcript);
     }
   }, [transcript]);
-
+  
+   useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (templateMenuRef.current && !templateMenuRef.current.contains(event.target as Node)) {
+        setIsTemplateMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleTagKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && currentTag.trim()) {
@@ -156,10 +177,10 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
     }
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (text.trim()) {
-      onAddTask(text, tags, dueDate || null, isUrgent, recurrenceRule);
+      await onAddTask(text, tags, dueDate || null, isUrgent, recurrenceRule, projectId || undefined);
       setText('');
       setDueDate('');
       setTags([]);
@@ -169,6 +190,16 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
     }
   };
   
+  const handleUseTemplate = async (template: TaskTemplate) => {
+    setIsTemplateMenuOpen(false);
+    const newTaskId = await onAddTask(template.name, [], null, false, 'none', projectId || undefined);
+    if (newTaskId && template.subtasks.length > 0) {
+      const subtaskTexts = template.subtasks.map(st => st.text);
+      await onAddSubtasksBatch(newTaskId, subtaskTexts);
+      addToast(`Đã áp dụng mẫu "${template.name}"!`, 'success');
+    }
+  };
+
   const recurrenceOptions: Array<{id: 'none' | 'daily' | 'weekly' | 'monthly', label: string}> = [
       { id: 'none', label: 'Không lặp lại'},
       { id: 'daily', label: 'Hàng ngày'},
@@ -186,7 +217,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
           onChange={(e) => setText(e.target.value)}
           placeholder="Ví dụ: Gặp đội thiết kế vào 4h chiều mai #họp"
           className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition pr-12"
-          rows={3}
+          rows={2}
         />
         {hasSpeechRecognitionSupport && (
            <button
@@ -201,29 +232,45 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
            </button>
         )}
       </div>
-      
-      <div>
-        <label htmlFor="task-tags" className="block text-sm font-medium text-slate-400 mb-1">Thẻ (gõ rồi nhấn Enter)</label>
-        <div className="flex flex-wrap items-center gap-2 p-2 bg-[#293548] border border-primary-600 rounded-lg focus-within:border-primary-500">
-            {tags.map(tag => (
-              <span key={tag} className="flex items-center bg-primary-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                #{tag}
-                <button type="button" onClick={() => removeTag(tag)} className="ml-1.5 text-primary-200 hover:text-white">
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-            <input
-              id="task-tags"
-              type="text"
-              value={currentTag}
-              onChange={(e) => setCurrentTag(e.target.value)}
-              onKeyDown={handleTagKeyDown}
-              placeholder={tags.length > 0 ? '' : 'Thêm thẻ...'}
-              className="flex-grow bg-transparent focus:ring-0 border-0 p-0 text-sm"
-            />
+
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="task-project" className="block text-sm font-medium text-slate-400 mb-1">Dự án</label>
+            <select
+              id="task-project"
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition"
+            >
+              <option value="">Không thuộc dự án nào</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="task-tags" className="block text-sm font-medium text-slate-400 mb-1">Thẻ (gõ rồi nhấn Enter)</label>
+            <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#293548] border border-primary-600 rounded-lg focus-within:border-primary-500">
+                {tags.map(tag => (
+                  <span key={tag} className="flex items-center bg-primary-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                    #{tag}
+                    <button type="button" onClick={() => removeTag(tag)} className="ml-1.5 text-primary-200 hover:text-white">
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  id="task-tags"
+                  type="text"
+                  value={currentTag}
+                  onChange={(e) => setCurrentTag(e.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  placeholder={tags.length > 0 ? '' : 'Thêm thẻ...'}
+                  className="flex-grow bg-transparent focus:ring-0 border-0 p-0 text-sm"
+                />
+            </div>
+          </div>
         </div>
-      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
         <div>
@@ -257,6 +304,33 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
       </div>
       
       <div className="flex flex-wrap justify-end items-center gap-2 pt-2">
+            <div className="relative" ref={templateMenuRef}>
+                 <button
+                    type="button"
+                    onClick={() => setIsTemplateMenuOpen(p => !p)}
+                    disabled={templates.length === 0}
+                    className="flex items-center gap-2 py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-lg transition-colors duration-200 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
+                    title={templates.length > 0 ? "Sử dụng mẫu công việc" : "Chưa có mẫu nào, hãy tạo trong phần Tiện ích"}
+                >
+                    <ClipboardPaste size={20} />
+                    <span className="hidden sm:inline">Mẫu</span>
+                </button>
+                {isTemplateMenuOpen && (
+                    <div className="absolute bottom-full right-0 mb-2 w-64 bg-[#293548] border border-slate-600 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                        {templates.map(template => (
+                            <button
+                                key={template.id}
+                                type="button"
+                                onClick={() => handleUseTemplate(template)}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-slate-700 transition-colors"
+                            >
+                                <span className="text-lg">{template.icon}</span>
+                                <span className="text-sm text-slate-200 truncate">{template.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
             <button
                 type="button"
                 onClick={onOpenImportModal}

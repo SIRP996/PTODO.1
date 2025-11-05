@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Task, TaskStatus } from '../types';
 import { addDays, addWeeks, addMonths } from 'date-fns';
@@ -153,8 +154,7 @@ export const useTasks = () => {
     }
   }, [userSettings?.isGoogleCalendarLinked, googleAccessToken, currentUser, addToast, addLog, updateUserSettings]);
 
-  // Fix: Add implementations for all task management functions and a return statement.
-  const addTask = useCallback(async (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => {
+  const addTask = useCallback(async (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly', projectId?: string): Promise<string | undefined> => {
     const newTask: Omit<Task, 'id' | 'createdAt' | 'status' | 'reminderSent'> = {
       text,
       hashtags: tags,
@@ -163,6 +163,7 @@ export const useTasks = () => {
       recurrenceRule,
       userId: currentUser?.uid,
       note: '',
+      projectId: projectId || '',
     };
 
     if (isGuestMode) {
@@ -179,7 +180,7 @@ export const useTasks = () => {
         reminderSent: false,
       };
       updateGuestTasks([...guestTasks, newGuestTask]);
-      return;
+      return newGuestTask.id;
     }
 
     if (currentUser) {
@@ -194,23 +195,25 @@ export const useTasks = () => {
         
         let googleCalendarEventId = null;
         if (dueDate) {
-          googleCalendarEventId = await syncWithCalendar('create', { ...docData, id: '' });
+          googleCalendarEventId = await syncWithCalendar('create', { ...docData, dueDate: newTask.dueDate, id: '' });
         }
 
-        await addDoc(collection(db, 'tasks'), { ...docData, googleCalendarEventId });
+        const docRef = await addDoc(collection(db, 'tasks'), { ...docData, googleCalendarEventId });
         addToast("Đã thêm công việc thành công!", 'success');
+        return docRef.id;
       } catch (error) {
         console.error("Error adding task: ", error);
         addToast("Không thể thêm công việc.", 'error');
+        return undefined;
       }
     }
+    return undefined;
   }, [currentUser, isGuestMode, syncWithCalendar, addToast]);
 
   const toggleTask = useCallback(async (id: string) => {
     const task = tasksRef.current.find(t => t.id === id);
     if (!task) return;
 
-    // Fix: Explicitly type `newStatus` as `TaskStatus` to prevent type inference issues.
     const newStatus: TaskStatus = task.status === 'completed' ? 'todo' : 'completed';
 
     if (isGuestMode) {
@@ -239,7 +242,7 @@ export const useTasks = () => {
             case 'monthly': nextDueDate = addMonths(currentDueDate, 1); break;
           }
           if (nextDueDate) {
-            await addTask(task.text, task.hashtags, nextDueDate.toISOString(), task.isUrgent, task.recurrenceRule);
+            await addTask(task.text, task.hashtags, nextDueDate.toISOString(), task.isUrgent, task.recurrenceRule, task.projectId);
             addToast(`Đã tạo công việc lặp lại cho lần tiếp theo.`, 'info');
           }
         }
@@ -373,13 +376,14 @@ export const useTasks = () => {
     }
 
     if (currentUser) {
+      const parentTask = tasksRef.current.find(t => t.id === parentId);
       const batch = writeBatch(db);
       const tasksCollection = collection(db, 'tasks');
       subtaskTexts.forEach(text => {
         const newDocRef = doc(tasksCollection);
         batch.set(newDocRef, {
           text, status: 'todo', createdAt: serverTimestamp(), dueDate: null, hashtags: [],
-          reminderSent: false, isUrgent: false, userId: currentUser.uid, parentId: parentId,
+          reminderSent: false, isUrgent: false, userId: currentUser.uid, parentId: parentId, projectId: parentTask?.projectId || ''
         });
       });
       try {
@@ -419,7 +423,8 @@ export const useTasks = () => {
 
         let googleCalendarEventId = null;
         if (task.dueDate) {
-          googleCalendarEventId = await syncWithCalendar('create', { ...docData, id: newDocRef.id });
+          // FIX: Pass the string version of dueDate to syncWithCalendar, not the Date object.
+          googleCalendarEventId = await syncWithCalendar('create', { ...docData, dueDate: task.dueDate, id: newDocRef.id });
         }
         batch.set(newDocRef, { ...docData, googleCalendarEventId });
       }
@@ -554,8 +559,7 @@ export const useTasks = () => {
     setLoading(true);
     const q = query(
       collection(db, 'tasks'), 
-      where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -569,6 +573,7 @@ export const useTasks = () => {
           dueDate: (data.dueDate as Timestamp)?.toDate().toISOString() || null,
         } as Task);
       });
+      tasksData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setTasks(tasksData);
       setLoading(false);
     }, (error) => {
