@@ -1,5 +1,6 @@
 export type TaskStatus = 'todo' | 'inprogress' | 'completed';
 export type Theme = 'default' | 'azure' | 'teal' | 'sunset' | 'ocean';
+export type SectionKey = 'dashboard' | 'advancedDashboard' | 'utilities';
 
 export interface UserSettings {
   apiKey?: string;
@@ -7,6 +8,16 @@ export interface UserSettings {
   theme?: Theme;
   avatarUrl?: string;
   isGoogleCalendarLinked?: boolean;
+  sidebarLayout?: SectionKey[];
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  userId: string;
+  createdAt: string;
+  color: string;
+  isVisible?: boolean;
 }
 
 export interface Task {
@@ -23,4 +34,27 @@ export interface Task {
   parentId?: string;
   note?: string;
   googleCalendarEventId?: string;
+  projectId?: string;
 }
+
+export interface SubtaskTemplate {
+  id: string;
+  text: string;
+}
+
+export interface TaskTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  icon: string;
+  createdAt: string;
+  subtasks: SubtaskTemplate[];
+}
+
+
+export type Filter =
+  | { type: 'all' }
+  | { type: 'today' }
+  | { type: 'next7days' }
+  | { type: 'urgent' }
+  | { type: 'project'; id: string };
