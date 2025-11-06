@@ -122,7 +122,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
                 errorMessage = "Trình duyệt đã chặn cửa sổ đăng nhập. Vui lòng cho phép pop-up và thử lại.";
                 break;
             case 'auth/credential-already-in-use':
-                errorMessage = "Tài khoản Google này đã được liên kết với một tài khoản PTODO khác.";
+                errorMessage = "Tài khoản Google này đã được liên kết với một tài khoản PTODO khác.\n\nVui lòng đăng xuất, sau đó sử dụng tùy chọn 'Đăng nhập với Google' để truy cập tài khoản đã liên kết.";
                 break;
             case 'auth/operation-not-allowed':
                  errorMessage = "Lỗi cấu hình: Đăng nhập bằng Google chưa được bật. Vui lòng liên hệ quản trị viên.";

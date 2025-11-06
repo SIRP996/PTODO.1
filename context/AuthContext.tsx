@@ -12,6 +12,7 @@ import {
   linkWithPopup,
   unlink,
   UserCredential,
+  signInWithPopup,
 } from 'firebase/auth';
 import { doc, onSnapshot, serverTimestamp, setDoc, writeBatch, collection } from 'firebase/firestore';
 import { UserSettings, Task } from '../types';
@@ -25,6 +26,7 @@ interface AuthContextType {
   exitGuestMode: () => void;
   signup: (email: string, pass: string) => Promise<any>;
   login: (email: string, pass: string) => Promise<any>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<any>;
   resetPassword: (email: string) => Promise<any>;
   updateUserProfile: (name: string) => Promise<void>;
@@ -119,6 +121,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   function login(email: string, pass: string) {
     return signInWithEmailAndPassword(auth, email, pass);
+  }
+
+  async function loginWithGoogle(): Promise<void> {
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/calendar.events');
+    const result = await signInWithPopup(auth, provider);
+    
+    // Ensure the calendar link status is correct.
+    // onAuthStateChanged will create the user doc if it doesn't exist,
+    // so we can just merge this field in.
+    const userDocRef = doc(db, 'users', result.user.uid);
+    await setDoc(userDocRef, { isGoogleCalendarLinked: true }, { merge: true });
+
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+        sessionStorage.setItem(GOOGLE_ACCESS_TOKEN_KEY, credential.accessToken);
+        setGoogleAccessToken(credential.accessToken);
+    }
+    
+    // Migrate guest tasks if any, and exit guest mode state
+    await migrateGuestTasks(result.user.uid);
+    sessionStorage.removeItem(GUEST_MODE_KEY);
+    setIsGuestMode(false);
   }
   
   function logout() {
@@ -259,6 +284,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     exitGuestMode,
     signup,
     login,
+    loginWithGoogle,
     logout,
     resetPassword,
     updateUserProfile,
