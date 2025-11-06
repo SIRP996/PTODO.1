@@ -148,6 +148,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                                 <div className="p-2">
                                     <button onClick={() => { onOpenSettings(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"><UserCircle className="h-4 w-4" /><span>Cài đặt tài khoản</span></button>
                                     <button onClick={() => { onManageApiKey(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"><KeyRound className="h-4 w-4" /><span>Quản lý API Key</span></button>
+                                    <button onClick={() => { onToggleLogViewer(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"><BookOpen className="h-4 w-4" /><span>Xem Log đồng bộ</span></button>
                                 </div>
                             )}
                             <div className="p-2 border-t border-slate-700">

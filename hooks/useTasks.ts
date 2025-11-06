@@ -26,6 +26,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 const GUEST_TASKS_KEY = 'ptodo-guest-tasks';
 const GUEST_TASK_LIMIT = 5;
+const GOOGLE_ACCESS_TOKEN_KEY = 'ptodo-google-token';
 
 export const useTasks = () => {
   const { currentUser, isGuestMode, userSettings, googleAccessToken, updateUserSettings } = useAuth();
@@ -89,6 +90,10 @@ export const useTasks = () => {
             url += `/${task.googleCalendarEventId}`;
             method = 'DELETE';
             const deleteResponse = await fetch(url, { method, headers: { Authorization: `Bearer ${token}` } });
+            if (deleteResponse.status === 410) { // Gone, already deleted
+                 addLog(`[Sync] Sự kiện đã được xóa trên Lịch Google: ${task.text}`, 'info');
+                 return null;
+            }
             if (!deleteResponse.ok) throw deleteResponse;
             addLog(`[Sync] Đã xóa sự kiện thành công: ${task.text}`, 'success');
             return null;
@@ -102,9 +107,9 @@ export const useTasks = () => {
 
         if (!response.ok) throw response;
 
-        const responseData = await response.json();
+        const responseData = action !== 'delete' ? await response.json() : null;
         addLog(`[Sync] Đồng bộ sự kiện thành công: ${task.text}`, 'success');
-        return responseData.id;
+        return responseData?.id || null;
     };
 
     try {
@@ -124,7 +129,7 @@ export const useTasks = () => {
                 const newToken = credential?.accessToken;
                 
                 if (newToken) {
-                    sessionStorage.setItem('ptodo-google-token', newToken);
+                    sessionStorage.setItem(GOOGLE_ACCESS_TOKEN_KEY, newToken);
                     addLog('[Sync] Token đã được làm mới. Thử lại API call...', 'info');
                     return await performSync(newToken);
                 } else {
@@ -138,12 +143,12 @@ export const useTasks = () => {
                     const detailedError = `Lỗi Cấu Hình Firebase:\nMiền "${domain}" chưa được cấp phép để xác thực. Vui lòng thêm miền này vào danh sách "Authorized domains" trong cài đặt Authentication của Firebase Console.`;
                     addToast(detailedError, 'error');
                 } else if (refreshError.code !== 'auth/popup-closed-by-user' && refreshError.code !== 'auth/cancelled-popup-request') {
-                    addToast("Phiên Google đã hết hạn và không thể tự động làm mới. Thao tác đồng bộ đã thất bại.", "error");
+                    addToast("Phiên Google đã hết hạn. Vui lòng kết nối lại trong phần Cài đặt để tiếp tục đồng bộ.", "error");
+                    if (updateUserSettings) {
+                        updateUserSettings({ isGoogleCalendarLinked: false });
+                    }
+                    sessionStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY);
                 }
-
-                // We no longer set isGoogleCalendarLinked to false here.
-                // This allows the app to optimistically try to re-authenticate on the next sync action,
-                // providing a better user experience than forcing them to go to settings.
                 return null;
             }
         } else {
