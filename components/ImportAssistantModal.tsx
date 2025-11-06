@@ -14,7 +14,7 @@ type Tab = 'text' | 'image' | 'file' | 'csv' | 'audio';
 interface ParsedTask {
     text: string;
     dueDate: string | null;
-    hashtags: string[];
+    tags: string[];
     isUrgent: boolean;
 }
 
@@ -108,10 +108,10 @@ const ImportAssistantModal: React.FC<ImportAssistantModalProps> = ({ isOpen, onC
                         properties: {
                             text: { type: Type.STRING },
                             dueDate: { type: Type.STRING },
-                            hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            tags: { type: Type.ARRAY, items: { type: Type.STRING } },
                             isUrgent: { type: Type.BOOLEAN },
                         },
-                        required: ['text', 'dueDate', 'hashtags', 'isUrgent'],
+                        required: ['text', 'dueDate', 'tags', 'isUrgent'],
                     },
                 },
             };
@@ -346,7 +346,7 @@ const ImportAssistantModal: React.FC<ImportAssistantModalProps> = ({ isOpen, onC
     };
 
     const handleDownloadTemplate = () => {
-        const headers = "text,dueDate,hashtags,isUrgent";
+        const headers = "text,dueDate,tags,isUrgent";
         const exampleRow1 = `"Hoàn thành báo cáo quý 4 #báocáo","2024-12-20T17:00:00Z","báo cáo;công ty",true`;
         const exampleRow2 = `"Đi siêu thị mua đồ ăn tối","","cá nhân;mua sắm",false`;
         const csvContent = `${headers}\n${exampleRow1}\n${exampleRow2}`;
@@ -557,7 +557,7 @@ const ImportAssistantModal: React.FC<ImportAssistantModalProps> = ({ isOpen, onC
                                     <input type="checkbox" checked={task.isUrgent} onChange={e => handleUpdateTask(task.id, 'isUrgent', e.target.checked)} className="h-3 w-3 rounded bg-slate-700 border-slate-500 text-primary-600 focus:ring-primary-500" />
                                 </div>
                            </div>
-                           <input type="text" value={task.hashtags.join(', ')} onChange={e => handleUpdateTask(task.id, 'hashtags', e.target.value.split(',').map(t => t.trim()))} placeholder="Thêm tags, cách nhau bởi dấu phẩy" className="w-full bg-transparent text-slate-400 focus:ring-0 border-0 p-0 text-xs" />
+                           <input type="text" value={task.tags.join(', ')} onChange={e => handleUpdateTask(task.id, 'tags', e.target.value.split(',').map(t => t.trim()))} placeholder="Thêm tags, cách nhau bởi dấu phẩy" className="w-full bg-transparent text-slate-400 focus:ring-0 border-0 p-0 text-xs" />
                         </div>
                         <button onClick={() => handleDeleteReviewTask(task.id)} className="text-slate-500 hover:text-red-500"><Trash2 size={16} /></button>
                     </div>

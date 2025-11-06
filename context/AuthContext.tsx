@@ -166,12 +166,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (credential?.accessToken) {
             sessionStorage.setItem(GOOGLE_ACCESS_TOKEN_KEY, credential.accessToken);
             setGoogleAccessToken(credential.accessToken);
-            await updateUserSettings({ isGoogleCalendarLinked: true });
-            // Fix: Optimistically update local state to avoid race conditions
-            setUserSettings(current => ({...(current || {}), isGoogleCalendarLinked: true }));
-        } else {
-            throw new Error("Không nhận được token truy cập từ Google sau khi xác thực.");
         }
+        await updateUserSettings({ isGoogleCalendarLinked: true });
+        // Fix: Optimistically update local state to avoid race conditions
+        setUserSettings(current => ({...(current || {}), isGoogleCalendarLinked: true }));
     } catch (error) {
         console.error("Error linking Google account:", error);
         throw error;

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Task, TaskStatus } from '../types';
 import { addDays, addWeeks, addMonths } from 'date-fns';
@@ -26,7 +25,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 const GUEST_TASKS_KEY = 'ptodo-guest-tasks';
 const GUEST_TASK_LIMIT = 5;
-const GOOGLE_ACCESS_TOKEN_KEY = 'ptodo-google-token';
 
 export const useTasks = () => {
   const { currentUser, isGuestMode, userSettings, googleAccessToken, updateUserSettings } = useAuth();
@@ -90,10 +88,6 @@ export const useTasks = () => {
             url += `/${task.googleCalendarEventId}`;
             method = 'DELETE';
             const deleteResponse = await fetch(url, { method, headers: { Authorization: `Bearer ${token}` } });
-            if (deleteResponse.status === 410) { // Gone, already deleted
-                 addLog(`[Sync] Sự kiện đã được xóa trên Lịch Google: ${task.text}`, 'info');
-                 return null;
-            }
             if (!deleteResponse.ok) throw deleteResponse;
             addLog(`[Sync] Đã xóa sự kiện thành công: ${task.text}`, 'success');
             return null;
@@ -107,9 +101,9 @@ export const useTasks = () => {
 
         if (!response.ok) throw response;
 
-        const responseData = action !== 'delete' ? await response.json() : null;
+        const responseData = await response.json();
         addLog(`[Sync] Đồng bộ sự kiện thành công: ${task.text}`, 'success');
-        return responseData?.id || null;
+        return responseData.id;
     };
 
     try {
@@ -129,7 +123,7 @@ export const useTasks = () => {
                 const newToken = credential?.accessToken;
                 
                 if (newToken) {
-                    sessionStorage.setItem(GOOGLE_ACCESS_TOKEN_KEY, newToken);
+                    sessionStorage.setItem('ptodo-google-token', newToken);
                     addLog('[Sync] Token đã được làm mới. Thử lại API call...', 'info');
                     return await performSync(newToken);
                 } else {
@@ -143,12 +137,12 @@ export const useTasks = () => {
                     const detailedError = `Lỗi Cấu Hình Firebase:\nMiền "${domain}" chưa được cấp phép để xác thực. Vui lòng thêm miền này vào danh sách "Authorized domains" trong cài đặt Authentication của Firebase Console.`;
                     addToast(detailedError, 'error');
                 } else if (refreshError.code !== 'auth/popup-closed-by-user' && refreshError.code !== 'auth/cancelled-popup-request') {
-                    addToast("Phiên Google đã hết hạn. Vui lòng kết nối lại trong phần Cài đặt để tiếp tục đồng bộ.", "error");
-                    if (updateUserSettings) {
-                        updateUserSettings({ isGoogleCalendarLinked: false });
-                    }
-                    sessionStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY);
+                    addToast("Phiên Google đã hết hạn và không thể tự động làm mới. Thao tác đồng bộ đã thất bại.", "error");
                 }
+
+                // We no longer set isGoogleCalendarLinked to false here.
+                // This allows the app to optimistically try to re-authenticate on the next sync action,
+                // providing a better user experience than forcing them to go to settings.
                 return null;
             }
         } else {
@@ -159,7 +153,8 @@ export const useTasks = () => {
     }
   }, [userSettings?.isGoogleCalendarLinked, googleAccessToken, currentUser, addToast, addLog, updateUserSettings]);
 
-  const addTask = useCallback(async (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly', projectId?: string): Promise<string | undefined> => {
+  // Fix: Add implementations for all task management functions and a return statement.
+  const addTask = useCallback(async (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly') => {
     const newTask: Omit<Task, 'id' | 'createdAt' | 'status' | 'reminderSent'> = {
       text,
       hashtags: tags,
@@ -168,7 +163,6 @@ export const useTasks = () => {
       recurrenceRule,
       userId: currentUser?.uid,
       note: '',
-      projectId: projectId || '',
     };
 
     if (isGuestMode) {
@@ -185,7 +179,7 @@ export const useTasks = () => {
         reminderSent: false,
       };
       updateGuestTasks([...guestTasks, newGuestTask]);
-      return newGuestTask.id;
+      return;
     }
 
     if (currentUser) {
@@ -200,25 +194,23 @@ export const useTasks = () => {
         
         let googleCalendarEventId = null;
         if (dueDate) {
-          googleCalendarEventId = await syncWithCalendar('create', { ...docData, dueDate: newTask.dueDate, id: '' });
+          googleCalendarEventId = await syncWithCalendar('create', { ...docData, id: '' });
         }
 
-        const docRef = await addDoc(collection(db, 'tasks'), { ...docData, googleCalendarEventId });
+        await addDoc(collection(db, 'tasks'), { ...docData, googleCalendarEventId });
         addToast("Đã thêm công việc thành công!", 'success');
-        return docRef.id;
       } catch (error) {
         console.error("Error adding task: ", error);
         addToast("Không thể thêm công việc.", 'error');
-        return undefined;
       }
     }
-    return undefined;
   }, [currentUser, isGuestMode, syncWithCalendar, addToast]);
 
   const toggleTask = useCallback(async (id: string) => {
     const task = tasksRef.current.find(t => t.id === id);
     if (!task) return;
 
+    // Fix: Explicitly type `newStatus` as `TaskStatus` to prevent type inference issues.
     const newStatus: TaskStatus = task.status === 'completed' ? 'todo' : 'completed';
 
     if (isGuestMode) {
@@ -247,7 +239,7 @@ export const useTasks = () => {
             case 'monthly': nextDueDate = addMonths(currentDueDate, 1); break;
           }
           if (nextDueDate) {
-            await addTask(task.text, task.hashtags, nextDueDate.toISOString(), task.isUrgent, task.recurrenceRule, task.projectId);
+            await addTask(task.text, task.hashtags, nextDueDate.toISOString(), task.isUrgent, task.recurrenceRule);
             addToast(`Đã tạo công việc lặp lại cho lần tiếp theo.`, 'info');
           }
         }
@@ -381,14 +373,13 @@ export const useTasks = () => {
     }
 
     if (currentUser) {
-      const parentTask = tasksRef.current.find(t => t.id === parentId);
       const batch = writeBatch(db);
       const tasksCollection = collection(db, 'tasks');
       subtaskTexts.forEach(text => {
         const newDocRef = doc(tasksCollection);
         batch.set(newDocRef, {
           text, status: 'todo', createdAt: serverTimestamp(), dueDate: null, hashtags: [],
-          reminderSent: false, isUrgent: false, userId: currentUser.uid, parentId: parentId, projectId: parentTask?.projectId || ''
+          reminderSent: false, isUrgent: false, userId: currentUser.uid, parentId: parentId,
         });
       });
       try {
@@ -428,8 +419,7 @@ export const useTasks = () => {
 
         let googleCalendarEventId = null;
         if (task.dueDate) {
-          // FIX: Pass the string version of dueDate to syncWithCalendar, not the Date object.
-          googleCalendarEventId = await syncWithCalendar('create', { ...docData, dueDate: task.dueDate, id: newDocRef.id });
+          googleCalendarEventId = await syncWithCalendar('create', { ...docData, id: newDocRef.id });
         }
         batch.set(newDocRef, { ...docData, googleCalendarEventId });
       }
@@ -564,7 +554,8 @@ export const useTasks = () => {
     setLoading(true);
     const q = query(
       collection(db, 'tasks'), 
-      where('userId', '==', currentUser.uid)
+      where('userId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -578,7 +569,6 @@ export const useTasks = () => {
           dueDate: (data.dueDate as Timestamp)?.toDate().toISOString() || null,
         } as Task);
       });
-      tasksData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setTasks(tasksData);
       setLoading(false);
     }, (error) => {

@@ -111,7 +111,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
         addToast("Đã kết nối thành công với Lịch Google!", 'success');
     } catch (error: any) {
         console.error("Google Link Error:", error);
-        let errorMessage = `Không thể kết nối. ${error.message || 'Vui lòng thử lại.'}`;
+        let errorMessage = "Không thể kết nối. Vui lòng thử lại.";
 
         switch (error.code) {
             case 'auth/popup-closed-by-user':
@@ -121,8 +121,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
             case 'auth/popup-blocked':
                 errorMessage = "Trình duyệt đã chặn cửa sổ đăng nhập. Vui lòng cho phép pop-up và thử lại.";
                 break;
-            case 'auth/credential-already-in-use':
-                errorMessage = "Tài khoản Google này đã được liên kết với một tài khoản PTODO khác.";
+            case 'auth/account-exists-with-different-credential':
+                errorMessage = "Tài khoản Google này đã được liên kết với một người dùng khác.";
                 break;
             case 'auth/operation-not-allowed':
                  errorMessage = "Lỗi cấu hình: Đăng nhập bằng Google chưa được bật. Vui lòng liên hệ quản trị viên.";
