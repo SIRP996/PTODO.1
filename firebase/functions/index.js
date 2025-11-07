@@ -1,3 +1,4 @@
+
 /**
  * Quan trọng: Đây là mã nguồn cho Firebase Cloud Functions (backend).
  * Nó cần được triển khai riêng biệt với ứng dụng frontend.
@@ -185,20 +186,26 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
         
         const tasksQuery = await db.collection("tasks")
             .where("userId", "==", userId)
-            .where("status", "!=", "completed")
             .where("dueDate", ">=", startDate)
             .where("dueDate", "<", endDate)
             .orderBy("dueDate")
             .get();
 
-        if (tasksQuery.empty) {
+        const tasksForDay = [];
+        tasksQuery.forEach(doc => {
+            const task = doc.data();
+            if (task.status !== 'completed') {
+                tasksForDay.push(task);
+            }
+        });
+
+        if (tasksForDay.length === 0) {
             await replyToTelegram(chatId, `Anh không có công việc nào cho ${dayLabel}.`);
             return res.sendStatus(200);
         }
 
         let scheduleText = `*Lịch trình của anh ${dayLabel}:*\n\n`;
-        tasksQuery.forEach(doc => {
-            const task = doc.data();
+        tasksForDay.forEach(task => {
             const time = new Date(task.dueDate.toDate()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
             scheduleText += `- *${time}*: ${task.text}\n`;
         });

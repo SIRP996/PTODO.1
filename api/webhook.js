@@ -93,7 +93,7 @@ export default async function handler(req, res) {
     if (text.startsWith("/start ")) {
       const userId = text.split(" ")[1];
       if (!userId) {
-        await replyToTelegram(chatId, "Lỗi: Lệnh kết nối không hợp lệ.");
+        await replyToTelegram(chatId, "Lỗi: Lệnh kết nối không hợp lệ. Vui lòng sao chép chính xác lệnh từ ứng dụng PTODO.");
         return res.status(200).send("OK");
       }
 
@@ -102,13 +102,13 @@ export default async function handler(req, res) {
         telegramChatId: chatId,
         telegramUsername: message.chat.username || "",
       });
-      await replyToTelegram(chatId, "🎉 Kết nối thành công! Bây giờ anh có thể quản lý công việc PTODO ngay tại đây.");
+      await replyToTelegram(chatId, "🎉 Kết nối thành công! Bây giờ anh có thể quản lý công việc PTODO ngay tại đây.\n\nThử ra lệnh:\n`/add Họp với team marketing 9h sáng mai #họp`");
       return res.status(200).send("OK");
     }
     
     const usersQuery = await db.collection("users").where("telegramChatId", "==", chatId).limit(1).get();
     if (usersQuery.empty) {
-      await replyToTelegram(chatId, "Tài khoản Telegram này chưa được kết nối.");
+      await replyToTelegram(chatId, "Tài khoản Telegram này chưa được kết nối. Vui lòng vào Cài đặt trong ứng dụng PTODO để lấy lệnh kết nối.");
       return res.status(200).send("OK");
     }
     const userId = usersQuery.docs[0].id;
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
     if (text.startsWith("/add ")) {
       const taskText = text.substring(5).trim();
       if (!taskText) {
-          await replyToTelegram(chatId, "Vui lòng nhập nội dung công việc.");
+          await replyToTelegram(chatId, "Vui lòng nhập nội dung công việc. Ví dụ: `/add Đi siêu thị mua sữa`");
           return res.status(200).send("OK");
       }
       
@@ -158,20 +158,26 @@ export default async function handler(req, res) {
         
         const tasksQuery = await db.collection("tasks")
             .where("userId", "==", userId)
-            .where("status", "!=", "completed")
             .where("dueDate", ">=", startDate)
             .where("dueDate", "<", endDate)
             .orderBy("dueDate")
             .get();
 
-        if (tasksQuery.empty) {
+        const tasksForDay = [];
+        tasksQuery.forEach(doc => {
+            const task = doc.data();
+            if (task.status !== 'completed') {
+                tasksForDay.push(task);
+            }
+        });
+
+        if (tasksForDay.length === 0) {
             await replyToTelegram(chatId, `Anh không có công việc nào cho ${dayLabel}.`);
             return res.status(200).send("OK");
         }
 
         let scheduleText = `*Lịch trình của anh ${dayLabel}:*\n\n`;
-        tasksQuery.forEach(doc => {
-            const task = doc.data();
+        tasksForDay.forEach(task => {
             const time = new Date(task.dueDate.toDate()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
             scheduleText += `- *${time}*: ${task.text}\n`;
         });
