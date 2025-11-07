@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Save, Loader2, Image, Trash2, Calendar, RefreshCw } from 'lucide-react';
+import { X, User, Mail, Save, Loader2, Image, Trash2, Calendar, RefreshCw, Copy } from 'lucide-react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +20,14 @@ const themes: { id: Theme; name: string; color: string; }[] = [
     { id: 'sunset', name: 'Hoàng hôn', color: 'bg-amber-500' },
     { id: 'ocean', name: 'Đại dương', color: 'bg-cyan-500' },
 ];
+
+const TelegramIcon: React.FC = () => (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5">
+        <path d="M15.385 12.232L11.373 8.22a.5.5 0 00-.773.352v8.536a.5.5 0 00.773.352l4.012-4.012a.5.5 0 000-.704z" fill="#36A7E1"></path>
+        <path d="M11.66 12.583l-4.248 4.248A.5.5 0 017 16.47V7.53a.5.5 0 01.412-.492l11-3.5a.5.5 0 01.615.52l-2.5 12.5a.5.5 0 01-.62.383L7 11.53V12l4.66 1.166v-.583z" fill="#2481CC"></path>
+    </svg>
+);
+
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, onUpdateProfile, syncExistingTasksToCalendar }) => {
   const [displayName, setDisplayName] = useState('');
@@ -89,6 +97,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
           addToast("Không thể cập nhật ảnh đại diện.", 'error');
         }
       };
+      // FIX: Corrected typo from `readDataURL` to `readAsDataURL`.
       reader.readAsDataURL(file);
     }
   };
@@ -152,12 +161,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
         setIsLinking(false);
     }
   }
+
+  const handleUnlinkTelegram = async () => {
+    if (updateUserSettings) {
+      await updateUserSettings({ telegramChatId: null, telegramUsername: null });
+      addToast("Đã ngắt kết nối Telegram.", 'info');
+    }
+  };
   
   const handleSyncOldTasks = async () => {
     setIsSyncingOld(true);
     await syncExistingTasksToCalendar();
     setIsSyncingOld(false);
   }
+
+  const telegramConnectCommand = `/start ${user?.uid}`;
+  const copyConnectCommand = () => {
+    navigator.clipboard.writeText(telegramConnectCommand);
+    addToast("Đã sao chép lệnh kết nối!", 'info');
+  };
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 animate-fadeIn">
@@ -245,6 +267,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
            {/* Integrations Section */}
            <div className="space-y-4">
                 <h4 className="font-semibold text-slate-300 border-b border-slate-700 pb-2">Tích hợp</h4>
+                {/* Google Calendar */}
                 <div className="bg-slate-800/50 p-4 rounded-lg flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-500/20 text-blue-400 p-2 rounded-md"><Calendar size={20} /></div>
@@ -294,6 +317,50 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
                         <p className="text-xs text-slate-500 mt-1">Chỉ cần thực hiện một lần để đưa các công việc đã có từ trước lên lịch của bạn.</p>
                     </div>
                 )}
+                
+                {/* Telegram Bot */}
+                <div className="bg-slate-800/50 p-4 rounded-lg">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-sky-500/20 text-sky-400 p-2 rounded-md"><TelegramIcon /></div>
+                            <div>
+                                <p className="font-semibold text-white">Telegram Bot</p>
+                                {userSettings?.telegramChatId && userSettings?.telegramUsername ? (
+                                    <p className="text-xs text-slate-400">Đã kết nối với: @{userSettings.telegramUsername}</p>
+                                ) : (
+                                    <p className="text-xs text-slate-400">Thêm, truy vấn và nhận nhắc nhở công việc.</p>
+                                )}
+                            </div>
+                        </div>
+                        {userSettings?.telegramChatId && (
+                             <button type="button" onClick={handleUnlinkTelegram} className="bg-red-600 hover:bg-red-700 text-white font-semibold text-sm py-1.5 px-3 rounded-md transition-colors">
+                                 Ngắt kết nối
+                             </button>
+                        )}
+                    </div>
+                    {!userSettings?.telegramChatId && (
+                        <div className="mt-4 pt-4 border-t border-slate-700 text-sm space-y-3">
+                           <p className="text-slate-300">Để kết nối tài khoản của bạn:</p>
+                           <ol className="list-decimal list-inside space-y-2 text-slate-400 text-xs pl-2">
+                               <li>Mở Telegram và tìm bot mà anh đã tạo (ví dụ: <span className="font-semibold text-slate-200">@TenBotCuaAnh_bot</span>).</li>
+                               <li>Nhấn nút "Start" hoặc gửi tin nhắn cho bot.</li>
+                               <li>Sao chép và gửi lệnh sau cho bot:</li>
+                           </ol>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={telegramConnectCommand}
+                                    className="w-full bg-[#293548] text-slate-300 font-mono text-xs border border-slate-600 rounded-lg pl-3 pr-10 py-2"
+                                />
+                                <button type="button" onClick={copyConnectCommand} className="absolute top-1/2 right-2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-white rounded-md hover:bg-slate-600" title="Sao chép">
+                                    <Copy size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
            </div>
 
 

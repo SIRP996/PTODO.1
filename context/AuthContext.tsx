@@ -14,7 +14,7 @@ import {
   UserCredential,
   signInWithPopup,
 } from 'firebase/auth';
-import { doc, onSnapshot, serverTimestamp, setDoc, writeBatch, collection } from 'firebase/firestore';
+import { doc, onSnapshot, serverTimestamp, setDoc, writeBatch, collection, updateDoc, deleteField } from 'firebase/firestore';
 import { UserSettings, Task } from '../types';
 
 interface AuthContextType {
@@ -167,17 +167,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
   async function updateUserSettings(settings: Partial<UserSettings>) {
     if (isGuestMode) {
-      // In guest mode, we can only update theme, which is stored in localStorage
       const currentSettings = userSettings || {};
       const newSettings = { ...currentSettings, ...settings };
       setUserSettings(newSettings);
       return;
     }
     if (currentUser) {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        return setDoc(userDocRef, settings, { merge: true });
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const settingsToUpdate: { [key: string]: any } = { ...settings };
+      
+      // Handle unsetting fields
+      for (const key in settingsToUpdate) {
+        if (settingsToUpdate[key] === null || settingsToUpdate[key] === undefined) {
+          settingsToUpdate[key] = deleteField();
+        }
+      }
+      
+      return updateDoc(userDocRef, settingsToUpdate);
     } else {
-        return Promise.reject(new Error("No user logged in to update settings."));
+      return Promise.reject(new Error("No user logged in to update settings."));
     }
   }
 

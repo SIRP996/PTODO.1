@@ -9,6 +9,8 @@ export interface UserSettings {
   avatarUrl?: string;
   isGoogleCalendarLinked?: boolean;
   sidebarLayout?: SectionKey[];
+  telegramChatId?: number;
+  telegramUsername?: string;
 }
 
 export interface Project {
