@@ -33,6 +33,26 @@ async function replyToTelegram(chatId, text) {
   });
 }
 
+async function setTelegramMenu() {
+    const commands = [
+        { command: 'add', description: 'Thêm công việc mới (vd: /add Họp team 9h mai)' },
+        { command: 'list', description: 'Liệt kê công việc (vd: /list urgent)' },
+        { command: 'schedule', description: 'Xem lịch trình hôm nay/ngày mai (vd: /schedule tomorrow)' },
+        { command: 'help', description: 'Xem hướng dẫn các lệnh' }
+    ];
+    const url = `${TELEGRAM_API_URL}/setMyCommands`;
+    try {
+        await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ commands }),
+        });
+    } catch (error) {
+        console.error("Failed to set Telegram menu:", error);
+    }
+}
+
+
 async function parseTaskWithGemini(text) {
   const systemInstruction = `Bạn là một trợ lý AI thông minh cho ứng dụng PTODO. Nhiệm vụ của bạn là phân tích một chuỗi văn bản từ người dùng Việt Nam và chuyển đổi nó thành một đối tượng JSON có cấu trúc để tạo công việc.
 
@@ -117,7 +137,10 @@ export default async function handler(req, res) {
         telegramChatId: chatId,
         telegramUsername: message.chat.username || "",
       });
-      await replyToTelegram(chatId, "🎉 Kết nối thành công! Bây giờ anh có thể quản lý công việc PTODO ngay tại đây.\n\nThử ra lệnh:\n`/add Họp với team marketing 9h sáng mai #họp`");
+      
+      await setTelegramMenu(); // Set the menu for the user
+      
+      await replyToTelegram(chatId, "🎉 Kết nối thành công! Bây giờ anh có thể quản lý công việc PTODO ngay tại đây.\n\nBấm vào nút `/` để xem các lệnh có sẵn hoặc dùng lệnh /help.");
       return res.status(200).send("OK");
     }
     
@@ -222,7 +245,6 @@ export default async function handler(req, res) {
                 break;
             case 'urgent':
                 title = "Danh sách việc khẩn cấp";
-                // Query all urgent tasks and filter out completed ones in code to avoid complex index requirements
                 tasksQuery = db.collection("tasks").where("userId", "==", userId).where("isUrgent", "==", true).orderBy("createdAt", "desc");
                 break;
             case 'all':
@@ -242,8 +264,24 @@ export default async function handler(req, res) {
         await replyToTelegram(chatId, formatTaskList(tasks, title));
         return res.status(200).send("OK");
     }
+    
+    if (text === "/help") {
+        const helpText = `*Các lệnh có sẵn:*\n\n` +
+                         `\`/add [nội dung]\` - Thêm công việc mới. AI sẽ tự phân tích ngày giờ, tags.\n` +
+                         `*Ví dụ:* \`/add Họp team marketing 9h sáng mai #họp\`\n\n` +
+                         `\`/list [bộ lọc]\` - Liệt kê công việc.\n` +
+                         `*Bộ lọc:* \`all\`, \`todo\`, \`inprogress\`, \`completed\`, \`urgent\`\n` +
+                         `*Ví dụ:* \`/list urgent\`\n\n` +
+                         `\`/schedule [khi nào]\` - Xem lịch trình.\n` +
+                         `*Khi nào:* \`today\` (mặc định), \`tomorrow\`\n` +
+                         `*Ví dụ:* \`/schedule tomorrow\`\n\n` +
+                         `\`/help\` - Hiển thị tin nhắn này.`;
+        await replyToTelegram(chatId, helpText);
+        return res.status(200).send("OK");
+    }
 
-    await replyToTelegram(chatId, "Em chưa hiểu lệnh này ạ. Anh có thể thử:\n- `/add [nội dung]`\n- `/schedule [today|tomorrow]`\n- `/list [all|todo|inprogress|completed|urgent]`");
+
+    await replyToTelegram(chatId, "Em chưa hiểu lệnh này ạ. Anh có thể dùng /help để xem danh sách các lệnh.");
     return res.status(200).send("OK");
 
   } catch (error) {
