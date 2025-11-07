@@ -1,16 +1,14 @@
 
-const admin = require("firebase-admin");
-const fetch = require("node-fetch");
-const { GoogleGenAI, Type } = require("@google/genai");
+import admin from "firebase-admin";
+import fetch from "node-fetch";
+import { GoogleGenAI, Type } from "@google/genai";
 
-// --- CẤU HÌNH BIẾN MÔI TRƯỜNG (Sẽ lấy từ Vercel ở bước sau) ---
+// --- CẤU HÌNH BIẾN MÔI TRƯỜNG (Sẽ lấy từ Vercel) ---
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// Parse the service account key from the environment variable
 const FIREBASE_SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 // --- KHỞI TẠO CÁC DỊCH VỤ (Chỉ một lần để tối ưu) ---
-// Kiểm tra xem Firebase app đã được khởi tạo chưa để tránh lỗi trên Vercel
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(FIREBASE_SERVICE_ACCOUNT),
@@ -22,7 +20,6 @@ const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 // --- CÁC HÀM TRỢ GIÚP ---
 
-// Gửi tin nhắn trả lời về Telegram
 async function replyToTelegram(chatId, text) {
   const url = `${TELEGRAM_API_URL}/sendMessage`;
   return fetch(url, {
@@ -36,7 +33,6 @@ async function replyToTelegram(chatId, text) {
   });
 }
 
-// Phân tích văn bản bằng Gemini để tạo công việc
 async function parseTaskWithGemini(text) {
   const systemInstruction = `Bạn là một trợ lý AI thông minh cho ứng dụng PTODO. Nhiệm vụ của bạn là phân tích một chuỗi văn bản từ người dùng Việt Nam và chuyển đổi nó thành một đối tượng JSON có cấu trúc để tạo công việc.
 
@@ -78,8 +74,7 @@ async function parseTaskWithGemini(text) {
 }
 
 // --- HÀM XỬ LÝ CHÍNH CỦA VERCEL ---
-// Vercel sẽ tự động chạy hàm này khi có request đến /api/webhook
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).send("Method Not Allowed");
   }
@@ -95,11 +90,10 @@ module.exports = async (req, res) => {
   const text = message.text;
 
   try {
-    // 1. Xử lý lệnh /start để kết nối tài khoản
     if (text.startsWith("/start ")) {
       const userId = text.split(" ")[1];
       if (!userId) {
-        await replyToTelegram(chatId, "Lỗi: Lệnh kết nối không hợp lệ. Vui lòng sao chép chính xác lệnh từ ứng dụng PTODO.");
+        await replyToTelegram(chatId, "Lỗi: Lệnh kết nối không hợp lệ.");
         return res.status(200).send("OK");
       }
 
@@ -108,24 +102,21 @@ module.exports = async (req, res) => {
         telegramChatId: chatId,
         telegramUsername: message.chat.username || "",
       });
-      await replyToTelegram(chatId, "🎉 Kết nối thành công! Bây giờ anh có thể quản lý công việc PTODO ngay tại đây.\n\nThử ra lệnh:\n`/add Họp với team marketing 9h sáng mai #họp`");
+      await replyToTelegram(chatId, "🎉 Kết nối thành công! Bây giờ anh có thể quản lý công việc PTODO ngay tại đây.");
       return res.status(200).send("OK");
     }
     
-    // Tìm người dùng Firebase dựa trên chatId
     const usersQuery = await db.collection("users").where("telegramChatId", "==", chatId).limit(1).get();
     if (usersQuery.empty) {
-      await replyToTelegram(chatId, "Tài khoản Telegram này chưa được kết nối. Vui lòng vào Cài đặt trong ứng dụng PTODO để lấy lệnh kết nối.");
+      await replyToTelegram(chatId, "Tài khoản Telegram này chưa được kết nối.");
       return res.status(200).send("OK");
     }
-    const user = usersQuery.docs[0];
-    const userId = user.id;
+    const userId = usersQuery.docs[0].id;
 
-    // 2. Xử lý lệnh /add để thêm công việc
     if (text.startsWith("/add ")) {
       const taskText = text.substring(5).trim();
       if (!taskText) {
-          await replyToTelegram(chatId, "Vui lòng nhập nội dung công việc. Ví dụ: `/add Đi siêu thị mua sữa`");
+          await replyToTelegram(chatId, "Vui lòng nhập nội dung công việc.");
           return res.status(200).send("OK");
       }
       
@@ -147,7 +138,6 @@ module.exports = async (req, res) => {
       return res.status(200).send("OK");
     }
 
-    // 3. Xử lý lệnh /schedule để xem lịch
     if (text.startsWith("/schedule")) {
         const today = new Date();
         today.setHours(0,0,0,0);
@@ -190,13 +180,12 @@ module.exports = async (req, res) => {
         return res.status(200).send("OK");
     }
 
-    // Mặc định, trả lời nếu không hiểu lệnh
     await replyToTelegram(chatId, "Em chưa hiểu lệnh này ạ. Anh có thể thử:\n- `/add [nội dung công việc]`\n- `/schedule [today|tomorrow]`");
     return res.status(200).send("OK");
 
   } catch (error) {
     console.error("Lỗi webhook:", error);
-    // Trả về lỗi 500 để Vercel có thể ghi nhận và hiển thị log
+    await replyToTelegram(chatId, "Đã có lỗi xảy ra phía máy chủ, em xin lỗi ạ.");
     return res.status(500).send("Internal Server Error");
   }
 }
