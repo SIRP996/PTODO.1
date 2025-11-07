@@ -73,6 +73,21 @@ async function parseTaskWithGemini(text) {
   return JSON.parse(jsonString);
 }
 
+function formatTaskList(tasks, title) {
+  if (tasks.length === 0) {
+    return `Anh không có công việc nào trong danh sách này.`;
+  }
+  let responseText = `*${title}*\n\n`;
+  tasks.forEach(task => {
+    let icon = '⚪️'; // todo
+    if (task.status === 'inprogress') icon = '🔵';
+    if (task.status === 'completed') icon = '✅';
+    const urgentIcon = task.isUrgent && task.status !== 'completed' ? '🔥 ' : '';
+    responseText += `${icon} ${urgentIcon}${task.text}\n`;
+  });
+  return responseText;
+}
+
 // --- HÀM XỬ LÝ CHÍNH CỦA VERCEL ---
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -186,7 +201,49 @@ export default async function handler(req, res) {
         return res.status(200).send("OK");
     }
 
-    await replyToTelegram(chatId, "Em chưa hiểu lệnh này ạ. Anh có thể thử:\n- `/add [nội dung công việc]`\n- `/schedule [today|tomorrow]`");
+    if (text.startsWith("/list")) {
+        const args = text.split(" ")[1] || 'all';
+        let tasksQuery;
+        let title = "Danh sách công việc của anh";
+        let tasks = [];
+
+        switch(args) {
+            case 'todo':
+                title = "Danh sách việc cần làm";
+                tasksQuery = db.collection("tasks").where("userId", "==", userId).where("status", "==", "todo").orderBy("createdAt", "desc");
+                break;
+            case 'inprogress':
+                title = "Danh sách việc đang làm";
+                tasksQuery = db.collection("tasks").where("userId", "==", userId).where("status", "==", "inprogress").orderBy("createdAt", "desc");
+                break;
+            case 'completed':
+                title = "5 công việc hoàn thành gần nhất";
+                tasksQuery = db.collection("tasks").where("userId", "==", userId).where("status", "==", "completed").orderBy("createdAt", "desc").limit(5);
+                break;
+            case 'urgent':
+                title = "Danh sách việc khẩn cấp";
+                // Query all urgent tasks and filter out completed ones in code to avoid complex index requirements
+                tasksQuery = db.collection("tasks").where("userId", "==", userId).where("isUrgent", "==", true).orderBy("createdAt", "desc");
+                break;
+            case 'all':
+            default:
+                title = "Tất cả công việc chưa hoàn thành";
+                tasksQuery = db.collection("tasks").where("userId", "==", userId).where("status", "in", ["todo", "inprogress"]).orderBy("createdAt", "desc");
+                break;
+        }
+
+        const querySnapshot = await tasksQuery.get();
+        querySnapshot.forEach(doc => tasks.push(doc.data()));
+
+        if (args === 'urgent') {
+            tasks = tasks.filter(task => task.status !== 'completed');
+        }
+
+        await replyToTelegram(chatId, formatTaskList(tasks, title));
+        return res.status(200).send("OK");
+    }
+
+    await replyToTelegram(chatId, "Em chưa hiểu lệnh này ạ. Anh có thể thử:\n- `/add [nội dung]`\n- `/schedule [today|tomorrow]`\n- `/list [all|todo|inprogress|completed|urgent]`");
     return res.status(200).send("OK");
 
   } catch (error) {
