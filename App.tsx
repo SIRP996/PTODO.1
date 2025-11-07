@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -26,6 +27,7 @@ import { useProjects } from './hooks/useProjects';
 import TimelineView from './components/TimelineView';
 import { useTaskTemplates } from './hooks/useTaskTemplates';
 import TemplateManagerModal from './components/TemplateManagerModal';
+import WeeklyReviewModal from './components/WeeklyReviewModal';
 
 const statusLabels: Record<TaskStatus, string> = {
   todo: 'Cần làm',
@@ -61,6 +63,7 @@ const App: React.FC = () => {
   const [isUpdateKeyModalOpen, setUpdateKeyModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
+  const [isWeeklyReviewModalOpen, setWeeklyReviewModalOpen] = useState(false);
 
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
@@ -323,6 +326,7 @@ const App: React.FC = () => {
       {isUpdateKeyModalOpen && currentUser && <ApiKeyPrompt isStudioEnv={isStudioEnv} onSelectKey={handleSelectStudioKey} onSaveManualKey={handleSaveManualKey} error={apiKeyError} isModal={true} onClose={() => setUpdateKeyModalOpen(false)} />}
       {isImportModalOpen && currentUser && hasApiKey && <ImportAssistantModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onAddTasksBatch={addTasksBatch} onApiKeyError={onApiKeyError} />}
       {isTemplateManagerOpen && currentUser && <TemplateManagerModal isOpen={isTemplateManagerOpen} onClose={() => setIsTemplateManagerOpen(false)} templates={templates} onAddTemplate={addTemplate} onUpdateTemplate={updateTemplate} onDeleteTemplate={deleteTemplate} />}
+      {isWeeklyReviewModalOpen && currentUser && hasApiKey && <WeeklyReviewModal isOpen={isWeeklyReviewModalOpen} onClose={() => setWeeklyReviewModalOpen(false)} tasks={tasks} onApiKeyError={onApiKeyError} />}
       {hasApiKey && currentUser && <ChatAssistant isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} tasks={tasks} onAddTask={addTask} onApiKeyError={onApiKeyError} userAvatarUrl={userSettings?.avatarUrl || currentUser?.photoURL || undefined} />}
 
       <div className="min-h-screen bg-[#0F172A] text-slate-100 font-sans flex flex-col">
@@ -394,6 +398,7 @@ const App: React.FC = () => {
                     onOpenSettings={() => setSettingsModalOpen(true)}
                     onToggleLogViewer={() => setIsLogViewerOpen(prev => !prev)}
                     onOpenTemplateManager={() => setIsTemplateManagerOpen(true)}
+                    onOpenWeeklyReview={() => setWeeklyReviewModalOpen(true)}
                     notificationPermissionStatus={notificationPermissionStatus}
                     onRequestNotificationPermission={handleRequestPermission}
                   />

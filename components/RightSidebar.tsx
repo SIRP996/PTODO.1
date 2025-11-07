@@ -21,6 +21,7 @@ interface RightSidebarProps {
     onOpenSettings: () => void;
     onToggleLogViewer: () => void;
     onOpenTemplateManager: () => void;
+    onOpenWeeklyReview: () => void;
     hasApiKey: boolean;
     notificationPermissionStatus: string;
     onRequestNotificationPermission: () => void;
@@ -42,7 +43,7 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
 
 const RightSidebar: React.FC<RightSidebarProps> = ({ 
     user, tasks, projects, searchTerm, onSearchChange, activeFilter, onFilterChange, 
-    onLogout, onManageApiKey, onOpenSettings, onToggleLogViewer, onOpenTemplateManager, hasApiKey,
+    onLogout, onManageApiKey, onOpenSettings, onToggleLogViewer, onOpenTemplateManager, onOpenWeeklyReview, hasApiKey,
     notificationPermissionStatus, onRequestNotificationPermission
 }) => {
     const { userSettings, isGuestMode, exitGuestMode, updateUserSettings } = useAuth();
@@ -52,7 +53,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     const componentMap: Record<SectionKey, { title: string; component: React.ReactNode }> = {
         dashboard: { title: "Bảng điều khiển", component: <Dashboard tasks={tasks} /> },
         advancedDashboard: { title: "Phân tích chi tiết", component: <AdvancedDashboard tasks={tasks} /> },
-        utilities: { title: "Tiện ích", component: <UtilitiesSection tasks={tasks} onOpenTemplateManager={onOpenTemplateManager} /> },
+        utilities: { title: "Tiện ích", component: <UtilitiesSection tasks={tasks} onOpenTemplateManager={onOpenTemplateManager} onOpenWeeklyReview={onOpenWeeklyReview} /> },
     };
 
     const defaultLayout: SectionKey[] = ['dashboard', 'advancedDashboard', 'utilities'];

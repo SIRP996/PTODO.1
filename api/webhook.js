@@ -26,6 +26,7 @@ const MAIN_MENU_KEYBOARD = {
     [{ text: "➕ Thêm công việc", callback_data: "add_task_prompt" }],
     [{ text: "📋 Xem danh sách công việc", callback_data: "list_tasks_menu" }],
     [{ text: "📅 Xem lịch trình", callback_data: "schedule_menu" }],
+    [{ text: "📝 Tổng kết Tuần", callback_data: "weekly_review" }],
     [{ text: "💡 Trợ giúp", callback_data: "show_help" }],
   ],
 };
@@ -99,6 +100,7 @@ async function setTelegramMenu() {
         { command: 'add', description: 'Thêm công việc mới (vd: /add Họp team 9h mai)' },
         { command: 'list', description: 'Liệt kê công việc (vd: /list urgent)' },
         { command: 'schedule', description: 'Xem lịch trình hôm nay/ngày mai' },
+        { command: 'review', description: 'Nhận tổng kết & kế hoạch tuần từ AI' },
         { command: 'help', description: 'Xem hướng dẫn các lệnh' }
     ];
     try {
@@ -164,6 +166,49 @@ function formatTaskList(tasks, title) {
     responseText += `${icon} ${urgentIcon}${task.text}\n`;
   });
   return responseText;
+}
+
+async function handleWeeklyReview(chatId, userId) {
+    await replyToTelegram(chatId, "Dạ em đang phân tích dữ liệu tuần qua và lên kế hoạch. Anh chờ em một chút nhé...");
+
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const completedSnapshot = await db.collection("tasks")
+        .where("userId", "==", userId)
+        .where("status", "==", "completed")
+        .where("createdAt", ">=", oneWeekAgo)
+        .get();
+    const completedLastWeek = completedSnapshot.docs.map(doc => doc.data().text);
+
+    const pendingSnapshot = await db.collection("tasks")
+        .where("userId", "==", userId)
+        .where("status", "in", ["todo", "inprogress"])
+        .get();
+    const pendingTasks = pendingSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return { text: data.text, dueDate: data.dueDate ? new Date(data.dueDate.toDate()).toISOString() : 'Không có' };
+    });
+    
+    if (completedLastWeek.length === 0 && pendingTasks.length === 0) {
+        await replyToTelegram(chatId, "Không có dữ liệu công việc để phân tích. Hãy hoàn thành một vài công việc và thử lại nhé anh.");
+        return;
+    }
+
+    const prompt = `Bạn là Em, một trợ lý AI tận tâm và chu đáo cho ứng dụng PTODO. Bạn sẽ xưng là "em" và gọi người dùng là "anh". Nhiệm vụ của em là tạo một bản "Tổng kết & Kế hoạch Tuần".
+    Dữ liệu công việc của anh:
+    - Công việc đã hoàn thành 7 ngày qua: ${JSON.stringify(completedLastWeek)}
+    - Công việc đang chờ: ${JSON.stringify(pendingTasks)}
+    Dựa vào dữ liệu trên, hãy viết một bản báo cáo ngắn gọn, động viên và hữu ích theo cấu trúc sau (dùng markdown của Telegram):
+    *✨ Tổng kết tuần qua*
+    - (Lời khen và nhận xét tích cực)
+    *👀 Những việc cần chú ý*
+    - (Nhắc nhở về việc tồn đọng)
+    *🎯 Gợi ý cho tuần tới*
+    - (Đề xuất 2-3 mục tiêu ưu tiên)`;
+
+    const response = await genAI.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+    await replyToTelegram(chatId, response.text);
 }
 
 async function handleGetSchedule(chatId, userId, day) {
@@ -263,7 +308,8 @@ function getHelpText() {
            `*Ví dụ:* \`/list urgent\`\n\n` +
            `*/schedule [khi nào]* - Xem lịch trình.\n` +
            `*Khi nào:* \`today\` (mặc định), \`tomorrow\`\n` +
-           `*Ví dụ:* \`/schedule tomorrow\``;
+           `*Ví dụ:* \`/schedule tomorrow\`\n\n` +
+           `*/review* - Nhận tổng kết & kế hoạch tuần từ AI.`;
 }
 
 
@@ -370,6 +416,11 @@ async function handleTextMessage(message) {
     return;
   }
 
+  if (text === "/review") {
+    await handleWeeklyReview(chatId, userId);
+    return;
+  }
+
   await replyToTelegram(chatId, "Em chưa hiểu lệnh này ạ. Anh có thể dùng /menu hoặc /help để xem các lệnh có sẵn.");
 }
 
@@ -405,6 +456,9 @@ async function handleCallbackQuery(callbackQuery) {
     case 'show_help':
       await replyToTelegram(chatId, getHelpText());
       break;
+    case 'weekly_review':
+        await handleWeeklyReview(chatId, userId);
+        break;
     case 'schedule_today':
         await handleGetSchedule(chatId, userId, "today");
         break;
