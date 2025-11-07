@@ -231,11 +231,11 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
  */
 exports.checkDueTasks = functions.pubsub.schedule('every 5 minutes').onRun(async (context) => {
     const now = new Date();
-    const fifteenMinutesFromNow = new Date(now.getTime() + 15 * 60 * 1000);
+    const tenMinutesFromNow = new Date(now.getTime() + 10 * 60 * 1000);
 
     const tasksToRemindQuery = await db.collection("tasks")
         .where('dueDate', '>', now)
-        .where('dueDate', '<=', fifteenMinutesFromNow)
+        .where('dueDate', '<=', tenMinutesFromNow)
         .where('reminderSent', '==', false)
         .where('status', '!=', 'completed')
         .get();
