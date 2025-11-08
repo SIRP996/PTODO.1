@@ -32,7 +32,22 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
         <details open={defaultOpen} className="bg-slate-800/20 backdrop-blur-lg rounded-2xl border border-white/10 shadow-lg group">
             <summary className="p-4 font-semibold text-slate-100 cursor-pointer list-none flex justify-between items-center">
                 {title}
-                <ChevronDown className="h-5 w-5 transition-transform duration-200 group-open:rotate-180" />
+                <div className="colorful-chevron-wrapper">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="colorful-chevron-arrow text-glow-green transition-transform duration-300 group-open:rotate-180"
+                    >
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
             </summary>
             <div className="p-4 pt-0">
                 {children}
@@ -140,7 +155,24 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     </div>
                 </div>
                 <div className="relative" ref={userMenuRef}>
-                    <button onClick={() => setIsUserMenuOpen(p => !p)} className="p-2 rounded-full hover:bg-white/10 transition-colors"><ChevronDown size={20} /></button>
+                    <button onClick={() => setIsUserMenuOpen(p => !p)} className="p-2 rounded-full hover:bg-white/10 transition-colors">
+                        <div className="colorful-chevron-wrapper">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className={`colorful-chevron-arrow text-glow-green transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`}
+                            >
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </div>
+                    </button>
                     {isUserMenuOpen && (
                         <div className="absolute top-full right-0 mt-2 w-64 bg-slate-800/80 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50">
                              {isGuestMode ? (
