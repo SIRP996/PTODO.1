@@ -92,6 +92,19 @@
         color: #34D399;
       }
 
+      /* --- Sidebar Resizer --- */
+      .sidebar-resizer {
+        width: 8px;
+        cursor: col-resize;
+        background-color: transparent;
+        transition: background-color 0.2s ease;
+        z-index: 10;
+        flex-shrink: 0;
+      }
+      .sidebar-resizer:hover {
+        background-color: var(--color-primary-700);
+      }
+
       /* --- THEME DEFINITIONS --- */
       :root, [data-theme="default"] {
         --color-primary-50: #eef2ff; --color-primary-100: #e0e7ff;
