@@ -154,8 +154,8 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
     }, [completedTasks]);
 
     const getPeakHoursColor = (count: number, maxCount: number) => {
-        if (count === 0) return 'bg-slate-700';
-        if (maxCount === 0) return 'bg-slate-700';
+        if (count === 0) return 'bg-slate-700/50';
+        if (maxCount === 0) return 'bg-slate-700/50';
 
         const intensity = count / maxCount;
         if (intensity > 0.75) return 'bg-purple-400';
@@ -168,15 +168,13 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
     
     return (
         <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-slate-100">Phân tích chi tiết</h2>
-            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/30 p-4 rounded-xl text-center">
                     <p className="text-sm text-slate-400">Hiệu suất hôm nay</p>
                     <p className="text-3xl font-bold text-white mt-1">{dailyStats.completed}/{dailyStats.total}</p>
                     <p className="text-xs text-slate-500">Công việc hoàn thành</p>
                 </div>
-                <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/30 p-4 rounded-xl text-center">
                     <p className="text-sm text-slate-400 flex items-center justify-center gap-1.5"><span className="text-amber-400">🔥</span> Chuỗi hiện tại</p>
                     <p className="text-3xl font-bold text-white mt-1">{currentStreak}</p>
                     <p className="text-xs text-slate-500">Ngày hoàn thành liên tiếp</p>
@@ -187,7 +185,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
                     <div className="relative w-32 h-32 flex items-center justify-center">
                         <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                             <path
-                                className="text-slate-700"
+                                className="text-slate-700/50"
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                 fill="none"
                                 stroke="currentColor"
@@ -211,7 +209,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-                <div className="bg-slate-800/50 p-4 rounded-xl h-[230px] flex flex-col">
+                <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/30 p-4 rounded-xl h-[230px] flex flex-col">
                     <h3 className="text-md font-semibold text-slate-300 mb-2">Thống kê theo Thẻ</h3>
                     {tagStats.length > 0 ? (
                         <div className="flex-grow overflow-y-auto pr-2 custom-scroll" style={{ scrollbarWidth: 'thin' }}>
@@ -268,7 +266,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-slate-800/50 p-4 rounded-xl">
+                    <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/30 p-4 rounded-xl">
                         <h3 className="text-md font-semibold text-slate-300 mb-4">Tổng kết tuần này</h3>
                         <ResponsiveContainer width="100%" height={150}>
                             <BarChart data={weeklyStats}>
@@ -279,7 +277,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                    <div className="bg-slate-800/50 p-4 rounded-xl">
+                    <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/30 p-4 rounded-xl">
                         <h3 className="text-md font-semibold text-slate-300 mb-4">Tổng kết tháng này</h3>
                         <ResponsiveContainer width="100%" height={150}>
                             <BarChart data={monthlyStats}>
@@ -292,7 +290,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
                     </div>
                 </div>
 
-                <div className="bg-slate-800/50 p-4 rounded-xl">
+                <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/30 p-4 rounded-xl">
                     <h3 className="text-md font-semibold text-slate-300 mb-4">Heatmap hoạt động (Giờ cao điểm)</h3>
                     <div className="grid grid-cols-[1.75rem_repeat(5,1fr)] gap-1 text-xs">
                         {/* Top Headers */}

@@ -17,7 +17,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, onSearchChange }) => 
         placeholder="Tìm kiếm công việc theo nội dung..."
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="w-full bg-[#293548] text-slate-200 border border-slate-700 focus:border-indigo-500 focus:ring-0 rounded-lg pl-10 pr-10 py-2 transition"
+        className="w-full bg-slate-800/40 backdrop-blur-md text-slate-200 border border-slate-700/30 focus:border-primary-500 focus:ring-0 rounded-lg pl-10 pr-10 py-2 transition shadow-inner"
         aria-label="Search tasks"
       />
       {searchTerm && (

@@ -29,7 +29,7 @@ interface RightSidebarProps {
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
     return (
-        <details open={defaultOpen} className="bg-slate-800/50 rounded-2xl group">
+        <details open={defaultOpen} className="bg-slate-800/20 backdrop-blur-lg rounded-2xl border border-white/10 shadow-lg group">
             <summary className="p-4 font-semibold text-slate-100 cursor-pointer list-none flex justify-between items-center">
                 {title}
                 <ChevronDown className="h-5 w-5 transition-transform duration-200 group-open:rotate-180" />
@@ -128,8 +128,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     }, [tasks, projects]);
     
     return (
-        <aside className="space-y-6 h-full overflow-y-auto pr-2">
-            <div className="bg-slate-800/50 p-4 rounded-2xl flex justify-between items-center">
+        <aside className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-4 space-y-6 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary-600 scrollbar-track-slate-800/50">
+            <div className="relative z-10 bg-black/10 backdrop-blur-lg p-4 rounded-2xl border border-white/10 shadow-lg flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
                         {userAvatarUrl ? ( <img src={userAvatarUrl} alt="User Avatar" className="w-full h-full object-cover" /> ) : ( <UserCircle className="h-6 w-6 text-slate-400" /> )}
@@ -140,19 +140,19 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     </div>
                 </div>
                 <div className="relative" ref={userMenuRef}>
-                    <button onClick={() => setIsUserMenuOpen(p => !p)} className="p-2 rounded-full hover:bg-slate-700 transition-colors"><ChevronDown size={20} /></button>
+                    <button onClick={() => setIsUserMenuOpen(p => !p)} className="p-2 rounded-full hover:bg-white/10 transition-colors"><ChevronDown size={20} /></button>
                     {isUserMenuOpen && (
-                        <div className="absolute top-full right-0 mt-2 w-64 bg-[#1E293B] border border-slate-700 rounded-lg shadow-xl z-50">
+                        <div className="absolute top-full right-0 mt-2 w-64 bg-slate-800/80 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50">
                              {isGuestMode ? (
                                 <div className="p-2"><button onClick={() => { exitGuestMode(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-white bg-primary-600 hover:bg-primary-700"><UserPlus className="h-4 w-4" /><span>Đăng ký để lưu dữ liệu</span></button></div>
                             ) : (
                                 <div className="p-2">
-                                    <button onClick={() => { onOpenSettings(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"><UserCircle className="h-4 w-4" /><span>Cài đặt tài khoản</span></button>
-                                    <button onClick={() => { onManageApiKey(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"><KeyRound className="h-4 w-4" /><span>Quản lý API Key</span></button>
-                                    <button onClick={() => { onToggleLogViewer(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-slate-700"><BookOpen className="h-4 w-4" /><span>Xem Log đồng bộ</span></button>
+                                    <button onClick={() => { onOpenSettings(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-white/10"><UserCircle className="h-4 w-4" /><span>Cài đặt tài khoản</span></button>
+                                    <button onClick={() => { onManageApiKey(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-white/10"><KeyRound className="h-4 w-4" /><span>Quản lý API Key</span></button>
+                                    <button onClick={() => { onToggleLogViewer(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-white/10"><BookOpen className="h-4 w-4" /><span>Xem Log đồng bộ</span></button>
                                 </div>
                             )}
-                            <div className="p-2 border-t border-slate-700">
+                            <div className="p-2 border-t border-white/10">
                                 <button onClick={handleAuthAction} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-red-400 hover:bg-red-900/50 hover:text-red-300"><LogOut className="h-4 w-4" /><span>{isGuestMode ? 'Thoát' : 'Đăng xuất'}</span></button>
                             </div>
                         </div>
@@ -164,7 +164,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
             <div className="space-y-1">
                 {quickFilters.map(filter => (
-                     <button key={filter.type} onClick={() => onFilterChange({ type: filter.type })} className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-lg transition-colors ${activeFilter.type === filter.type ? 'bg-primary-600 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700'}`}>
+                     <button key={filter.type} onClick={() => onFilterChange({ type: filter.type })} className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-lg transition-colors border border-transparent ${activeFilter.type === filter.type ? 'bg-primary-600/80 text-white font-semibold border-primary-500/50' : 'text-slate-300 hover:bg-white/5'}`}>
                         {filter.icon}
                         <span>{filter.label}</span>
                     </button>
@@ -177,17 +177,17 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                         <button
                             key={project.id}
                             onClick={() => onFilterChange({ type: 'project', id: project.id })}
-                            className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
+                            className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-sm rounded-lg transition-colors border border-transparent ${
                                 activeFilter.type === 'project' && activeFilter.id === project.id
-                                ? 'bg-primary-600 text-white font-semibold'
-                                : 'text-slate-300 hover:bg-slate-700'
+                                ? 'bg-primary-600/80 text-white font-semibold border-primary-500/50'
+                                : 'text-slate-300 hover:bg-white/5'
                             }`}
                         >
                             <div className="flex items-center gap-3 truncate">
                                 <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }}></div>
                                 <span className="truncate">{project.name}</span>
                             </div>
-                            <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full ${activeFilter.type === 'project' && activeFilter.id === project.id ? 'bg-primary-500' : 'bg-slate-700'}`}>
+                            <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full ${activeFilter.type === 'project' && activeFilter.id === project.id ? 'bg-primary-500' : 'bg-black/20'}`}>
                                 {taskCountsByProject[project.id] || 0}
                             </span>
                         </button>
@@ -220,7 +220,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             </div>
             
             {notificationPermissionStatus === 'denied' && (
-              <div className="bg-red-900/50 p-4 rounded-2xl border border-red-700 flex items-start gap-3">
+              <div className="bg-red-900/40 backdrop-blur-md p-4 rounded-2xl border border-red-700/50 flex items-start gap-3">
                 <ShieldOff size={24} className="text-red-400 flex-shrink-0 mt-1" />
                 <div>
                   <h4 className="font-semibold text-red-300">Thông báo đã bị chặn</h4>
@@ -228,7 +228,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 </div>
               </div>
             )}
-            <div className="bg-primary-900/30 p-4 rounded-2xl border border-primary-700/50 flex items-start gap-3">
+            <div className="bg-primary-900/30 backdrop-blur-md p-4 rounded-2xl border border-primary-700/50 flex items-start gap-3">
                 <BellRing size={24} className="text-primary-400 flex-shrink-0 mt-1" />
                 <div>
                   <h4 className="font-semibold text-primary-300">Nhắc nhở thông minh</h4>

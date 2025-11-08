@@ -234,10 +234,10 @@ exports.checkDueTasks = functions.pubsub.schedule('every 5 minutes').onRun(async
     const tenMinutesFromNow = new Date(now.getTime() + 10 * 60 * 1000);
 
     const tasksToRemindQuery = await db.collection("tasks")
+        .where('reminderSent', '==', false)
+        .where('status', 'in', ['todo', 'inprogress'])
         .where('dueDate', '>', now)
         .where('dueDate', '<=', tenMinutesFromNow)
-        .where('reminderSent', '==', false)
-        .where('status', '!=', 'completed')
         .get();
 
     if (tasksToRemindQuery.empty) {

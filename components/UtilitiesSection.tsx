@@ -22,7 +22,7 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ tasks, onOpenTempla
         <p className="text-sm text-slate-400 mb-3">Tăng tốc quy trình làm việc bằng cách sử dụng các mẫu được định sẵn.</p>
         <button
             onClick={onOpenTemplateManager}
-            className="w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300 bg-slate-700 hover:bg-slate-600 text-slate-200"
+            className="w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300 bg-slate-700/50 hover:bg-slate-700/80 border border-slate-600/50 text-slate-200"
         >
             Quản lý Mẫu
         </button>
@@ -36,7 +36,7 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ tasks, onOpenTempla
         <p className="text-sm text-slate-400 mb-3">Để AI phân tích hiệu suất tuần qua và đề xuất kế hoạch cho tuần tới.</p>
         <button
             onClick={onOpenWeeklyReview}
-            className="w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300 bg-slate-700 hover:bg-slate-600 text-slate-200"
+            className="w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300 bg-slate-700/50 hover:bg-slate-700/80 border border-slate-600/50 text-slate-200"
         >
             Tổng kết Tuần với AI
         </button>

@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect } from 'react';
 import { Task } from '../types';
 import { Sheet, X, Save, CheckCircle, AlertTriangle, HelpCircle, Copy, Loader2 } from 'lucide-react';
@@ -154,14 +151,14 @@ const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
                         value={sheetUrl}
                         onChange={handleUrlChange}
                         placeholder="Dán URL Web App của bạn ở đây"
-                        className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition"
+                        className="w-full bg-slate-700/50 backdrop-blur-md text-slate-200 border border-slate-600/50 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition"
                     />
                 </div>
                  <div className="flex justify-between items-center gap-2">
                     <button
                         onClick={handleSync}
                         disabled={isLoading}
-                        className="w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300 bg-primary-600 hover:bg-primary-700 text-white disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-wait"
+                        className="w-full flex items-center justify-center font-semibold py-2 px-4 rounded-lg transition-all duration-300 bg-primary-600/80 hover:bg-primary-600 border border-primary-500/50 text-white disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-wait"
                     >
                         {isLoading ? (
                             <><Loader2 size={20} className="mr-2 animate-spin"/><span>Đang lưu...</span></>
@@ -172,7 +169,7 @@ const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
                     <button
                         type="button"
                         onClick={() => setIsModalOpen(true)}
-                        className="p-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg"
+                        className="p-2.5 bg-slate-700/50 hover:bg-slate-700/80 border border-slate-600/50 text-slate-300 rounded-lg"
                         title="Hướng dẫn cài đặt"
                     >
                         <HelpCircle size={20} />
@@ -182,7 +179,7 @@ const GoogleSheetSync: React.FC<GoogleSheetSyncProps> = ({ tasks }) => {
 
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-                    <div className="bg-[#1E293B] max-w-2xl w-full rounded-2xl shadow-2xl p-6 border border-slate-700 max-h-[90vh] overflow-y-auto">
+                    <div className="bg-[#1E293B]/80 backdrop-blur-lg max-w-2xl w-full rounded-2xl shadow-2xl p-6 border border-slate-700 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-xl font-bold text-white">Hướng dẫn cài đặt Google Sheets</h3>
                             <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white"><X /></button>

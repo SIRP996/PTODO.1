@@ -38,7 +38,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks }) => {
                     <span className="text-sm font-medium text-slate-400">Tiến độ chung</span>
                     <span className="text-sm font-bold text-slate-200">{stats.percentage}%</span>
                 </div>
-                <div className="w-full bg-slate-700 rounded-full h-2.5">
+                <div className="w-full bg-slate-700/50 rounded-full h-2.5">
                     <div
                         className={`${progressColor} h-2.5 rounded-full transition-all duration-500`}
                         style={{ width: `${stats.percentage}%` }}
@@ -48,7 +48,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks }) => {
 
             <div className="grid grid-cols-2 gap-4">
                 {statCards.map(card => (
-                    <div key={card.label} className="bg-slate-800/50 p-4 rounded-xl flex items-center gap-4">
+                    <div key={card.label} className="bg-slate-800/40 backdrop-blur-md p-4 rounded-xl flex items-center gap-4 border border-slate-700/30">
                         <div className="flex-shrink-0">{card.icon}</div>
                         <div>
                             <p className="text-2xl font-bold text-white">{card.value}</p>
