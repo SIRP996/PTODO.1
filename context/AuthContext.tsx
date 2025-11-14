@@ -22,6 +22,7 @@ interface AuthContextType {
   loading: boolean;
   isGuestMode: boolean;
   googleAccessToken: string | null;
+  setGoogleAccessToken: (token: string | null) => void;
   enterGuestMode: () => void;
   exitGuestMode: () => void;
   signup: (email: string, pass: string) => Promise<any>;
@@ -288,6 +289,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     isGuestMode,
     googleAccessToken,
+    setGoogleAccessToken,
     enterGuestMode,
     exitGuestMode,
     signup,

@@ -29,7 +29,7 @@ const GUEST_TASK_LIMIT = 5;
 const GOOGLE_ACCESS_TOKEN_KEY = 'ptodo-google-token';
 
 export const useTasks = () => {
-  const { currentUser, isGuestMode, userSettings, googleAccessToken, updateUserSettings } = useAuth();
+  const { currentUser, isGuestMode, userSettings, googleAccessToken, updateUserSettings, setGoogleAccessToken } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
@@ -130,6 +130,7 @@ export const useTasks = () => {
                 
                 if (newToken) {
                     sessionStorage.setItem(GOOGLE_ACCESS_TOKEN_KEY, newToken);
+                    if (setGoogleAccessToken) setGoogleAccessToken(newToken);
                     addLog('[Sync] Token đã được làm mới. Thử lại API call...', 'info');
                     return await performSync(newToken);
                 } else {
@@ -157,7 +158,7 @@ export const useTasks = () => {
             return null;
         }
     }
-  }, [userSettings?.isGoogleCalendarLinked, googleAccessToken, currentUser, addToast, addLog, updateUserSettings]);
+  }, [userSettings?.isGoogleCalendarLinked, googleAccessToken, currentUser, addToast, addLog, updateUserSettings, setGoogleAccessToken]);
 
   const addTask = useCallback(async (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly', projectId?: string): Promise<string | undefined> => {
     const newTask: Omit<Task, 'id' | 'createdAt' | 'status' | 'reminderSent'> = {
