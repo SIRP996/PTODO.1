@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { CheckCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 // --- TYPE DEFINITIONS ---
-// Fix: Add 'warn' to ToastType to support warning notifications.
+// FIX: Add 'warn' to ToastType to support warning notifications.
 type ToastType = 'success' | 'error' | 'info' | 'warn';
 
 export interface Toast {
@@ -38,7 +38,7 @@ const icons = {
   success: <CheckCircle className="h-6 w-6 text-green-400" />,
   error: <AlertTriangle className="h-6 w-6 text-red-400" />,
   info: <Info className="h-6 w-6 text-blue-400" />,
-  // Fix: Add icon for the 'warn' toast type.
+  // FIX: Add icon for the 'warn' toast type.
   warn: <AlertTriangle className="h-6 w-6 text-amber-400" />,
 };
 
@@ -46,7 +46,7 @@ const bgColors = {
   success: 'bg-green-900/80 border-green-700',
   error: 'bg-red-900/80 border-red-700',
   info: 'bg-blue-900/80 border-blue-700',
-  // Fix: Add background color for the 'warn' toast type.
+  // FIX: Add background color for the 'warn' toast type.
   warn: 'bg-amber-900/80 border-amber-700',
 };
 
@@ -54,7 +54,7 @@ const textColors = {
     success: 'text-green-200',
     error: 'text-red-200',
     info: 'text-blue-200',
-    // Fix: Add text color for the 'warn' toast type.
+    // FIX: Add text color for the 'warn' toast type.
     warn: 'text-amber-200',
 };
 

@@ -67,19 +67,19 @@ export const useProjects = () => {
     return () => unsubscribe();
   }, [currentUser, addToast]);
 
-  const addProject = useCallback(async (name: string) => {
+  const addProject = useCallback(async (name: string): Promise<string | undefined> => {
     if (!currentUser) {
       addToast("Bạn cần đăng nhập để tạo dự án.", "error");
-      return;
+      return undefined;
     }
     if (!name.trim()) {
       addToast("Tên dự án không được để trống.", "warn");
-      return;
+      return undefined;
     }
 
     try {
       const color = PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)];
-      await addDoc(collection(db, 'projects'), {
+      const docRef = await addDoc(collection(db, 'projects'), {
         name,
         userId: currentUser.uid,
         createdAt: serverTimestamp(),
@@ -87,9 +87,11 @@ export const useProjects = () => {
         isVisible: true,
       });
       addToast(`Đã tạo dự án "${name}"!`, 'success');
+      return docRef.id;
     } catch (error) {
       console.error("Error adding project: ", error);
       addToast("Không thể tạo dự án.", 'error');
+      return undefined;
     }
   }, [currentUser, addToast]);
 

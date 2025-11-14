@@ -106,7 +106,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, is
 
       <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-700/50">
         <div className="flex items-center gap-4 text-slate-500">
-          {/* Fix: Wrap the Flag icon in a span to apply the title attribute, as Lucide icons do not accept the title prop directly. */}
+          {/* FIX: Wrap the Flag icon in a span to apply the title attribute, as Lucide icons do not accept the title prop directly. */}
           {task.isUrgent && task.status !== 'completed' && <span title="Khẩn cấp"><Flag size={16} className="text-red-500" /></span>}
           {subtasks.length > 0 && (
              <button 

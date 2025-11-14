@@ -1,7 +1,7 @@
 
 
 import React, { useState, KeyboardEvent, useEffect, useRef } from 'react';
-import { Plus, X, Flag, Sparkles, Loader2, Mic, UploadCloud, ClipboardPaste } from 'lucide-react';
+import { Plus, X, Flag, Sparkles, Loader2, Mic, UploadCloud, ClipboardPaste, ListTree } from 'lucide-react';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
@@ -17,9 +17,10 @@ interface TaskInputProps {
   selectedProjectId: string | null;
   templates: TaskTemplate[];
   onOpenApplyTemplateModal: (template: TaskTemplate) => void;
+  onOpenPlannerModal: (text: string) => void;
 }
 
-const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiKey, onOpenImportModal, projects, selectedProjectId, templates, onOpenApplyTemplateModal }) => {
+const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiKey, onOpenImportModal, projects, selectedProjectId, templates, onOpenApplyTemplateModal, onOpenPlannerModal }) => {
   const [text, setText] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [currentTag, setCurrentTag] = useState('');
@@ -337,6 +338,16 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiK
               >
                   <UploadCloud size={20} />
                   <span className="hidden sm:inline">Nhập liệu AI</span>
+              </button>
+              <button
+                  type="button"
+                  onClick={() => onOpenPlannerModal(text)}
+                  disabled={!text.trim() || !hasApiKey}
+                  className="flex items-center gap-2 py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-lg transition-colors duration-200 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  title={hasApiKey ? "Lập kế hoạch dự án bằng AI" : "Thêm API Key để sử dụng tính năng này"}
+              >
+                  <ListTree size={20} />
+                  <span className="hidden sm:inline">Kế hoạch AI</span>
               </button>
               <button
                   type="button"

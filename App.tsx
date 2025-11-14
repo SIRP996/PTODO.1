@@ -1,13 +1,14 @@
 
 
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
 import SourceSidebar from './components/SourceSidebar';
 import TaskInput from './components/TaskInput';
 import TaskList from './components/TaskList';
-import { BellRing, ShieldOff, Loader2, List, LayoutGrid, Bot, Clock } from 'lucide-react';
-import { Task, TaskStatus, Project, Filter, TaskTemplate } from './types';
+// FIX: Add 'X' to lucide-react imports to be used as a close icon in modals.
+import { BellRing, ShieldOff, Loader2, List, LayoutGrid, Bot, Clock, Send, User, RotateCw, Settings, Link as LinkIcon, Check, BrainCircuit, X } from 'lucide-react';
+import { Task, TaskStatus, Project, Filter, TaskTemplate, SectionKey } from './types';
 import { isPast, isToday, addDays, isWithinInterval, parseISO } from 'date-fns';
 import FocusModeOverlay from './components/FocusModeOverlay';
 import AuthPage from './components/auth/AuthPage';
@@ -28,6 +29,456 @@ import TemplateManagerModal from './components/TemplateManagerModal';
 import WeeklyReviewModal from './components/WeeklyReviewModal';
 import ApplyTemplateModal from './components/ApplyTemplateModal';
 import { useToast } from './context/ToastContext';
+import { Chat, GoogleGenAI, Type } from '@google/genai';
+import { getGoogleGenAI } from './utils/gemini';
+
+interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+}
+
+interface ProjectPlan {
+  projectName: string;
+  phases: {
+    phaseName: string;
+    subtasks: string[];
+  }[];
+}
+
+
+// --- AI PROJECT PLANNER MODAL ---
+const AIProjectPlannerModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  initialText: string;
+  onApiKeyError: () => void;
+  addProject: (name: string) => Promise<string | undefined>;
+  addTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly', projectId?: string) => Promise<string | undefined>;
+  addSubtasksBatch: (parentId: string, subtaskTexts: string[]) => Promise<void>;
+}> = ({ isOpen, onClose, initialText, onApiKeyError, addProject, addTask, addSubtasksBatch }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const [view, setView] = useState<'chat' | 'review'>('chat');
+  const [projectPlan, setProjectPlan] = useState<ProjectPlan | null>(null);
+  const chatSessionRef = useRef<Chat | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { addToast } = useToast();
+
+  const systemInstruction = `Bạn là "Em", một chuyên gia lập kế hoạch dự án cho ứng dụng PTODO. Bạn xưng là "em", gọi người dùng là "anh". Nhiệm vụ của bạn là hỏi người dùng các câu hỏi cần thiết để làm rõ một mục tiêu lớn, sau đó chia nhỏ nó thành một kế hoạch chi tiết.
+  QUY TRÌNH:
+  1.  Bắt đầu bằng cách hỏi các câu hỏi để thu thập thông tin (ví dụ: thời gian, mục tiêu chính, các bên liên quan).
+  2.  Sau khi có đủ thông tin, bạn PHẢI trả về một cấu trúc JSON duy nhất chứa toàn bộ kế hoạch. JSON này phải được bao bọc trong cặp thẻ [PLAN]...[/PLAN].
+  3.  JSON phải có cấu trúc: { "projectName": string, "phases": [{ "phaseName": string, "subtasks": [string, string, ...] }] }.
+  4.  Giọng văn luôn thân thiện, chuyên nghiệp và hữu ích. Giao tiếp bằng tiếng Việt.`;
+
+  const initializeAndStartChat = useCallback(async (text: string) => {
+    setIsLoading(true);
+    setMessages([]);
+    setProjectPlan(null);
+    setView('chat');
+
+    const ai = getGoogleGenAI();
+    if (!ai) {
+      addToast("Vui lòng thiết lập API Key để sử dụng tính năng này.", "error");
+      onApiKeyError();
+      onClose();
+      return;
+    }
+
+    chatSessionRef.current = ai.chats.create({
+      model: 'gemini-2.5-flash',
+      config: { systemInstruction },
+    });
+
+    const initialUserMessage: ChatMessage = { role: 'user', text };
+    setMessages([initialUserMessage]);
+
+    try {
+      const response = await chatSessionRef.current.sendMessage({ message: initialUserMessage.text });
+      handleAIResponse(response.text);
+    } catch (error) {
+      console.error("AI Planner Error:", error);
+      addToast("Có lỗi xảy ra khi bắt đầu lập kế hoạch.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [addToast, onApiKeyError, onClose, systemInstruction]);
+
+  useEffect(() => {
+    if (isOpen && initialText) {
+      initializeAndStartChat(initialText);
+    }
+  }, [isOpen, initialText, initializeAndStartChat]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
+
+  const handleAIResponse = (responseText: string) => {
+    if (responseText.includes('[PLAN]') && responseText.includes('[/PLAN]')) {
+      const planRegex = /\[PLAN\]([\s\S]*?)\[\/PLAN\]/;
+      const match = responseText.match(planRegex);
+      if (match && match[1]) {
+        try {
+          const parsedPlan = JSON.parse(match[1]);
+          setProjectPlan(parsedPlan);
+          setView('review');
+        } catch (e) {
+          console.error("JSON parsing failed:", e);
+          setMessages(prev => [...prev, { role: 'model', text: "Em xin lỗi, có lỗi khi tạo kế hoạch. Anh có muốn thử lại không?" }]);
+        }
+      }
+    } else {
+      setMessages(prev => [...prev, { role: 'model', text: responseText }]);
+    }
+  };
+
+  const handleSendMessage = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!inputValue.trim() || isLoading || !chatSessionRef.current) return;
+
+    const userMessage: ChatMessage = { role: 'user', text: inputValue };
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsLoading(true);
+
+    try {
+      const response = await chatSessionRef.current.sendMessage({ message: userMessage.text });
+      handleAIResponse(response.text);
+    } catch (error) {
+      addToast("Có lỗi khi gửi tin nhắn cho AI.", 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleCreateProject = async () => {
+    if (!projectPlan) return;
+    setIsLoading(true);
+    try {
+        const projectId = await addProject(projectPlan.projectName);
+        if (!projectId) {
+            throw new Error("Không thể tạo dự án.");
+        }
+
+        for (const phase of projectPlan.phases) {
+            const mainTaskId = await addTask(phase.phaseName, [], null, false, 'none', projectId);
+            if (mainTaskId && phase.subtasks && phase.subtasks.length > 0) {
+                await addSubtasksBatch(mainTaskId, phase.subtasks);
+            }
+        }
+        addToast(`Dự án "${projectPlan.projectName}" đã được tạo thành công!`, 'success');
+        onClose();
+    } catch (error) {
+        addToast("Đã xảy ra lỗi khi tạo dự án chi tiết.", 'error');
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 animate-fadeIn">
+      <div className="bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 max-w-2xl w-full rounded-2xl shadow-2xl h-[80vh] flex flex-col">
+          <div className="flex justify-between items-center p-4 border-b border-white/10 flex-shrink-0">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2"><BrainCircuit size={20} className="text-primary-400" /> AI Lập Kế hoạch Dự án</h3>
+            <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          </div>
+
+          {view === 'chat' ? (
+              <>
+                <div className="flex-grow p-4 overflow-y-auto space-y-4">
+                  {messages.map((msg, index) => (
+                    <div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                      {msg.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center"><Bot size={18} className="text-white"/></div>}
+                      <div className={`max-w-[80%] px-4 py-2 rounded-xl ${msg.role === 'user' ? 'bg-primary-700 text-white rounded-br-none' : 'bg-slate-700 text-slate-200 rounded-bl-none'}`}>
+                          <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                      </div>
+                      {msg.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center"><User size={18} className="text-white"/></div>}
+                    </div>
+                  ))}
+                  {isLoading && <div className="flex items-start gap-3"><div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center"><Loader2 className="animate-spin text-white"/></div></div>}
+                  <div ref={messagesEndRef} />
+                </div>
+                <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-700 flex-shrink-0 flex items-center gap-2">
+                    <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder="Trả lời Em..." className="w-full bg-[#293548] text-slate-200 border border-slate-600 rounded-lg px-4 py-2 text-sm" disabled={isLoading} />
+                    <button type="submit" disabled={isLoading || !inputValue.trim()} className="bg-primary-600 text-white p-2.5 rounded-lg disabled:bg-slate-700"><Send size={20} /></button>
+                </form>
+              </>
+          ) : projectPlan && (
+              <>
+                <div className="flex-grow p-6 overflow-y-auto space-y-4 text-white">
+                    <h4 className="text-xl font-bold">{projectPlan.projectName}</h4>
+                    {projectPlan.phases.map((phase, index) => (
+                        <div key={index} className="bg-slate-800/50 p-4 rounded-lg">
+                            <p className="font-semibold text-primary-300">{phase.phaseName}</p>
+                            <ul className="mt-2 ml-4 list-disc list-outside space-y-1 text-slate-300 text-sm">
+                                {phase.subtasks.map((st, i) => <li key={i}>{st}</li>)}
+                            </ul>
+                        </div>
+                    ))}
+                </div>
+                 <div className="p-4 border-t border-slate-700 flex-shrink-0 flex justify-end">
+                    <button onClick={handleCreateProject} disabled={isLoading} className="bg-primary-600 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-slate-700">
+                        {isLoading ? <Loader2 className="animate-spin"/> : <Check />}
+                        Tạo Dự án
+                    </button>
+                 </div>
+              </>
+          )}
+      </div>
+    </div>
+  );
+};
+
+
+// --- EXTENSION GUIDE MODAL ---
+const ExtensionGuideModal: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpen, onClose }) => {
+    if (!isOpen) return null;
+// FIX: Removed leading backslash from multiline string declaration.
+    const manifestCode = `{
+  "manifest_version": 3,
+  "name": "PTODO Quick Add",
+  "version": "1.0",
+  "description": "Thêm công việc vào PTODO từ bất kỳ trang web nào.",
+  "permissions": ["contextMenus", "storage", "notifications"],
+  "host_permissions": ["<URL_CLOUD_FUNCTION_CỦA_BẠN>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon128.png"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}`;
+
+// FIX: Removed leading backslash and fixed inner template literals by using string concatenation to avoid parsing errors.
+const backgroundCode = `// background.js
+
+// QUAN TRỌNG: Thay thế bằng URL Cloud Function 'addTaskFromExtension' của bạn
+const CLOUD_FUNCTION_URL = '<URL_CLOUD_FUNCTION_CỦA_BẠN>'; 
+
+// 1. Tạo Context Menu khi cài đặt
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: "ptodoQuickAdd",
+    title: "Thêm vào PTODO",
+    contexts: ["selection"]
+  });
+});
+
+// 2. Xử lý khi bấm vào Context Menu
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "ptodoQuickAdd" && info.selectionText) {
+    addTask(info.selectionText);
+  }
+});
+
+async function addTask(text) {
+  try {
+    // 3. Lấy token xác thực từ storage
+    const { token } = await chrome.storage.local.get('token');
+    
+    if (!token) {
+      chrome.action.openPopup();
+      return;
+    }
+
+    // 4. Gọi Cloud Function
+    const response = await fetch(CLOUD_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ data: { text: text } })
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || 'Network response was not ok');
+    }
+    
+    const result = await response.json();
+    const taskData = result.result;
+
+    // 5. Hiển thị thông báo thành công
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon128.png',
+      title: 'Đã thêm vào PTODO!',
+      message: 'Đã thêm công việc: "' + taskData.taskText + '"'
+    });
+
+  } catch (error) {
+    console.error('Error adding task:', error);
+    // 6. Hiển thị thông báo lỗi
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon128.png',
+      title: 'Lỗi khi thêm công việc',
+      message: 'Bạn chưa đăng nhập hoặc có lỗi xảy ra. Vui lòng nhấp vào biểu tượng PTODO để đăng nhập.'
+    });
+    chrome.action.openPopup();
+  }
+}`;
+
+// FIX: Removed leading backslash from multiline string declaration.
+const popupHtmlCode = `<!DOCTYPE html>
+<html>
+<head>
+    <title>PTODO Auth</title>
+    <style>
+        body { font-family: sans-serif; width: 250px; padding: 10px; text-align: center; background-color: #1e293b; color: #e2e8f0; }
+        button { cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; font-weight: bold; }
+        #loginBtn { background-color: #4f46e5; color: white; width: 100%; }
+        #logoutBtn { background-color: #475569; color: #e2e8f0; width: 100%;}
+        #status { margin-top: 10px; font-size: 12px; color: #94a3b8; }
+        p { font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h3>Xác thực PTODO</h3>
+    <p id="userInfo" style="display: none;"></p>
+    <button id="loginBtn">Đăng nhập với Google</button>
+    <button id="logoutBtn" style="display: none;">Đăng xuất</button>
+    <p id="status"></p>
+    
+    <!-- QUAN TRỌNG: Tải về và đặt các file này cùng thư mục -->
+    <script src="./firebase-app.js"></script>
+    <script src="./firebase-auth.js"></script>
+    <script src="./popup.js"></script>
+</body>
+</html>`;
+
+// FIX: Removed leading backslash and fixed inner template literals by using string concatenation to avoid parsing errors.
+const popupJsCode = `// popup.js
+
+// QUAN TRỌNG:
+// 1. Dán cấu hình Firebase của bạn vào đây (lấy từ Firebase Console).
+// 2. Tải về file firebase-app.js và firebase-auth.js từ CDN và đặt cùng thư mục.
+//    - https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js
+//    - https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js
+const firebaseConfig = {
+  // Dán cấu hình của bạn vào đây
+  apiKey: "AIza...",
+  authDomain: "...",
+  projectId: "...",
+  // ...
+};
+
+// Initialize Firebase
+const app = firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const provider = new firebase.auth.GoogleAuthProvider();
+
+const loginBtn = document.getElementById('loginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const userInfo = document.getElementById('userInfo');
+const statusEl = document.getElementById('status');
+
+// Kiểm tra trạng thái đăng nhập khi mở popup
+auth.onAuthStateChanged(user => {
+    if (user) {
+        userInfo.textContent = 'Đã đăng nhập: ' + user.email;
+        userInfo.style.display = 'block';
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'block';
+
+        // Lấy ID token và lưu lại
+        user.getIdToken(true).then(token => { // true to force refresh
+            chrome.storage.local.set({ token: token });
+        });
+    } else {
+        userInfo.style.display = 'none';
+        loginBtn.style.display = 'block';
+        logoutBtn.style.display = 'none';
+        chrome.storage.local.remove('token');
+    }
+});
+
+
+loginBtn.addEventListener('click', () => {
+    statusEl.textContent = 'Đang mở cửa sổ đăng nhập...';
+    auth.signInWithPopup(provider)
+        .then(result => {
+            statusEl.textContent = 'Đăng nhập thành công!';
+        })
+        .catch(error => {
+            console.error('Login failed:', error);
+            statusEl.textContent = 'Lỗi: ' + error.message;
+        });
+});
+
+logoutBtn.addEventListener('click', () => {
+    auth.signOut().then(() => {
+        statusEl.textContent = 'Đã đăng xuất.';
+    });
+});
+`;
+
+    return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 animate-fadeIn">
+      <div className="bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 max-w-3xl w-full rounded-2xl shadow-2xl h-[80vh] flex flex-col">
+          <div className="flex justify-between items-center p-4 border-b border-white/10 flex-shrink-0">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2"><LinkIcon size={20} className="text-primary-400" /> Tích hợp Trình duyệt</h3>
+            <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          </div>
+          <div className="flex-grow p-6 overflow-y-auto text-slate-300 text-sm space-y-4">
+              <p>Làm theo các bước sau để tạo tiện ích mở rộng giúp bạn thêm công việc vào PTODO từ bất cứ đâu.</p>
+              <h4 className="font-bold text-white">Bước 1: Tạo các tệp cần thiết</h4>
+              <p>Tạo một thư mục mới trên máy tính. Bên trong, tạo các tệp sau:</p>
+              <ul className="list-disc list-inside bg-slate-800/50 p-3 rounded-md font-mono text-xs">
+                  <li>manifest.json</li>
+                  <li>background.js</li>
+                  <li>popup.html</li>
+                  <li>popup.js</li>
+                  <li>Tải về và thêm <a href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js" target="_blank" rel="noopener noreferrer" className="text-primary-400 underline">firebase-app.js</a></li>
+                  <li>Tải về và thêm <a href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" target="_blank" rel="noopener noreferrer" className="text-primary-400 underline">firebase-auth.js</a></li>
+                  <li>(Tải về một icon 128x128 và đặt tên là icon128.png)</li>
+              </ul>
+              <h4 className="font-bold text-white">Bước 2: Dán mã nguồn</h4>
+              <p>Dán các đoạn mã sau vào tệp tương ứng.</p>
+              <details className="bg-slate-800/50 p-3 rounded-md transition-all">
+                  <summary className="font-semibold cursor-pointer text-base text-slate-200">manifest.json</summary>
+                  <pre className="mt-2 text-xs bg-black/30 p-2 rounded overflow-x-auto"><code>{manifestCode}</code></pre>
+                  <p className="mt-2 text-xs text-amber-300"><b>Lưu ý:</b> Thay thế <code>&lt;URL_CLOUD_FUNCTION_CỦA_BẠN&gt;</code> bằng URL của hàm <code>addTaskFromExtension</code> sau khi bạn triển khai Firebase Functions.</p>
+              </details>
+              <details className="bg-slate-800/50 p-3 rounded-md transition-all">
+                  <summary className="font-semibold cursor-pointer text-base text-slate-200">background.js</summary>
+                  <pre className="mt-2 text-xs bg-black/30 p-2 rounded overflow-x-auto"><code>{backgroundCode}</code></pre>
+                   <p className="mt-2 text-xs text-amber-300"><b>Lưu ý:</b> Nhớ thay thế URL Cloud Function ở trên cùng.</p>
+              </details>
+              <details className="bg-slate-800/50 p-3 rounded-md transition-all">
+                  <summary className="font-semibold cursor-pointer text-base text-slate-200">popup.html</summary>
+                  <pre className="mt-2 text-xs bg-black/30 p-2 rounded overflow-x-auto"><code>{popupHtmlCode}</code></pre>
+              </details>
+               <details className="bg-slate-800/50 p-3 rounded-md transition-all">
+                  <summary className="font-semibold cursor-pointer text-base text-slate-200">popup.js</summary>
+                  <pre className="mt-2 text-xs bg-black/30 p-2 rounded overflow-x-auto"><code>{popupJsCode}</code></pre>
+                  <p className="mt-2 text-xs text-amber-300"><b>Lưu ý quan trọng:</b> Dán đối tượng cấu hình Firebase của dự án bạn vào biến <code>firebaseConfig</code>.</p>
+              </details>
+              <h4 className="font-bold text-white">Bước 3: Cài đặt tiện ích</h4>
+               <ul className="list-decimal list-inside space-y-1">
+                    <li>Mở Chrome và truy cập <code>chrome://extensions</code>.</li>
+                    <li>Bật "Chế độ dành cho nhà phát triển" (Developer mode).</li>
+                    <li>Nhấp vào "Tải tiện ích đã giải nén" (Load unpacked) và chọn thư mục bạn đã tạo ở Bước 1.</li>
+                    <li>Sau khi cài đặt, nhấp vào biểu tượng của tiện ích trên thanh công cụ để đăng nhập lần đầu tiên.</li>
+               </ul>
+          </div>
+      </div>
+    </div>
+    );
+};
+
 
 const statusLabels: Record<TaskStatus, string> = {
   todo: 'Cần làm',
@@ -44,7 +495,7 @@ const App: React.FC = () => {
     addSubtasksBatch, addTasksBatch, updateTaskText, updateTaskStatus, updateTaskNote, syncExistingTasksToCalendar,
   } = useTasks();
 
-  const { projects } = useProjects();
+  const { projects, addProject } = useProjects();
   const { templates, addTemplate, updateTemplate, deleteTemplate } = useTaskTemplates();
   
   const [page, setPage] = useState<'main' | 'calendar'>('main');
@@ -67,6 +518,9 @@ const App: React.FC = () => {
   const [isWeeklyReviewModalOpen, setWeeklyReviewModalOpen] = useState(false);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [selectedTemplateForApply, setSelectedTemplateForApply] = useState<TaskTemplate | null>(null);
+  const [isPlannerModalOpen, setIsPlannerModalOpen] = useState(false);
+  const [plannerInitialText, setPlannerInitialText] = useState('');
+  const [isExtensionGuideOpen, setIsExtensionGuideOpen] = useState(false);
 
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
@@ -85,6 +539,11 @@ const App: React.FC = () => {
   const handleOpenApplyTemplateModal = (template: TaskTemplate) => {
     setSelectedTemplateForApply(template);
     setIsApplyModalOpen(true);
+  };
+
+  const handleOpenPlannerModal = (text: string) => {
+    setPlannerInitialText(text);
+    setIsPlannerModalOpen(true);
   };
 
   const handleCloseApplyTemplateModal = () => {
@@ -107,8 +566,10 @@ const App: React.FC = () => {
     if (newTaskId && selectedTemplateForApply.subtasks.length > 0) {
         const subtaskTexts = selectedTemplateForApply.subtasks.map(st => st.text);
         await addSubtasksBatch(newTaskId, subtaskTexts);
+// FIX: The string in this `addToast` call was not properly quoted, causing it to be interpreted as code.
         addToast(`Đã áp dụng mẫu "${selectedTemplateForApply.name}" với các tùy chỉnh của bạn!`, 'success');
     } else if (newTaskId) {
+// FIX: The string in this `addToast` call was not properly quoted, causing it to be interpreted as code.
         addToast(`Đã áp dụng mẫu "${selectedTemplateForApply.name}"!`, 'success');
     }
 
@@ -392,6 +853,16 @@ const App: React.FC = () => {
       {isImportModalOpen && currentUser && hasApiKey && <ImportAssistantModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onAddTasksBatch={addTasksBatch} onApiKeyError={onApiKeyError} />}
       {isTemplateManagerOpen && currentUser && <TemplateManagerModal isOpen={isTemplateManagerOpen} onClose={() => setIsTemplateManagerOpen(false)} templates={templates} onAddTemplate={addTemplate} onUpdateTemplate={updateTemplate} onDeleteTemplate={deleteTemplate} />}
       {isWeeklyReviewModalOpen && currentUser && hasApiKey && <WeeklyReviewModal isOpen={isWeeklyReviewModalOpen} onClose={() => setWeeklyReviewModalOpen(false)} tasks={tasks} onApiKeyError={onApiKeyError} />}
+      <AIProjectPlannerModal 
+        isOpen={isPlannerModalOpen}
+        onClose={() => setIsPlannerModalOpen(false)}
+        initialText={plannerInitialText}
+        onApiKeyError={onApiKeyError}
+        addProject={addProject}
+        addTask={addTask}
+        addSubtasksBatch={addSubtasksBatch}
+      />
+      <ExtensionGuideModal isOpen={isExtensionGuideOpen} onClose={() => setIsExtensionGuideOpen(false)} />
       {selectedTemplateForApply && (
         <ApplyTemplateModal
             isOpen={isApplyModalOpen}
@@ -414,7 +885,7 @@ const App: React.FC = () => {
                   />
               </div>
               
-              <main className="px-4 sm:px-6 lg:px-8 flex flex-grow transition-all duration-300 overflow-hidden">
+              <main className="px-4 sm:px-6 lg:p-8 flex flex-grow transition-all duration-300 overflow-hidden">
                 <div 
                     className={`flex-shrink-0 transition-all duration-300 ${isZenMode ? 'hidden' : 'block'}`}
                     style={{ width: `${sidebarWidth}px` }}
@@ -436,6 +907,7 @@ const App: React.FC = () => {
                       onOpenWeeklyReview={() => setWeeklyReviewModalOpen(true)}
                       notificationPermissionStatus={notificationPermissionStatus}
                       onRequestNotificationPermission={handleRequestPermission}
+                      onOpenExtensionGuide={() => setIsExtensionGuideOpen(true)}
                     />
                 </div>
 
@@ -449,7 +921,7 @@ const App: React.FC = () => {
 
                 <div className={`space-y-6 transition-all duration-300 flex-grow ${isZenMode ? 'w-full' : ''}`}>
                   <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
-                    <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onOpenImportModal={() => setIsImportModalOpen(true)} projects={projects} selectedProjectId={activeFilter.type === 'project' ? activeFilter.id : null} templates={templates} onOpenApplyTemplateModal={handleOpenApplyTemplateModal} />
+                    <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onOpenImportModal={() => setIsImportModalOpen(true)} projects={projects} selectedProjectId={activeFilter.type === 'project' ? activeFilter.id : null} templates={templates} onOpenApplyTemplateModal={handleOpenApplyTemplateModal} onOpenPlannerModal={handleOpenPlannerModal} />
                   </div>
                   
                   <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
@@ -484,7 +956,6 @@ const App: React.FC = () => {
                          <div onMouseDown={handleResizeMouseDown} className="absolute bottom-0 right-0 w-6 h-6 cursor-ns-resize flex items-center justify-center group" title="Kéo để thay đổi kích thước"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-600 group-hover:text-slate-400 transition-colors"><path d="M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>
                       </div>
                     ) : (
-// Fix: Corrected the prop name for updating a task note from `onUpdateTaskNote` to `updateTaskNote` to match the function returned by the `useTasks` hook.
                       <KanbanBoard tasks={parentTasks} subtasksByParentId={subtasksByParentId} onUpdateTaskStatus={updateTaskStatus} toggleTaskUrgency={toggleTaskUrgency} onDeleteTask={deleteTask} onStartFocus={handleStartFocus} onToggleTask={toggleTask} onUpdateTaskNote={updateTaskNote} />
                     )}
                   </div>

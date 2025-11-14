@@ -95,6 +95,49 @@ async function parseTaskWithGemini(text) {
 // --- CLOUD FUNCTIONS ---
 
 /**
+ * Hàm có thể gọi từ client (Callable Function) cho tiện ích mở rộng trình duyệt.
+ */
+exports.addTaskFromExtension = functions.https.onCall(async (data, context) => {
+  // Kiểm tra xác thực
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Bạn phải đăng nhập để thêm công việc.");
+  }
+
+  const { text } = data;
+  if (!text || typeof text !== "string" || text.trim().length === 0) {
+    throw new functions.https.HttpsError("invalid-argument", "Nội dung công việc không được để trống.");
+  }
+  
+  const userId = context.auth.uid;
+
+  try {
+    const parsedTask = await parseTaskWithGemini(text);
+
+    const taskData = {
+      text: parsedTask.content,
+      hashtags: parsedTask.tags || [],
+      dueDate: parsedTask.dueDate ? new Date(parsedTask.dueDate) : null,
+      isUrgent: parsedTask.isUrgent || false,
+      status: 'todo',
+      reminderSent: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      userId: userId,
+    };
+
+    const docRef = await db.collection("tasks").add(taskData);
+    
+    // Gửi lại thông báo thành công
+    return { success: true, taskId: docRef.id, taskText: parsedTask.content };
+
+  } catch (error) {
+    console.error("Error in addTaskFromExtension:", error);
+    // Gửi lỗi có ý nghĩa về cho client
+    throw new functions.https.HttpsError("internal", "AI không thể phân tích hoặc đã có lỗi xảy ra phía máy chủ.");
+  }
+});
+
+
+/**
  * Webhook để nhận các cập nhật từ Telegram.
  */
 exports.telegramWebhook = functions.https.onRequest(async (req, res) => {

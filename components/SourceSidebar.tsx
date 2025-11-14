@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User } from 'firebase/auth';
 import { Task, Project, Filter, SectionKey } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { Download, LogOut, KeyRound, UserCircle, UserPlus, BookOpen, Calendar, Sun, AlertTriangle, Layers3, ChevronDown, BellRing, ShieldOff } from 'lucide-react';
+import { Download, LogOut, KeyRound, UserCircle, UserPlus, BookOpen, Calendar, Sun, AlertTriangle, Layers3, ChevronDown, BellRing, ShieldOff, Link as LinkIcon } from 'lucide-react';
 import SearchBar from './SearchBar';
 import Dashboard from './Dashboard';
 import AdvancedDashboard from './AdvancedDashboard';
@@ -25,6 +25,7 @@ interface SourceSidebarProps {
     hasApiKey: boolean;
     notificationPermissionStatus: string;
     onRequestNotificationPermission: () => void;
+    onOpenExtensionGuide: () => void;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -59,7 +60,7 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
 const SourceSidebar: React.FC<SourceSidebarProps> = ({ 
     user, tasks, projects, searchTerm, onSearchChange, activeFilter, onFilterChange, 
     onLogout, onManageApiKey, onOpenSettings, onToggleLogViewer, onOpenTemplateManager, onOpenWeeklyReview, hasApiKey,
-    notificationPermissionStatus, onRequestNotificationPermission
+    notificationPermissionStatus, onRequestNotificationPermission, onOpenExtensionGuide
 }) => {
     const { userSettings, isGuestMode, exitGuestMode, updateUserSettings } = useAuth();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -181,6 +182,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                                 <div className="p-2">
                                     <button onClick={() => { onOpenSettings(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-white/10"><UserCircle className="h-4 w-4" /><span>Cài đặt tài khoản</span></button>
                                     <button onClick={() => { onManageApiKey(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-white/10"><KeyRound className="h-4 w-4" /><span>Quản lý API Key</span></button>
+                                    <button onClick={() => { onOpenExtensionGuide(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-white/10"><LinkIcon className="h-4 w-4" /><span>Tích hợp Trình duyệt</span></button>
                                     <button onClick={() => { onToggleLogViewer(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-white/10"><BookOpen className="h-4 w-4" /><span>Xem Log đồng bộ</span></button>
                                 </div>
                             )}

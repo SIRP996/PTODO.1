@@ -15,7 +15,7 @@ interface SpeechRecognition extends EventTarget {
 
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
-  // Fix: Add missing resultIndex property to SpeechRecognitionEvent type.
+  // FIX: Add missing resultIndex property to SpeechRecognitionEvent type.
   resultIndex: number;
 }
 
@@ -39,7 +39,7 @@ interface SpeechRecognitionErrorEvent extends Event {
   error: string;
 }
 
-// Fix: Add a new interface for the SpeechRecognition constructor to correctly type it as a class.
+// FIX: Add a new interface for the SpeechRecognition constructor to correctly type it as a class.
 interface SpeechRecognitionStatic {
   new (): SpeechRecognition;
 }
