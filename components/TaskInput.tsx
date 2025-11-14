@@ -6,6 +6,7 @@ import { getGoogleGenAI } from '../utils/gemini';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useToast } from '../context/ToastContext';
 import { Project, TaskTemplate } from '../types';
+import ApplyTemplateModal from './ApplyTemplateModal';
 
 interface TaskInputProps {
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly', projectId?: string) => Promise<string | undefined>;
@@ -30,6 +31,9 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onAddSubtasksBatch, on
   const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
   const { addToast } = useToast();
   const templateMenuRef = useRef<HTMLDivElement>(null);
+
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [selectedTemplateForApply, setSelectedTemplateForApply] = useState<TaskTemplate | null>(null);
 
   const {
     transcript,
@@ -190,14 +194,34 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onAddSubtasksBatch, on
     }
   };
   
-  const handleUseTemplate = async (template: TaskTemplate) => {
+  const handleUseTemplate = (template: TaskTemplate) => {
     setIsTemplateMenuOpen(false);
-    const newTaskId = await onAddTask(template.name, [], null, false, 'none', projectId || undefined);
-    if (newTaskId && template.subtasks.length > 0) {
-      const subtaskTexts = template.subtasks.map(st => st.text);
-      await onAddSubtasksBatch(newTaskId, subtaskTexts);
-      addToast(`Đã áp dụng mẫu "${template.name}"!`, 'success');
+    setSelectedTemplateForApply(template);
+    setIsApplyModalOpen(true);
+  };
+
+  const handleApplyTemplate = async (details: { dueDate: string | null; tags: string[]; isUrgent: boolean; projectId: string }) => {
+    if (!selectedTemplateForApply) return;
+
+    const newTaskId = await onAddTask(
+        selectedTemplateForApply.name,
+        details.tags,
+        details.dueDate,
+        details.isUrgent,
+        'none', // recurrenceRule is not part of this flow
+        details.projectId || undefined
+    );
+
+    if (newTaskId && selectedTemplateForApply.subtasks.length > 0) {
+        const subtaskTexts = selectedTemplateForApply.subtasks.map(st => st.text);
+        await onAddSubtasksBatch(newTaskId, subtaskTexts);
+        addToast(`Đã áp dụng mẫu "${selectedTemplateForApply.name}" với các tùy chỉnh của bạn!`, 'success');
+    } else if (newTaskId) {
+        addToast(`Đã áp dụng mẫu "${selectedTemplateForApply.name}"!`, 'success');
     }
+
+    setIsApplyModalOpen(false);
+    setSelectedTemplateForApply(null);
   };
 
   const recurrenceOptions: Array<{id: 'none' | 'daily' | 'weekly' | 'monthly', label: string}> = [
@@ -208,166 +232,180 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onAddSubtasksBatch, on
   ];
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="relative">
-        <label htmlFor="task-content" className="block text-sm font-medium text-slate-400 mb-1">Nội dung công việc</label>
-        <textarea
-          id="task-content"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Ví dụ: Gặp đội thiết kế vào 4h chiều mai #họp"
-          className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition pr-12"
-          rows={2}
-        />
-        {hasSpeechRecognitionSupport && (
-           <button
-             type="button"
-             onClick={isListening ? stopListening : startListening}
-             className={`absolute bottom-2.5 right-2.5 p-2 rounded-full transition-colors duration-200 ${
-                isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-             }`}
-             title={isListening ? "Dừng ghi âm" : "Ghi âm công việc"}
-           >
-             <Mic size={18} />
-           </button>
-        )}
-      </div>
-
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="task-project" className="block text-sm font-medium text-slate-400 mb-1">Dự án</label>
-            <select
-              id="task-project"
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition"
-            >
-              <option value="">Không thuộc dự án nào</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="task-tags" className="block text-sm font-medium text-slate-400 mb-1">Thẻ (gõ rồi nhấn Enter)</label>
-            <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#293548] border border-primary-600 rounded-lg focus-within:border-primary-500">
-                {tags.map(tag => (
-                  <span key={tag} className="flex items-center bg-primary-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                    #{tag}
-                    <button type="button" onClick={() => removeTag(tag)} className="ml-1.5 text-primary-200 hover:text-white">
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-                <input
-                  id="task-tags"
-                  type="text"
-                  value={currentTag}
-                  onChange={(e) => setCurrentTag(e.target.value)}
-                  onKeyDown={handleTagKeyDown}
-                  placeholder={tags.length > 0 ? '' : 'Thêm thẻ...'}
-                  className="flex-grow bg-transparent focus:ring-0 border-0 p-0 text-sm"
-                />
-            </div>
-          </div>
-        </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-        <div>
-          <label htmlFor="task-duedate" className="block text-sm font-medium text-slate-400 mb-1">Thời hạn (bắt buộc cho lặp lại)</label>
-          <input
-            id="task-duedate"
-            type="datetime-local"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition"
+    <>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="relative">
+          <label htmlFor="task-content" className="block text-sm font-medium text-slate-400 mb-1">Nội dung công việc</label>
+          <textarea
+            id="task-content"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Ví dụ: Gặp đội thiết kế vào 4h chiều mai #họp"
+            className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition pr-12"
+            rows={2}
           />
+          {hasSpeechRecognitionSupport && (
+            <button
+              type="button"
+              onClick={isListening ? stopListening : startListening}
+              className={`absolute bottom-2.5 right-2.5 p-2 rounded-full transition-colors duration-200 ${
+                  isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+              }`}
+              title={isListening ? "Dừng ghi âm" : "Ghi âm công việc"}
+            >
+              <Mic size={18} />
+            </button>
+          )}
         </div>
-        <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Quy tắc lặp lại</label>
-            <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
-                {recurrenceOptions.map(opt => (
-                     <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => setRecurrenceRule(opt.id)}
-                        disabled={!dueDate && opt.id !== 'none'}
-                        className={`flex-1 px-2 py-1 text-xs font-medium rounded-md transition-colors text-center disabled:opacity-50 disabled:cursor-not-allowed
-                            ${recurrenceRule === opt.id ? 'bg-primary-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'}`
-                        }
-                    >
-                        {opt.label}
-                    </button>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="task-project" className="block text-sm font-medium text-slate-400 mb-1">Dự án</label>
+              <select
+                id="task-project"
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition"
+              >
+                <option value="">Không thuộc dự án nào</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
+              </select>
             </div>
+            <div>
+              <label htmlFor="task-tags" className="block text-sm font-medium text-slate-400 mb-1">Thẻ (gõ rồi nhấn Enter)</label>
+              <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#293548] border border-primary-600 rounded-lg focus-within:border-primary-500">
+                  {tags.map(tag => (
+                    <span key={tag} className="flex items-center bg-primary-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                      #{tag}
+                      <button type="button" onClick={() => removeTag(tag)} className="ml-1.5 text-primary-200 hover:text-white">
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    id="task-tags"
+                    type="text"
+                    value={currentTag}
+                    onChange={(e) => setCurrentTag(e.target.value)}
+                    onKeyDown={handleTagKeyDown}
+                    placeholder={tags.length > 0 ? '' : 'Thêm thẻ...'}
+                    className="flex-grow bg-transparent focus:ring-0 border-0 p-0 text-sm"
+                  />
+              </div>
+            </div>
+          </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+          <div>
+            <label htmlFor="task-duedate" className="block text-sm font-medium text-slate-400 mb-1">Thời hạn (bắt buộc cho lặp lại)</label>
+            <input
+              id="task-duedate"
+              type="datetime-local"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-4 py-2 transition"
+            />
+          </div>
+          <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Quy tắc lặp lại</label>
+              <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
+                  {recurrenceOptions.map(opt => (
+                      <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setRecurrenceRule(opt.id)}
+                          disabled={!dueDate && opt.id !== 'none'}
+                          className={`flex-1 px-2 py-1 text-xs font-medium rounded-md transition-colors text-center disabled:opacity-50 disabled:cursor-not-allowed
+                              ${recurrenceRule === opt.id ? 'bg-primary-600 text-white shadow' : 'text-slate-400 hover:bg-slate-700'}`
+                          }
+                      >
+                          {opt.label}
+                      </button>
+                  ))}
+              </div>
+          </div>
         </div>
-      </div>
-      
-      <div className="flex flex-wrap justify-end items-center gap-2 pt-2">
-            <div className="relative" ref={templateMenuRef}>
-                 <button
-                    type="button"
-                    onClick={() => setIsTemplateMenuOpen(p => !p)}
-                    disabled={templates.length === 0}
-                    className="flex items-center gap-2 py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-lg transition-colors duration-200 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
-                    title={templates.length > 0 ? "Sử dụng mẫu công việc" : "Chưa có mẫu nào, hãy tạo trong phần Tiện ích"}
-                >
-                    <ClipboardPaste size={20} />
-                    <span className="hidden sm:inline">Mẫu</span>
-                </button>
-                {isTemplateMenuOpen && (
-                    <div className="absolute bottom-full right-0 mb-2 w-64 bg-[#293548] border border-slate-600 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
-                        {templates.map(template => (
-                            <button
-                                key={template.id}
-                                type="button"
-                                onClick={() => handleUseTemplate(template)}
-                                className="w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-slate-700 transition-colors"
-                            >
-                                <span className="text-lg">{template.icon}</span>
-                                <span className="text-sm text-slate-200 truncate">{template.name}</span>
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-            <button
-                type="button"
-                onClick={onOpenImportModal}
-                disabled={!hasApiKey}
-                className="flex items-center gap-2 py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-lg transition-colors duration-200 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
-                title={hasApiKey ? "Nhập liệu thông minh từ tệp hoặc giọng nói" : "Thêm API Key để sử dụng tính năng này"}
-            >
-                <UploadCloud size={20} />
-                <span className="hidden sm:inline">Nhập liệu AI</span>
-            </button>
-            <button
-                type="button"
-                onClick={() => handleParseTask()}
-                disabled={isParsing || !text.trim() || !hasApiKey}
-                className="p-2.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
-                title={hasApiKey ? "Phân tích nội dung hiện tại bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
-            >
-                {isParsing ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-            </button>
-            <button 
-                type="button"
-                onClick={() => setIsUrgent(!isUrgent)}
-                className={`p-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 ${isUrgent && '!bg-red-600 !text-white'}`}
-                title="Đánh dấu là GẤP"
-            >
-                <Flag size={20} />
-            </button>
-            <button 
-                type="submit"
-                className="bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-primary-800 disabled:cursor-not-allowed"
-                disabled={!text.trim() || (recurrenceRule !== 'none' && !dueDate)}
-            >
-                <Plus size={20} />
-                <span>Thêm</span>
-            </button>
-      </div>
-    </form>
+        
+        <div className="flex flex-wrap justify-end items-center gap-2 pt-2">
+              <div className="relative" ref={templateMenuRef}>
+                  <button
+                      type="button"
+                      onClick={() => setIsTemplateMenuOpen(p => !p)}
+                      disabled={templates.length === 0}
+                      className="flex items-center gap-2 py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-lg transition-colors duration-200 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
+                      title={templates.length > 0 ? "Sử dụng mẫu công việc" : "Chưa có mẫu nào, hãy tạo trong phần Tiện ích"}
+                  >
+                      <ClipboardPaste size={20} />
+                      <span className="hidden sm:inline">Mẫu</span>
+                  </button>
+                  {isTemplateMenuOpen && (
+                      <div className="absolute bottom-full right-0 mb-2 w-64 bg-[#293548] border border-slate-600 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                          {templates.map(template => (
+                              <button
+                                  key={template.id}
+                                  type="button"
+                                  onClick={() => handleUseTemplate(template)}
+                                  className="w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-slate-700 transition-colors"
+                              >
+                                  <span className="text-lg">{template.icon}</span>
+                                  <span className="text-sm text-slate-200 truncate">{template.name}</span>
+                              </button>
+                          ))}
+                      </div>
+                  )}
+              </div>
+              <button
+                  type="button"
+                  onClick={onOpenImportModal}
+                  disabled={!hasApiKey}
+                  className="flex items-center gap-2 py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-lg transition-colors duration-200 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  title={hasApiKey ? "Nhập liệu thông minh từ tệp hoặc giọng nói" : "Thêm API Key để sử dụng tính năng này"}
+              >
+                  <UploadCloud size={20} />
+                  <span className="hidden sm:inline">Nhập liệu AI</span>
+              </button>
+              <button
+                  type="button"
+                  onClick={() => handleParseTask()}
+                  disabled={isParsing || !text.trim() || !hasApiKey}
+                  className="p-2.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  title={hasApiKey ? "Phân tích nội dung hiện tại bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
+              >
+                  {isParsing ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+              </button>
+              <button 
+                  type="button"
+                  onClick={() => setIsUrgent(!isUrgent)}
+                  className={`p-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 ${isUrgent && '!bg-red-600 !text-white'}`}
+                  title="Đánh dấu là GẤP"
+              >
+                  <Flag size={20} />
+              </button>
+              <button 
+                  type="submit"
+                  className="bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 disabled:bg-primary-800 disabled:cursor-not-allowed"
+                  disabled={!text.trim() || (recurrenceRule !== 'none' && !dueDate)}
+              >
+                  <Plus size={20} />
+                  <span>Thêm</span>
+              </button>
+        </div>
+      </form>
+      {selectedTemplateForApply && (
+        <ApplyTemplateModal
+            isOpen={isApplyModalOpen}
+            onClose={() => {
+                setIsApplyModalOpen(false);
+                setSelectedTemplateForApply(null);
+            }}
+            template={selectedTemplateForApply}
+            projects={projects}
+            onApply={handleApplyTemplate}
+        />
+      )}
+    </>
   );
 };
 
