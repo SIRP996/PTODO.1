@@ -1,4 +1,5 @@
 
+
 import React, { useState, KeyboardEvent, useEffect, useRef } from 'react';
 import { Plus, X, Flag, Sparkles, Loader2, Mic, UploadCloud, ClipboardPaste } from 'lucide-react';
 import { Type } from '@google/genai';
@@ -6,20 +7,19 @@ import { getGoogleGenAI } from '../utils/gemini';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useToast } from '../context/ToastContext';
 import { Project, TaskTemplate } from '../types';
-import ApplyTemplateModal from './ApplyTemplateModal';
 
 interface TaskInputProps {
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly', projectId?: string) => Promise<string | undefined>;
-  onAddSubtasksBatch: (parentId: string, subtaskTexts: string[]) => Promise<void>;
   onApiKeyError: () => void;
   hasApiKey: boolean;
   onOpenImportModal: () => void;
   projects: Project[];
   selectedProjectId: string | null;
   templates: TaskTemplate[];
+  onOpenApplyTemplateModal: (template: TaskTemplate) => void;
 }
 
-const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onAddSubtasksBatch, onApiKeyError, hasApiKey, onOpenImportModal, projects, selectedProjectId, templates }) => {
+const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onApiKeyError, hasApiKey, onOpenImportModal, projects, selectedProjectId, templates, onOpenApplyTemplateModal }) => {
   const [text, setText] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [currentTag, setCurrentTag] = useState('');
@@ -31,9 +31,6 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onAddSubtasksBatch, on
   const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
   const { addToast } = useToast();
   const templateMenuRef = useRef<HTMLDivElement>(null);
-
-  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
-  const [selectedTemplateForApply, setSelectedTemplateForApply] = useState<TaskTemplate | null>(null);
 
   const {
     transcript,
@@ -196,32 +193,7 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onAddSubtasksBatch, on
   
   const handleUseTemplate = (template: TaskTemplate) => {
     setIsTemplateMenuOpen(false);
-    setSelectedTemplateForApply(template);
-    setIsApplyModalOpen(true);
-  };
-
-  const handleApplyTemplate = async (details: { dueDate: string | null; tags: string[]; isUrgent: boolean; projectId: string }) => {
-    if (!selectedTemplateForApply) return;
-
-    const newTaskId = await onAddTask(
-        selectedTemplateForApply.name,
-        details.tags,
-        details.dueDate,
-        details.isUrgent,
-        'none', // recurrenceRule is not part of this flow
-        details.projectId || undefined
-    );
-
-    if (newTaskId && selectedTemplateForApply.subtasks.length > 0) {
-        const subtaskTexts = selectedTemplateForApply.subtasks.map(st => st.text);
-        await onAddSubtasksBatch(newTaskId, subtaskTexts);
-        addToast(`Đã áp dụng mẫu "${selectedTemplateForApply.name}" với các tùy chỉnh của bạn!`, 'success');
-    } else if (newTaskId) {
-        addToast(`Đã áp dụng mẫu "${selectedTemplateForApply.name}"!`, 'success');
-    }
-
-    setIsApplyModalOpen(false);
-    setSelectedTemplateForApply(null);
+    onOpenApplyTemplateModal(template);
   };
 
   const recurrenceOptions: Array<{id: 'none' | 'daily' | 'weekly' | 'monthly', label: string}> = [
@@ -393,18 +365,6 @@ const TaskInput: React.FC<TaskInputProps> = ({ onAddTask, onAddSubtasksBatch, on
               </button>
         </div>
       </form>
-      {selectedTemplateForApply && (
-        <ApplyTemplateModal
-            isOpen={isApplyModalOpen}
-            onClose={() => {
-                setIsApplyModalOpen(false);
-                setSelectedTemplateForApply(null);
-            }}
-            template={selectedTemplateForApply}
-            projects={projects}
-            onApply={handleApplyTemplate}
-        />
-      )}
     </>
   );
 };

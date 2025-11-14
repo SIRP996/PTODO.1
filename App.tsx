@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -6,7 +7,7 @@ import SourceSidebar from './components/SourceSidebar';
 import TaskInput from './components/TaskInput';
 import TaskList from './components/TaskList';
 import { BellRing, ShieldOff, Loader2, List, LayoutGrid, Bot, Clock } from 'lucide-react';
-import { Task, TaskStatus, Project, Filter } from './types';
+import { Task, TaskStatus, Project, Filter, TaskTemplate } from './types';
 import { isPast, isToday, addDays, isWithinInterval, parseISO } from 'date-fns';
 import FocusModeOverlay from './components/FocusModeOverlay';
 import AuthPage from './components/auth/AuthPage';
@@ -25,6 +26,8 @@ import TimelineView from './components/TimelineView';
 import { useTaskTemplates } from './hooks/useTaskTemplates';
 import TemplateManagerModal from './components/TemplateManagerModal';
 import WeeklyReviewModal from './components/WeeklyReviewModal';
+import ApplyTemplateModal from './components/ApplyTemplateModal';
+import { useToast } from './context/ToastContext';
 
 const statusLabels: Record<TaskStatus, string> = {
   todo: 'Cần làm',
@@ -34,6 +37,7 @@ const statusLabels: Record<TaskStatus, string> = {
 
 const App: React.FC = () => {
   const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading, isGuestMode, exitGuestMode } = useAuth();
+  const { addToast } = useToast();
   
   const { 
     tasks, addTask, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency,
@@ -61,6 +65,8 @@ const App: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
   const [isWeeklyReviewModalOpen, setWeeklyReviewModalOpen] = useState(false);
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [selectedTemplateForApply, setSelectedTemplateForApply] = useState<TaskTemplate | null>(null);
 
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
@@ -75,6 +81,39 @@ const App: React.FC = () => {
 
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const sidebarResizeData = useRef<{ initialX: number; initialWidth: number } | null>(null);
+
+  const handleOpenApplyTemplateModal = (template: TaskTemplate) => {
+    setSelectedTemplateForApply(template);
+    setIsApplyModalOpen(true);
+  };
+
+  const handleCloseApplyTemplateModal = () => {
+    setIsApplyModalOpen(false);
+    setSelectedTemplateForApply(null);
+  };
+
+  const handleApplyTemplate = async (details: { dueDate: string | null; tags: string[]; isUrgent: boolean; projectId: string }) => {
+    if (!selectedTemplateForApply) return;
+
+    const newTaskId = await addTask(
+        selectedTemplateForApply.name,
+        details.tags,
+        details.dueDate,
+        details.isUrgent,
+        'none',
+        details.projectId || undefined
+    );
+
+    if (newTaskId && selectedTemplateForApply.subtasks.length > 0) {
+        const subtaskTexts = selectedTemplateForApply.subtasks.map(st => st.text);
+        await addSubtasksBatch(newTaskId, subtaskTexts);
+        addToast(`Đã áp dụng mẫu "${selectedTemplateForApply.name}" với các tùy chỉnh của bạn!`, 'success');
+    } else if (newTaskId) {
+        addToast(`Đã áp dụng mẫu "${selectedTemplateForApply.name}"!`, 'success');
+    }
+
+    handleCloseApplyTemplateModal();
+  };
   
   const focusCompletionSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
@@ -353,6 +392,15 @@ const App: React.FC = () => {
       {isImportModalOpen && currentUser && hasApiKey && <ImportAssistantModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onAddTasksBatch={addTasksBatch} onApiKeyError={onApiKeyError} />}
       {isTemplateManagerOpen && currentUser && <TemplateManagerModal isOpen={isTemplateManagerOpen} onClose={() => setIsTemplateManagerOpen(false)} templates={templates} onAddTemplate={addTemplate} onUpdateTemplate={updateTemplate} onDeleteTemplate={deleteTemplate} />}
       {isWeeklyReviewModalOpen && currentUser && hasApiKey && <WeeklyReviewModal isOpen={isWeeklyReviewModalOpen} onClose={() => setWeeklyReviewModalOpen(false)} tasks={tasks} onApiKeyError={onApiKeyError} />}
+      {selectedTemplateForApply && (
+        <ApplyTemplateModal
+            isOpen={isApplyModalOpen}
+            onClose={handleCloseApplyTemplateModal}
+            template={selectedTemplateForApply}
+            projects={projects}
+            onApply={handleApplyTemplate}
+        />
+      )}
       {hasApiKey && currentUser && <ChatAssistant isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} tasks={tasks} onAddTask={addTask} onApiKeyError={onApiKeyError} userAvatarUrl={userSettings?.avatarUrl || currentUser?.photoURL || undefined} />}
 
       <div className="min-h-screen bg-[#0F172A] text-slate-100 font-sans flex flex-col">
@@ -401,7 +449,7 @@ const App: React.FC = () => {
 
                 <div className={`space-y-6 transition-all duration-300 flex-grow ${isZenMode ? 'w-full' : ''}`}>
                   <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
-                    <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onOpenImportModal={() => setIsImportModalOpen(true)} projects={projects} selectedProjectId={activeFilter.type === 'project' ? activeFilter.id : null} templates={templates} onAddSubtasksBatch={addSubtasksBatch} />
+                    <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onOpenImportModal={() => setIsImportModalOpen(true)} projects={projects} selectedProjectId={activeFilter.type === 'project' ? activeFilter.id : null} templates={templates} onOpenApplyTemplateModal={handleOpenApplyTemplateModal} />
                   </div>
                   
                   <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
