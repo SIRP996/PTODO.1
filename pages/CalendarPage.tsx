@@ -160,7 +160,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ tasks, onUpdateTaskDueDate,
 
   return (
     <div className="bg-[#0F172A] text-slate-100 h-screen flex flex-col">
-        <header className="flex-shrink-0 p-4 border-b border-slate-700/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <header className="flex-shrink-0 p-4 border-b border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-4">
                 <button onClick={onSwitchToMain} className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-4 rounded-lg transition-colors duration-200">
                     <ArrowLeft size={16} />
@@ -188,7 +188,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ tasks, onUpdateTaskDueDate,
             </div>
         </header>
       
-        <div className="flex-grow flex overflow-hidden">
+        <div className="flex-grow flex overflow-hidden p-4 gap-4">
             <Sidebar
                 tasks={tasks}
                 projects={projects}
@@ -202,7 +202,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ tasks, onUpdateTaskDueDate,
                 onSelectHashtag={setActiveHashtag}
                 hashtagStatuses={hashtagStatuses}
             />
-            <main className="flex-grow flex flex-col overflow-hidden">
+            <main className="flex-grow flex flex-col overflow-hidden bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
                 {viewMode === 'month' && (
                     <MonthView currentDate={currentDate} tasks={tasksWithTime} onTaskClick={onStartFocus} />
                 )}
@@ -296,13 +296,13 @@ const TimeGridView: React.FC<TimeGridViewProps> = ({ tasks, interval, onDragStar
 
 
     return (
-        <div className="flex flex-col flex-grow overflow-hidden bg-slate-900/50">
+        <div className="flex flex-col flex-grow overflow-hidden">
             {/* Day Headers */}
             <div className="flex flex-shrink-0">
-                <div className="w-14 flex-shrink-0 border-r border-slate-700/50"></div>
+                <div className="w-14 flex-shrink-0 border-r border-white/10"></div>
                 <div className="grid flex-grow" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
                     {days.map(day => (
-                        <div key={day.toISOString()} className="text-center py-2 border-r border-slate-700/50 last:border-r-0">
+                        <div key={day.toISOString()} className="text-center py-2 border-r border-white/10 last:border-r-0">
                             <span className="text-xs text-slate-400">{format(day, 'EEE', { locale: vi })}</span>
                             <p className={`text-2xl font-bold ${isToday(day) ? 'text-primary-400' : 'text-white'}`}>{format(day, 'd')}</p>
                         </div>
@@ -310,13 +310,13 @@ const TimeGridView: React.FC<TimeGridViewProps> = ({ tasks, interval, onDragStar
                 </div>
             </div>
             {/* All Day Section */}
-            <div className="flex flex-shrink-0 border-t border-b border-slate-700/50">
-                 <div className="w-14 text-xs font-semibold text-slate-400 flex-shrink-0 border-r border-slate-700/50 flex items-center justify-center">Cả ngày</div>
+            <div className="flex flex-shrink-0 border-t border-b border-white/10">
+                 <div className="w-14 text-xs font-semibold text-slate-400 flex-shrink-0 border-r border-white/10 flex items-center justify-center">Cả ngày</div>
                  <div className="grid flex-grow" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
                     {days.map(day => {
                         const tasksForDay = allDayTasks.filter(t => isSameDay(parseISO(t.dueDate!), day));
                         return (
-                             <div key={day.toISOString()} className="p-1 border-r border-slate-700/50 last:border-r-0 min-h-[32px] space-y-1">
+                             <div key={day.toISOString()} className="p-1 border-r border-white/10 last:border-r-0 min-h-[32px] space-y-1">
                                 {tasksForDay.map(task => (
                                     <div key={task.id} 
                                         draggable
@@ -350,13 +350,13 @@ const TimeGridView: React.FC<TimeGridViewProps> = ({ tasks, interval, onDragStar
                              const dayKey = format(day, 'yyyy-MM-dd');
                              const dayLayout = taskLayouts[dayKey] || [];
                              return (
-                                <div key={day.toISOString()} className="relative border-r border-slate-700/50 last:border-r-0">
+                                <div key={day.toISOString()} className="relative border-r border-white/10 last:border-r-0">
                                     {Array.from({ length: 48 }).map((_, i) => ( // 30-min slots
                                         <div key={i}
                                             onDragOver={(e) => e.preventDefault()}
                                             onDrop={() => onDrop(day, Math.floor(i/2), (i % 2) * 30)}
                                             style={{ height: `${HOUR_HEIGHT / 2}px` }} 
-                                            className={`border-t border-slate-700/50 ${i%2 === 0 ? '' : 'border-dashed'}`}
+                                            className={`border-t border-white/10 ${i%2 === 0 ? '' : 'border-dashed'}`}
                                         />
                                     ))}
                                     {dayLayout.map(({ task, top, height, left, width }) => (
@@ -408,16 +408,16 @@ const MonthView: React.FC<MonthViewProps> = ({ currentDate, tasks, onTaskClick }
     }, [tasks]);
 
     return (
-        <div className="grid grid-cols-7 flex-grow bg-slate-900/50">
+        <div className="grid grid-cols-7 flex-grow">
             {['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'].map(day => (
-                <div key={day} className="text-center font-semibold text-slate-400 text-xs py-2 border-b border-r border-slate-700/50">{day}</div>
+                <div key={day} className="text-center font-semibold text-slate-400 text-xs py-2 border-b border-r border-white/10">{day}</div>
             ))}
             {days.map(day => {
                 const dateKey = format(day, 'yyyy-MM-dd');
                 const tasksForDay = tasksByDate[dateKey] || [];
                 const isCurrentMonth = isSameMonth(day, currentDate);
                 return (
-                    <div key={day.toString()} className={`relative border-b border-r border-slate-700/50 p-2 flex flex-col ${!isCurrentMonth ? 'bg-slate-800/30' : ''}`}>
+                    <div key={day.toString()} className={`relative border-b border-r border-white/10 p-2 flex flex-col ${!isCurrentMonth ? 'bg-black/20' : ''}`}>
                         <span className={`font-semibold text-sm ${isToday(day) ? 'bg-primary-500 text-white rounded-full w-6 h-6 flex items-center justify-center' : ''}`}>{format(day, 'd')}</span>
                         <div className="mt-1 space-y-1 overflow-y-auto flex-grow">
                             {tasksForDay.map(task => (

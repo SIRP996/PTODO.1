@@ -365,7 +365,7 @@ const ImportAssistantModal: React.FC<ImportAssistantModalProps> = ({ isOpen, onC
 
     const renderSelectView = () => (
         <>
-            <div className="flex border-b border-slate-700 overflow-x-auto">
+            <div className="flex border-b border-white/10 overflow-x-auto">
                 <button 
                     onClick={() => setActiveTab('text')}
                     className={`flex-shrink-0 px-4 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${activeTab === 'text' ? 'text-primary-400 border-b-2 border-primary-400' : 'text-slate-400 hover:text-white'}`}
@@ -525,7 +525,7 @@ const ImportAssistantModal: React.FC<ImportAssistantModalProps> = ({ isOpen, onC
     
     const renderReviewView = () => (
         <div className="flex flex-col h-full">
-            <div className="p-4 border-b border-slate-700 flex-shrink-0">
+            <div className="p-4 border-b border-white/10 flex-shrink-0">
                 <div className="flex justify-between items-center">
                     <button onClick={() => setView('select')} className="flex items-center gap-1 text-sm text-slate-400 hover:text-white"><ArrowLeft size={16} /> Quay lại</button>
                     <h3 className="text-lg font-bold text-white">Xem lại và xác nhận</h3>
@@ -563,7 +563,7 @@ const ImportAssistantModal: React.FC<ImportAssistantModalProps> = ({ isOpen, onC
                     </div>
                 ))}
             </div>
-            <div className="p-4 border-t border-slate-700 flex-shrink-0">
+            <div className="p-4 border-t border-white/10 flex-shrink-0">
                 <button onClick={handleAddTasks} className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 px-4 rounded-lg">
                     Thêm {selectedTasks.length} công việc đã chọn
                 </button>
@@ -576,9 +576,9 @@ const ImportAssistantModal: React.FC<ImportAssistantModalProps> = ({ isOpen, onC
 
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-[#1E293B] max-w-3xl w-full rounded-2xl shadow-2xl border border-slate-700 h-[70vh] flex flex-col">
+            <div className="bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 max-w-3xl w-full rounded-2xl shadow-2xl h-[70vh] flex flex-col">
                 {view !== 'review' && (
-                     <div className="flex justify-between items-center p-4 border-b border-slate-700 flex-shrink-0">
+                     <div className="flex justify-between items-center p-4 border-b border-white/10 flex-shrink-0">
                         <h3 className="text-lg font-bold text-white flex items-center gap-2"><Sparkles size={20} className="text-primary-400" /> Trợ lý Nhập liệu Thông minh</h3>
                         <button onClick={handleClose} className="text-slate-400 hover:text-white"><X /></button>
                     </div>

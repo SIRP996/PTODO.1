@@ -14,11 +14,13 @@ interface SettingsModalProps {
 }
 
 const themes: { id: Theme; name: string; color: string; }[] = [
-    { id: 'default', name: 'Mặc định', color: 'bg-indigo-500' },
-    { id: 'azure', name: 'Thiên thanh', color: 'bg-sky-500' },
-    { id: 'teal', name: 'Xanh ngọc', color: 'bg-teal-500' },
-    { id: 'sunset', name: 'Hoàng hôn', color: 'bg-amber-500' },
-    { id: 'ocean', name: 'Đại dương', color: 'bg-cyan-500' },
+    { id: 'default', name: 'Zenith', color: 'bg-violet-500' },
+    { id: 'crimson', name: 'Crimson', color: 'bg-pink-500' },
+    { id: 'emerald', name: 'Emerald', color: 'bg-emerald-500' },
+    { id: 'amber', name: 'Amber', color: 'bg-amber-500' },
+    { id: 'sapphire', name: 'Sapphire', color: 'bg-blue-500' },
+    { id: 'slate', name: 'Slate', color: 'bg-slate-500' },
+    { id: 'noir', name: 'Noir', color: 'bg-neutral-800' },
 ];
 
 const TelegramIcon: React.FC = () => (
@@ -183,7 +185,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 animate-fadeIn">
-      <div className="bg-[#1E293B] max-w-lg w-full rounded-2xl shadow-2xl p-6 border border-slate-700 max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 max-w-lg w-full rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-white">Cài đặt tài khoản</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
@@ -192,7 +194,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Info Section */}
           <div className="space-y-4">
-            <h4 className="font-semibold text-slate-300 border-b border-slate-700 pb-2">Thông tin cá nhân</h4>
+            <h4 className="font-semibold text-slate-300 border-b border-white/10 pb-2">Thông tin cá nhân</h4>
             <div className="flex items-center gap-4">
                 <div className="relative w-20 h-20 rounded-full overflow-hidden bg-slate-700 group flex-shrink-0">
                     {userAvatarUrl ? (
@@ -244,7 +246,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
           
            {/* Theme Section */}
            <div className="space-y-4">
-            <h4 className="font-semibold text-slate-300 border-b border-slate-700 pb-2">Chủ đề</h4>
+            <h4 className="font-semibold text-slate-300 border-b border-white/10 pb-2">Chủ đề</h4>
             <div className="flex flex-wrap gap-3">
                 {themes.map(theme => (
                     <button
@@ -266,7 +268,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, on
 
            {/* Integrations Section */}
            <div className="space-y-4">
-                <h4 className="font-semibold text-slate-300 border-b border-slate-700 pb-2">Tích hợp</h4>
+                <h4 className="font-semibold text-slate-300 border-b border-white/10 pb-2">Tích hợp</h4>
                 {/* Google Calendar */}
                 <div className="bg-slate-800/50 p-4 rounded-lg flex items-center justify-between">
                     <div className="flex items-center gap-3">

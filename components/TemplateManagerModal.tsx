@@ -92,10 +92,10 @@ const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({ isOpen, onC
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 animate-fadeIn">
-      <div className="bg-[#1E293B] max-w-4xl w-full rounded-2xl shadow-2xl border border-slate-700 h-[80vh] flex">
+      <div className="bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 max-w-4xl w-full rounded-2xl shadow-2xl h-[80vh] flex">
         {/* Left Panel: Template List */}
-        <div className="w-1/3 border-r border-slate-700 flex flex-col">
-          <div className="p-4 border-b border-slate-700 flex justify-between items-center flex-shrink-0">
+        <div className="w-1/3 border-r border-white/10 flex flex-col">
+          <div className="p-4 border-b border-white/10 flex justify-between items-center flex-shrink-0">
             <h3 className="text-lg font-bold text-white">Quản lý Mẫu</h3>
             <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
           </div>
@@ -111,7 +111,7 @@ const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({ isOpen, onC
               </button>
             ))}
           </div>
-          <div className="p-4 border-t border-slate-700 flex-shrink-0">
+          <div className="p-4 border-t border-white/10 flex-shrink-0">
             <button
                 onClick={handleNewTemplate}
                 className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 px-4 rounded-lg"
@@ -123,7 +123,7 @@ const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({ isOpen, onC
 
         {/* Right Panel: Template Editor */}
         <div className="w-2/3 flex flex-col">
-          <div className="p-4 border-b border-slate-700 flex justify-between items-center flex-shrink-0">
+          <div className="p-4 border-b border-white/10 flex justify-between items-center flex-shrink-0">
              <h4 className="text-lg font-semibold text-white">{selectedTemplate ? "Chỉnh sửa mẫu" : "Tạo mẫu mới"}</h4>
              <div>
                 {selectedTemplate && (

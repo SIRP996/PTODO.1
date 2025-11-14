@@ -31,7 +31,7 @@ const ApiKeyPrompt: React.FC<ApiKeyPromptProps> = ({
     };
 
     const promptContent = (
-        <div className="relative bg-[#1E293B]/80 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-slate-700 text-center max-w-md mx-4">
+        <div className="relative bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-lg text-center max-w-md mx-4">
             {isModal && onClose && (
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
                     <X size={24} />

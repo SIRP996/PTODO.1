@@ -23,8 +23,8 @@ const LogViewer: React.FC<LogViewerProps> = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[90]">
-      <div className="bg-[#111827] w-full max-w-2xl h-[80vh] rounded-2xl shadow-2xl border border-slate-700 flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b border-slate-700 flex-shrink-0">
+      <div className="bg-[#111827]/60 backdrop-blur-xl border border-white/10 w-full max-w-2xl h-[80vh] rounded-2xl shadow-2xl flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b border-white/10 flex-shrink-0">
           <h3 className="text-lg font-bold text-white">Bảng Ghi Chú Đồng Bộ</h3>
           <div className="flex items-center gap-4">
             <button onClick={clearLogs} className="text-slate-400 hover:text-red-400 transition-colors" title="Xóa Log">

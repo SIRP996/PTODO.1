@@ -19,6 +19,28 @@ interface KanbanColumnProps {
   onUpdateTaskNote: (id: string, note: string) => void;
 }
 
+const columnStyles: Record<TaskStatus, { header: string; title: string; countBg: string; countText: string; }> = {
+    todo: {
+        header: 'bg-blue-900/20 border-b border-blue-700/50',
+        title: 'text-blue-300',
+        countBg: 'bg-blue-500/20',
+        countText: 'text-blue-200',
+    },
+    inprogress: {
+        header: 'bg-primary-900/20 border-b border-primary-700/50',
+        title: 'text-primary-300',
+        countBg: 'bg-primary-500/20',
+        countText: 'text-primary-200',
+    },
+    completed: {
+        header: 'bg-emerald-900/20 border-b border-emerald-700/50',
+        title: 'text-emerald-300',
+        countBg: 'bg-emerald-500/20',
+        countText: 'text-emerald-200',
+    }
+};
+
+
 const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
   title, 
   status, 
@@ -62,17 +84,19 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
     setIsOver(false);
   };
 
+  const styles = columnStyles[status];
+
   return (
     <div
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`bg-slate-900/50 rounded-xl flex flex-col transition-colors md:h-[600px] ${isOver ? 'bg-slate-700/50' : ''}`}
+      className={`bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col transition-colors md:h-[600px] ${isOver ? 'bg-slate-700/20' : ''}`}
     >
-      <div className="p-4 border-b border-slate-700/50 flex-shrink-0">
-        <h3 className="font-semibold text-white flex justify-between items-center">
+      <div className={`p-4 flex-shrink-0 ${styles.header}`}>
+        <h3 className={`font-semibold flex justify-between items-center ${styles.title}`}>
           <span>{title}</span>
-          <span className="text-sm font-normal bg-slate-700 text-slate-300 rounded-full px-2 py-0.5">{tasks.length}</span>
+          <span className={`text-sm font-normal rounded-full px-2 py-0.5 ${styles.countBg} ${styles.countText}`}>{tasks.length}</span>
         </h3>
       </div>
       <div className="space-y-4 p-4 pr-3 min-h-[150px] flex-grow overflow-y-auto">

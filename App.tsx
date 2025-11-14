@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -399,11 +400,11 @@ const App: React.FC = () => {
                 )}
 
                 <div className={`space-y-6 transition-all duration-300 flex-grow ${isZenMode ? 'w-full' : ''}`}>
-                  <div className="bg-slate-800/50 p-6 rounded-2xl">
+                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
                     <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onOpenImportModal={() => setIsImportModalOpen(true)} projects={projects} selectedProjectId={activeFilter.type === 'project' ? activeFilter.id : null} templates={templates} onAddSubtasksBatch={addSubtasksBatch} />
                   </div>
                   
-                  <div className="bg-slate-800/50 p-6 rounded-2xl">
+                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
                             <button onClick={() => setDisplayMode('kanban')} className={`px-3 py-1 text-sm font-medium rounded-md flex items-center gap-2 ${displayMode === 'kanban' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}><LayoutGrid size={16} /><span>Bảng</span></button>
@@ -435,6 +436,7 @@ const App: React.FC = () => {
                          <div onMouseDown={handleResizeMouseDown} className="absolute bottom-0 right-0 w-6 h-6 cursor-ns-resize flex items-center justify-center group" title="Kéo để thay đổi kích thước"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-600 group-hover:text-slate-400 transition-colors"><path d="M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>
                       </div>
                     ) : (
+// Fix: Corrected the prop name for updating a task note from `onUpdateTaskNote` to `updateTaskNote` to match the function returned by the `useTasks` hook.
                       <KanbanBoard tasks={parentTasks} subtasksByParentId={subtasksByParentId} onUpdateTaskStatus={updateTaskStatus} toggleTaskUrgency={toggleTaskUrgency} onDeleteTask={deleteTask} onStartFocus={handleStartFocus} onToggleTask={toggleTask} onUpdateTaskNote={updateTaskNote} />
                     )}
                   </div>

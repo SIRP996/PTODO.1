@@ -38,7 +38,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, is
     <div
       draggable
       onDragStart={handleDragStart}
-      className={`bg-slate-800 p-4 rounded-lg shadow-md cursor-grab active:cursor-grabbing border transition-all ${isDragging ? 'opacity-50' : 'opacity-100'} ${task.isUrgent && task.status !== 'completed' ? 'border-red-500' : 'border-slate-700/50'}`}
+      className={`bg-black/20 backdrop-blur-sm p-4 rounded-xl shadow-md cursor-grab active:cursor-grabbing border transition-all duration-200 hover:bg-black/30 hover:border-slate-600 ${isDragging ? 'opacity-50 scale-95' : 'opacity-100'} ${task.isUrgent && task.status !== 'completed' ? 'border-red-500' : 'border-slate-700/50'}`}
     >
       <p className={`font-semibold mb-2 ${task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-100'}`}>{task.text}</p>
       

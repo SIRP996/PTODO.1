@@ -1,9 +1,10 @@
 
 
 
+
 import React, { useState, useRef, MouseEvent, TouchEvent, useEffect, KeyboardEvent } from 'react';
 import { Task, TaskStatus } from '../types';
-import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Pickaxe, StickyNote } from 'lucide-react';
+import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Pickaxe, StickyNote, Plus } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
@@ -47,6 +48,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editNoteText, setEditNoteText] = useState(task.note || '');
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const [newSubtaskText, setNewSubtaskText] = useState('');
 
   useEffect(() => {
     if (isEditing) {
@@ -211,6 +214,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
     }
   };
   
+  const handleAddSubtaskKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && newSubtaskText.trim()) {
+      await onAddSubtasksBatch(task.id, [newSubtaskText.trim()]);
+      setNewSubtaskText('');
+    }
+  };
+
   const dueDateForInput = task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd'T'HH:mm") : '';
 
   return (
@@ -357,41 +367,55 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
             </div>
           )}
 
-          {subtasks && subtasks.length > 0 && (
-            <div className="mt-4 pt-3 pl-4 border-t border-slate-700/50">
-              <button 
-                onClick={() => setAreSubtasksVisible(!areSubtasksVisible)}
-                className="flex items-center text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 hover:text-slate-200 transition-colors w-full"
-              >
-                {areSubtasksVisible ? <ChevronDown size={16} className="mr-1" /> : <ChevronRight size={16} className="mr-1" />}
-                <span>Công việc con ({subtasks.length})</span>
-              </button>
-              {areSubtasksVisible && (
-                <div className="space-y-2">
-                  {subtasks.map(subtask => (
-                    <div key={subtask.id} className="flex items-center justify-between gap-3 group">
-                        <div className="flex items-center gap-3">
-                            <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
-                                {subtask.status === 'completed' ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
-                            </button>
-                            <p className={`text-sm ${subtask.status === 'completed' ? 'text-slate-500' : 'text-slate-300'}`}>
-                                {subtask.text}
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => onDeleteTask(subtask.id)}
-                            className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full"
-                            title="Xóa công việc con"
-                        >
-                            <Trash2 size={14} />
-                        </button>
-                    </div>
-                  ))}
-                </div>
+          <div className="mt-4 pt-3 pl-4 border-t border-slate-700/50">
+              {subtasks.length > 0 && (
+                  <button 
+                  onClick={() => setAreSubtasksVisible(!areSubtasksVisible)}
+                  className="flex items-center text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 hover:text-slate-200 transition-colors w-full"
+                  >
+                  {areSubtasksVisible ? <ChevronDown size={16} className="mr-1" /> : <ChevronRight size={16} className="mr-1" />}
+                  <span>Công việc con ({subtasks.length})</span>
+                  </button>
               )}
-            </div>
-          )}
 
+              {(areSubtasksVisible || subtasks.length === 0) && (
+              <div className="space-y-2">
+                  {subtasks.map(subtask => (
+                  <div key={subtask.id} className="flex items-center justify-between gap-3 group">
+                      <div className="flex items-center gap-3">
+                          <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
+                              {subtask.status === 'completed' ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
+                          </button>
+                          <p className={`text-sm ${subtask.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
+                              {subtask.text}
+                          </p>
+                      </div>
+                      <button
+                          onClick={() => onDeleteTask(subtask.id)}
+                          className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full"
+                          title="Xóa công việc con"
+                      >
+                          <Trash2 size={14} />
+                      </button>
+                  </div>
+                  ))}
+                  <div className="flex items-center gap-3 group">
+                      <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center ml-px">
+                          <Plus size={16} className="text-slate-500" />
+                      </span>
+                      <input
+                          type="text"
+                          value={newSubtaskText}
+                          onChange={(e) => setNewSubtaskText(e.target.value)}
+                          onKeyDown={handleAddSubtaskKeyDown}
+                          placeholder="Thêm công việc con và nhấn Enter"
+                          className="w-full bg-transparent text-slate-300 placeholder:text-slate-500 text-sm focus:ring-0 border-0 p-0"
+                          disabled={isGeneratingSubtasks || task.status === 'completed'}
+                      />
+                  </div>
+              </div>
+              )}
+          </div>
         </div>
         <div className="ml-4 flex-shrink-0 flex items-center gap-4">
           {task.status !== 'completed' && (

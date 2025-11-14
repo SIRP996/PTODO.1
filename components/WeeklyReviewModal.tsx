@@ -103,7 +103,7 @@ const WeeklyReviewModal: React.FC<WeeklyReviewModalProps> = ({ isOpen, onClose, 
 
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 animate-fadeIn">
-            <div className="bg-[#1E293B] max-w-2xl w-full rounded-2xl shadow-2xl p-6 border border-slate-700 h-[80vh] flex flex-col">
+            <div className="bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 max-w-2xl w-full rounded-2xl shadow-2xl p-6 h-[80vh] flex flex-col">
                 <div className="flex justify-between items-center mb-4 flex-shrink-0">
                     <h3 className="text-xl font-bold text-white flex items-center gap-3">
                         <Sparkles className="text-primary-400" />
