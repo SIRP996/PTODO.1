@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useRef, MouseEvent, TouchEvent, useEffect, KeyboardEvent } from 'react';
 import { Task, TaskStatus } from '../types';
 import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Pickaxe, StickyNote, Plus } from 'lucide-react';
@@ -51,6 +48,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
 
   const [newSubtaskText, setNewSubtaskText] = useState('');
 
+  // New state for editing subtasks
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [editingSubtaskText, setEditingSubtaskText] = useState('');
+  const subtaskInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (isEditing) {
       const textarea = textareaRef.current;
@@ -69,6 +71,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         noteTextareaRef.current.style.height = `${noteTextareaRef.current.scrollHeight}px`;
     }
   }, [isEditingNote]);
+  
+  useEffect(() => {
+    if (editingSubtaskId && subtaskInputRef.current) {
+        subtaskInputRef.current.focus();
+    }
+  }, [editingSubtaskId]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setEditText(e.target.value);
@@ -218,6 +226,33 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
     if (e.key === 'Enter' && newSubtaskText.trim()) {
       await onAddSubtasksBatch(task.id, [newSubtaskText.trim()]);
       setNewSubtaskText('');
+    }
+  };
+
+  const handleStartEditSubtask = (subtask: Task) => {
+    if (subtask.status === 'completed') return;
+    setEditingSubtaskId(subtask.id);
+    setEditingSubtaskText(subtask.text);
+  };
+  
+  const handleSaveSubtask = () => {
+    if (editingSubtaskId && editingSubtaskText.trim()) {
+        const originalSubtask = subtasks.find(st => st.id === editingSubtaskId);
+        if (originalSubtask && originalSubtask.text !== editingSubtaskText.trim()) {
+            onUpdateTaskText(editingSubtaskId, editingSubtaskText.trim());
+        }
+    }
+    setEditingSubtaskId(null);
+    setEditingSubtaskText('');
+  };
+
+  const handleSubtaskKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+        handleSaveSubtask();
+    }
+    if (e.key === 'Escape') {
+        setEditingSubtaskId(null);
+        setEditingSubtaskText('');
     }
   };
 
@@ -381,23 +416,50 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
               {(areSubtasksVisible || subtasks.length === 0) && (
               <div className="space-y-2">
                   {subtasks.map(subtask => (
-                  <div key={subtask.id} className="flex items-center justify-between gap-3 group">
-                      <div className="flex items-center gap-3">
-                          <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
-                              {subtask.status === 'completed' ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
-                          </button>
-                          <p className={`text-sm ${subtask.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
-                              {subtask.text}
-                          </p>
-                      </div>
-                      <button
-                          onClick={() => onDeleteTask(subtask.id)}
-                          className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full"
-                          title="Xóa công việc con"
-                      >
-                          <Trash2 size={14} />
-                      </button>
-                  </div>
+                    <div key={subtask.id} className="flex items-center justify-between gap-3 group min-h-[28px]">
+                        {editingSubtaskId === subtask.id ? (
+                            <div className="flex items-center gap-3 flex-grow">
+                                <span className="flex-shrink-0 w-4 h-4" /> {/* Spacer to align with checkbox */}
+                                <input
+                                    ref={subtaskInputRef}
+                                    type="text"
+                                    value={editingSubtaskText}
+                                    onChange={(e) => setEditingSubtaskText(e.target.value)}
+                                    onBlur={handleSaveSubtask}
+                                    onKeyDown={handleSubtaskKeyDown}
+                                    className="w-full bg-slate-700 text-slate-200 text-sm focus:ring-0 border-0 p-0 rounded"
+                                />
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-3">
+                                    <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
+                                        {subtask.status === 'completed' ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
+                                    </button>
+                                    <p className={`text-sm ${subtask.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
+                                        {subtask.text}
+                                    </p>
+                                </div>
+                                <div className="flex items-center">
+                                    <button
+                                        onClick={() => handleStartEditSubtask(subtask)}
+                                        className="text-slate-500 hover:text-primary-400 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full disabled:opacity-0 disabled:cursor-not-allowed"
+                                        title="Sửa công việc con"
+                                        disabled={subtask.status === 'completed'}
+                                    >
+                                        <Pencil size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => onDeleteTask(subtask.id)}
+                                        className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full"
+                                        title="Xóa công việc con"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                   ))}
                   <div className="flex items-center gap-3 group">
                       <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center ml-px">
