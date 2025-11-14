@@ -21,6 +21,8 @@ const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({ isOpen, onC
   const [templateIcon, setTemplateIcon] = useState('📋');
   const [subtasks, setSubtasks] = useState<SubtaskTemplate[]>([]);
   const { addToast } = useToast();
+  const [draggedSubtaskId, setDraggedSubtaskId] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (selectedTemplate) {
@@ -89,6 +91,35 @@ const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({ isOpen, onC
     }
   };
 
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+    setDraggedSubtaskId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetId: string) => {
+      e.preventDefault();
+      if (draggedSubtaskId === null || draggedSubtaskId === targetId) return;
+
+      const newSubtasks = [...subtasks];
+      const draggedIndex = newSubtasks.findIndex(st => st.id === draggedSubtaskId);
+      const targetIndex = newSubtasks.findIndex(st => st.id === targetId);
+
+      if (draggedIndex === -1 || targetIndex === -1) return;
+
+      const [removed] = newSubtasks.splice(draggedIndex, 1);
+      newSubtasks.splice(targetIndex, 0, removed);
+
+      setSubtasks(newSubtasks);
+      setDraggedSubtaskId(null);
+  };
+
+  const handleDragEnd = () => {
+      setDraggedSubtaskId(null);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 animate-fadeIn">
@@ -158,8 +189,16 @@ const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({ isOpen, onC
                 <label className="block text-sm font-medium text-slate-400 mb-2">Các công việc con</label>
                 <div className="space-y-2">
                     {subtasks.map((st, index) => (
-                        <div key={st.id} className="flex items-center gap-2 group">
-                            <span className="text-slate-500"><GripVertical size={16} /></span>
+                        <div
+                          key={st.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, st.id)}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, st.id)}
+                          onDragEnd={handleDragEnd}
+                          className={`flex items-center gap-2 group transition-opacity duration-200 ${draggedSubtaskId === st.id ? 'opacity-30' : ''}`}
+                        >
+                            <span className="text-slate-500 cursor-move p-1"><GripVertical size={16} /></span>
                             <input
                                 type="text"
                                 value={st.text}

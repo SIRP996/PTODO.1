@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useRef } from 'react';
 import { Task } from '../types';
 import { 
@@ -237,11 +238,12 @@ const TimeGridView: React.FC<TimeGridViewProps> = ({ tasks, interval, onDragStar
     const days = eachDayOfInterval(interval);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const { timedTasks, allDayTasks, taskLayouts } = useMemo(() => {
+    const { allDayTasks, taskLayouts } = useMemo(() => {
         const timed: Task[] = [];
         const allDay: Task[] = [];
+    
         tasks.forEach(task => {
-            if(!task.dueDate) return;
+            if (!task.dueDate) return;
             const dueDate = parseISO(task.dueDate);
             if (getHours(dueDate) === 0 && getMinutes(dueDate) === 0) {
                 allDay.push(task);
@@ -249,49 +251,87 @@ const TimeGridView: React.FC<TimeGridViewProps> = ({ tasks, interval, onDragStar
                 timed.push(task);
             }
         });
-
-        // Calculate layout for overlapping timed events
+    
         const layouts: { [key: string]: { top: number; height: number; left: number; width: number; task: Task }[] } = {};
+        const DURATION_MS = 30 * 60 * 1000; // Use 30 minutes for a more reasonable default task duration
+    
         days.forEach(day => {
             const dayKey = format(day, 'yyyy-MM-dd');
-            const tasksOnDay = timed
-                .filter(t => isSameDay(parseISO(t.dueDate!), day))
-                .sort((a, b) => parseISO(a.dueDate!).getTime() - parseISO(b.dueDate!).getTime());
-            
-            const columns: Task[][] = [];
-            tasksOnDay.forEach(task => {
-                let placed = false;
-                for (const col of columns) {
-                    const lastTask = col[col.length - 1];
-                    // Assume 1 hour duration
-                    if (parseISO(lastTask.dueDate!).getTime() + 60*60*1000 <= parseISO(task.dueDate!).getTime()) {
-                        col.push(task);
-                        placed = true;
-                        break;
+            layouts[dayKey] = [];
+    
+            const eventsOnDay = timed
+                .filter(t => t.dueDate && isSameDay(parseISO(t.dueDate), day))
+                .map(task => ({
+                    task,
+                    start: parseISO(task.dueDate!).getTime(),
+                    end: parseISO(task.dueDate!).getTime() + DURATION_MS,
+                }))
+                .sort((a, b) => a.start - b.start || b.end - a.end);
+    
+            if (eventsOnDay.length === 0) return;
+    
+            // 1. Group overlapping events
+            const collisionGroups: (typeof eventsOnDay)[] = [];
+            if (eventsOnDay.length > 0) {
+                let currentGroup = [eventsOnDay[0]];
+                let groupEnd = eventsOnDay[0].end;
+    
+                for (let i = 1; i < eventsOnDay.length; i++) {
+                    const event = eventsOnDay[i];
+                    if (event.start < groupEnd) {
+                        currentGroup.push(event);
+                        groupEnd = Math.max(groupEnd, event.end);
+                    } else {
+                        collisionGroups.push(currentGroup);
+                        currentGroup = [event];
+                        groupEnd = event.end;
                     }
                 }
-                if (!placed) {
-                    columns.push([task]);
+                collisionGroups.push(currentGroup);
+            }
+    
+            // 2. Process each group to calculate layout
+            for (const group of collisionGroups) {
+                const columns: (typeof group)[] = [];
+                
+                for (const event of group) {
+                    let placed = false;
+                    for (const col of columns) {
+                        // Find the first column where this event does not overlap with the last event
+                        if (col[col.length - 1].end <= event.start) {
+                            col.push(event);
+                            placed = true;
+                            break;
+                        }
+                    }
+                    if (!placed) {
+                        // If it didn't fit in any existing column, create a new one
+                        columns.push([event]);
+                    }
                 }
-            });
-
-            layouts[dayKey] = [];
-            columns.forEach((col, colIndex) => {
-                col.forEach(task => {
-                    const startTime = parseISO(task.dueDate!);
-                    const top = (getHours(startTime) + getMinutes(startTime) / 60) * HOUR_HEIGHT;
-                    layouts[dayKey].push({
-                        task,
-                        top,
-                        height: HOUR_HEIGHT, // Assume 1 hour
-                        left: (100 / columns.length) * colIndex,
-                        width: 100 / columns.length,
+                
+                const numCols = columns.length;
+                const widthPercentage = 100 / numCols;
+    
+                columns.forEach((col, colIndex) => {
+                    col.forEach(event => {
+                        const startTime = new Date(event.start);
+                        const top = (getHours(startTime) + getMinutes(startTime) / 60) * HOUR_HEIGHT;
+                        const height = ((event.end - event.start) / (3600 * 1000)) * HOUR_HEIGHT;
+    
+                        layouts[dayKey].push({
+                            task: event.task,
+                            top,
+                            height: height > 2 ? height - 2 : height, // 2px margin for events shorter than margin
+                            left: colIndex * widthPercentage,
+                            width: widthPercentage,
+                        });
                     });
                 });
-            });
+            }
         });
-
-        return { timedTasks: timed, allDayTasks: allDay, taskLayouts: layouts };
+    
+        return { allDayTasks: allDay, taskLayouts: layouts };
     }, [tasks, days]);
 
 
@@ -364,7 +404,7 @@ const TimeGridView: React.FC<TimeGridViewProps> = ({ tasks, interval, onDragStar
                                             draggable
                                             onDragStart={() => onDragStart(task)}
                                             onClick={() => onTaskClick(task)}
-                                            style={{ top: `${top}px`, height: `${height}px`, left: `${left}%`, width: `${width}%`}}
+                                            style={{ top: `${top}px`, height: `${height}px`, left: `${left}%`, width: `calc(${width}% - 4px)`, marginLeft: '2px' }}
                                             className={`absolute p-2 rounded-lg text-white flex flex-col justify-between cursor-pointer transition-all duration-200 ${getColorForTask(task.id)} ${draggedTask?.id === task.id ? 'opacity-30' : ''}`}
                                         >
                                             <p className="font-bold text-xs leading-tight">{task.text}</p>

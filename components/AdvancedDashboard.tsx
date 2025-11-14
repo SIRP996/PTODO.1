@@ -84,9 +84,9 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
             return acc;
         }, {} as { [key: string]: number });
         
-        // FIX: Cast `value` to `number` to prevent type inference issues in the sort function.
+        // FIX: Cast `value` to `number` to fix type error where it was being inferred as `unknown`.
         return Object.entries(tagCounts)
-            .map(([name, value]): { name: string; value: number } => ({ name: `#${name}`, value }))
+            .map(([name, value]): { name: string; value: number } => ({ name: `#${name}`, value: value as number }))
             .sort((a, b) => b.value - a.value);
     }, [tasks]);
 

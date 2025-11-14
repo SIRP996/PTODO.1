@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Task, TaskStatus } from '../types';
 import { addDays, addWeeks, addMonths } from 'date-fns';
@@ -64,7 +65,7 @@ export const useTasks = () => {
 
     const performSync = async (token: string) => {
         const startDate = new Date(task.dueDate!);
-        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Default 1 hour duration
+        const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // Default 30 minute duration
 
         const eventData = {
             summary: task.text,
