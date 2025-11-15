@@ -1,7 +1,5 @@
-
-
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Task, TaskStatus } from '../types';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Project, Task, TaskStatus } from '../types';
 import { addDays, addWeeks, addMonths } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebaseConfig';
@@ -29,24 +27,30 @@ const GUEST_TASKS_KEY = 'ptodo-guest-tasks';
 const GUEST_TASK_LIMIT = 5;
 const GOOGLE_ACCESS_TOKEN_KEY = 'ptodo-google-token';
 
-export const useTasks = () => {
+export const useTasks = (projects: Project[]) => {
   const { currentUser, isGuestMode, userSettings, googleAccessToken, updateUserSettings, setGoogleAccessToken } = useAuth();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksCreatedByUser, setTasksCreatedByUser] = useState<Task[]>([]);
+  const [tasksInSharedProjects, setTasksInSharedProjects] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
   const { addLog } = useLog();
 
-  // Create a ref to hold the latest tasks array to break dependency cycles in callbacks
-  const tasksRef = useRef<Task[]>(tasks);
+  const tasks = useMemo(() => {
+    const allTasks = new Map<string, Task>();
+    [...tasksCreatedByUser, ...tasksInSharedProjects].forEach(task => {
+      allTasks.set(task.id, task);
+    });
+    return Array.from(allTasks.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [tasksCreatedByUser, tasksInSharedProjects]);
 
-  // Keep the ref in sync with the state
+  const tasksRef = useRef<Task[]>(tasks);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
 
-  // Unified function to update guest tasks in state and localStorage
   const updateGuestTasks = (newTasks: Task[]) => {
-    setTasks(newTasks);
+    setTasksCreatedByUser(newTasks);
+    setTasksInSharedProjects([]);
     localStorage.setItem(GUEST_TASKS_KEY, JSON.stringify(newTasks));
   };
   
@@ -171,6 +175,7 @@ export const useTasks = () => {
       userId: currentUser?.uid,
       note: '',
       projectId: projectId || '',
+      assigneeIds: [],
     };
 
     if (isGuestMode) {
@@ -429,6 +434,7 @@ export const useTasks = () => {
         const newSubtasks = subtaskTexts.slice(0, availableSlots).map(text => ({
             id: uuidv4(), text, status: 'todo' as TaskStatus, createdAt: new Date().toISOString(),
             dueDate: null, hashtags: [], reminderSent: false, isUrgent: false, parentId: parentId,
+            assigneeIds: [],
         }));
         updateGuestTasks([...currentTasks, ...newSubtasks]);
         return;
@@ -442,7 +448,8 @@ export const useTasks = () => {
         const newDocRef = doc(tasksCollection);
         batch.set(newDocRef, {
           text, status: 'todo', createdAt: serverTimestamp(), dueDate: null, hashtags: [],
-          reminderSent: false, isUrgent: false, userId: currentUser.uid, parentId: parentId, projectId: parentTask?.projectId || ''
+          reminderSent: false, isUrgent: false, userId: currentUser.uid, parentId: parentId, projectId: parentTask?.projectId || '',
+          assigneeIds: [],
         });
       });
       try {
@@ -478,6 +485,7 @@ export const useTasks = () => {
         const docData = {
             ...task, status: 'todo' as TaskStatus, reminderSent: false, createdAt: serverTimestamp(),
             userId: currentUser.uid, dueDate: task.dueDate ? new Date(task.dueDate) : null,
+            assigneeIds: [],
         };
 
         let googleCalendarEventId = null;
@@ -604,45 +612,81 @@ export const useTasks = () => {
 
   useEffect(() => {
     if (isGuestMode) {
-      setTasks(getGuestTasks());
+      setTasksCreatedByUser(getGuestTasks());
+      setTasksInSharedProjects([]);
       setLoading(false);
-      return () => {};
+      return;
     }
 
     if (!currentUser) {
-      setTasks([]);
+      setTasksCreatedByUser([]);
+      setTasksInSharedProjects([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    const q = query(
+    
+    // Listener for ALL tasks created by the current user
+    const userTasksQuery = query(
       collection(db, 'tasks'), 
       where('userId', '==', currentUser.uid)
     );
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const tasksData: Task[] = [];
-      querySnapshot.forEach((docSnap) => {
+    const unsubscribeUserTasks = onSnapshot(userTasksQuery, (snapshot) => {
+      const tasksData: Task[] = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
-        tasksData.push({
+        return {
           id: docSnap.id,
           ...data,
+          hashtags: data.hashtags || [],
+          assigneeIds: data.assigneeIds || [],
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
           dueDate: (data.dueDate as Timestamp)?.toDate().toISOString() || null,
-        } as Task);
+        } as Task;
       });
-      tasksData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setTasks(tasksData);
+      setTasksCreatedByUser(tasksData);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching tasks: ", error);
-      addToast("Không thể tải công việc.", "error");
+      console.error("Error fetching user tasks: ", error);
+      addToast("Không thể tải công việc của bạn.", "error");
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [currentUser, isGuestMode, addToast]);
+    // Listener for tasks in projects where user is a member but NOT the owner
+    const sharedProjectIds = projects
+        .filter(p => p.ownerId !== currentUser.uid && p.memberIds.includes(currentUser.uid))
+        .map(p => p.id);
+
+    let unsubscribeSharedTasks = () => {};
+    if (sharedProjectIds.length > 0) {
+        // Firestore 'in' query is limited to 30 elements. Chunking is needed for more projects.
+        const sharedTasksQuery = query(collection(db, 'tasks'), where('projectId', 'in', sharedProjectIds));
+        unsubscribeSharedTasks = onSnapshot(sharedTasksQuery, (snapshot) => {
+            const tasksData: Task[] = snapshot.docs.map(docSnap => {
+                const data = docSnap.data();
+                return {
+                    id: docSnap.id,
+                    ...data,
+                    hashtags: data.hashtags || [],
+                    assigneeIds: data.assigneeIds || [],
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                    dueDate: (data.dueDate as Timestamp)?.toDate().toISOString() || null,
+                } as Task;
+            });
+            setTasksInSharedProjects(tasksData);
+        }, (error) => {
+            console.error("Error fetching shared project tasks: ", error);
+            addToast("Không thể tải công việc được chia sẻ.", "error");
+        });
+    } else {
+        setTasksInSharedProjects([]);
+    }
+
+    return () => {
+      unsubscribeUserTasks();
+      unsubscribeSharedTasks();
+    };
+  }, [currentUser, isGuestMode, addToast, projects]);
 
 
   return {

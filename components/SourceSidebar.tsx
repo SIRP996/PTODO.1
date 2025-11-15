@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, KeyboardEvent } from 'react';
 import { User } from 'firebase/auth';
 import { Task, Project, Filter, SectionKey } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +26,7 @@ interface SourceSidebarProps {
     notificationPermissionStatus: string;
     onRequestNotificationPermission: () => void;
     onOpenExtensionGuide: () => void;
+    onOpenMemberManager: (project: Project) => void;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -60,7 +61,7 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
 const SourceSidebar: React.FC<SourceSidebarProps> = ({ 
     user, tasks, projects, searchTerm, onSearchChange, activeFilter, onFilterChange, 
     onLogout, onManageApiKey, onOpenSettings, onToggleLogViewer, onOpenTemplateManager, onOpenWeeklyReview, hasApiKey,
-    notificationPermissionStatus, onRequestNotificationPermission, onOpenExtensionGuide
+    notificationPermissionStatus, onRequestNotificationPermission, onOpenExtensionGuide, onOpenMemberManager
 }) => {
     const { userSettings, isGuestMode, exitGuestMode, updateUserSettings } = useAuth();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -211,7 +212,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                         <button
                             key={project.id}
                             onClick={() => onFilterChange({ type: 'project', id: project.id })}
-                            className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-sm rounded-lg transition-colors border border-transparent ${
+                            className={`group w-full flex items-center justify-between gap-3 px-3 py-2 text-sm rounded-lg transition-colors border border-transparent relative ${
                                 activeFilter.type === 'project' && activeFilter.id === project.id
                                 ? 'bg-primary-600/80 text-white font-semibold border-primary-500/50'
                                 : 'text-slate-300 hover:bg-white/5'
@@ -221,9 +222,20 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                                 <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }}></div>
                                 <span className="truncate">{project.name}</span>
                             </div>
-                            <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full ${activeFilter.type === 'project' && activeFilter.id === project.id ? 'bg-primary-500' : 'bg-black/20'}`}>
+                            <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full group-hover:opacity-0 transition-opacity ${activeFilter.type === 'project' && activeFilter.id === project.id ? 'bg-primary-500' : 'bg-black/20'}`}>
                                 {taskCountsByProject[project.id] || 0}
                             </span>
+                            {user && project.ownerId === user.uid && (
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); onOpenMemberManager(project); }} 
+                                        className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-700"
+                                        title="Chia sẻ & Quản lý thành viên"
+                                    >
+                                        <UserPlus size={16} />
+                                    </button>
+                                </div>
+                            )}
                         </button>
                     ))}
                 </div>

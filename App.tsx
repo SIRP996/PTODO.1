@@ -1,14 +1,10 @@
-
-
-
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
 import SourceSidebar from './components/SourceSidebar';
 import TaskInput from './components/TaskInput';
 import TaskList from './components/TaskList';
-// FIX: Add 'X' to lucide-react imports to be used as a close icon in modals.
-import { BellRing, ShieldOff, Loader2, List, LayoutGrid, Bot, Clock, Send, User, RotateCw, Settings, Link as LinkIcon, Check, BrainCircuit, X } from 'lucide-react';
+import { BellRing, ShieldOff, Loader2, List, LayoutGrid, Bot, Clock, Send, User, RotateCw, Settings, Link as LinkIcon, Check, BrainCircuit, X, UserPlus, Users, Mail, Trash2 } from 'lucide-react';
 import { Task, TaskStatus, Project, Filter, TaskTemplate, SectionKey } from './types';
 import { isPast, isToday, addDays, isWithinInterval, parseISO } from 'date-fns';
 import FocusModeOverlay from './components/FocusModeOverlay';
@@ -32,6 +28,7 @@ import ApplyTemplateModal from './components/ApplyTemplateModal';
 import { useToast } from './context/ToastContext';
 import { Chat, GoogleGenAI, Type } from '@google/genai';
 import { getGoogleGenAI } from './utils/gemini';
+import MemberManagerModal from './components/MemberManagerModal';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -239,7 +236,6 @@ const AIProjectPlannerModal: React.FC<{
 // --- EXTENSION GUIDE MODAL ---
 const ExtensionGuideModal: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
-// FIX: Removed leading backslash from multiline string declaration.
     const manifestCode = `{
   "manifest_version": 3,
   "name": "PTODO Quick Add",
@@ -261,7 +257,6 @@ const ExtensionGuideModal: React.FC<{ isOpen: boolean; onClose: () => void; }> =
   }
 }`;
 
-// FIX: Removed leading backslash and fixed inner template literals by using string concatenation to avoid parsing errors.
 const backgroundCode = `// background.js
 
 // QUAN TRỌNG: Thay thế bằng URL Cloud Function 'addTaskFromExtension' của bạn
@@ -332,7 +327,6 @@ async function addTask(text) {
   }
 }`;
 
-// FIX: Removed leading backslash from multiline string declaration.
 const popupHtmlCode = `<!DOCTYPE html>
 <html>
 <head>
@@ -360,7 +354,6 @@ const popupHtmlCode = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// FIX: Removed leading backslash and fixed inner template literals by using string concatenation to avoid parsing errors.
 const popupJsCode = `// popup.js
 
 // QUAN TRỌNG:
@@ -491,13 +484,14 @@ const App: React.FC = () => {
   const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading, isGuestMode, exitGuestMode } = useAuth();
   const { addToast } = useToast();
   
+  const { projects, addProject, inviteUserToProject, removeUserFromProject, cancelInvitation } = useProjects();
+  
   const { 
     tasks, addTask, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency,
     addSubtasksBatch, addTasksBatch, updateTaskText, updateTaskStatus, updateTaskNote, syncExistingTasksToCalendar,
     updateTask,
-  } = useTasks();
+  } = useTasks(projects);
 
-  const { projects, addProject } = useProjects();
   const { templates, addTemplate, updateTemplate, deleteTemplate } = useTaskTemplates();
   
   const [page, setPage] = useState<'main' | 'calendar'>('main');
@@ -523,6 +517,8 @@ const App: React.FC = () => {
   const [isPlannerModalOpen, setIsPlannerModalOpen] = useState(false);
   const [plannerInitialText, setPlannerInitialText] = useState('');
   const [isExtensionGuideOpen, setIsExtensionGuideOpen] = useState(false);
+  const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+  const [projectToManage, setProjectToManage] = useState<Project | null>(null);
 
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
@@ -537,6 +533,11 @@ const App: React.FC = () => {
 
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const sidebarResizeData = useRef<{ initialX: number; initialWidth: number } | null>(null);
+
+  const handleOpenMemberManager = (project: Project) => {
+    setProjectToManage(project);
+    setIsMemberModalOpen(true);
+  };
 
   const handleOpenApplyTemplateModal = (template: TaskTemplate) => {
     setSelectedTemplateForApply(template);
@@ -568,10 +569,8 @@ const App: React.FC = () => {
     if (newTaskId && selectedTemplateForApply.subtasks.length > 0) {
         const subtaskTexts = selectedTemplateForApply.subtasks.map(st => st.text);
         await addSubtasksBatch(newTaskId, subtaskTexts);
-// FIX: The string in this `addToast` call was not properly quoted, causing it to be interpreted as code.
         addToast(`Đã áp dụng mẫu "${selectedTemplateForApply.name}" với các tùy chỉnh của bạn!`, 'success');
     } else if (newTaskId) {
-// FIX: The string in this `addToast` call was not properly quoted, causing it to be interpreted as code.
         addToast(`Đã áp dụng mẫu "${selectedTemplateForApply.name}"!`, 'success');
     }
 
@@ -580,14 +579,14 @@ const App: React.FC = () => {
   
   const focusCompletionSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
 
   const notificationSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
@@ -865,6 +864,17 @@ const App: React.FC = () => {
         addSubtasksBatch={addSubtasksBatch}
       />
       <ExtensionGuideModal isOpen={isExtensionGuideOpen} onClose={() => setIsExtensionGuideOpen(false)} />
+      {projectToManage && currentUser && (
+        <MemberManagerModal
+            isOpen={isMemberModalOpen}
+            onClose={() => setIsMemberModalOpen(false)}
+            project={projectToManage}
+            currentUser={currentUser}
+            onInviteUser={inviteUserToProject}
+            onRemoveUser={removeUserFromProject}
+            onCancelInvitation={cancelInvitation}
+        />
+      )}
       {selectedTemplateForApply && (
         <ApplyTemplateModal
             isOpen={isApplyModalOpen}
@@ -910,6 +920,7 @@ const App: React.FC = () => {
                       notificationPermissionStatus={notificationPermissionStatus}
                       onRequestNotificationPermission={handleRequestPermission}
                       onOpenExtensionGuide={() => setIsExtensionGuideOpen(true)}
+                      onOpenMemberManager={handleOpenMemberManager}
                     />
                 </div>
 

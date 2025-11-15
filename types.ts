@@ -13,10 +13,30 @@ export interface UserSettings {
   telegramUsername?: string;
 }
 
+export interface UserProfile {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL?: string | null;
+}
+
+export interface Invitation {
+  id: string;
+  projectId: string;
+  projectName: string;
+  inviterId: string;
+  inviterName: string;
+  inviteeEmail: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
+}
+
+
 export interface Project {
   id: string;
   name: string;
-  userId: string;
+  ownerId: string;
+  memberIds: string[];
   createdAt: string;
   color: string;
   isVisible?: boolean;
@@ -37,6 +57,7 @@ export interface Task {
   note?: string;
   googleCalendarEventId?: string;
   projectId?: string;
+  assigneeIds: string[];
 }
 
 export interface SubtaskTemplate {

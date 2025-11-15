@@ -104,11 +104,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   async function signup(email: string, pass: string) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     if (userCredential.user) {
+      const user = userCredential.user;
       sessionStorage.removeItem(GUEST_MODE_KEY);
       setIsGuestMode(false);
       // Create user settings document on signup
-      const userDocRef = doc(db, 'users', userCredential.user.uid);
+      const userDocRef = doc(db, 'users', user.uid);
       await setDoc(userDocRef, {
+        displayName: user.displayName || email.split('@')[0],
+        email: user.email,
+        photoURL: user.photoURL,
         apiKey: '',
         googleSheetUrl: '',
         theme: 'default',
@@ -116,7 +120,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         createdAt: serverTimestamp(),
       });
       // Migrate tasks AFTER user doc is created
-      await migrateGuestTasks(userCredential.user.uid);
+      await migrateGuestTasks(user.uid);
     }
   }
 
@@ -128,12 +132,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const provider = new GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/calendar.events');
     const result = await signInWithPopup(auth, provider);
+    const user = result.user;
     
-    // Ensure the calendar link status is correct.
-    // onAuthStateChanged will create the user doc if it doesn't exist,
-    // so we can just merge this field in.
-    const userDocRef = doc(db, 'users', result.user.uid);
-    await setDoc(userDocRef, { isGoogleCalendarLinked: true }, { merge: true });
+    const userDocRef = doc(db, 'users', user.uid);
+    await setDoc(userDocRef, { 
+      displayName: user.displayName,
+      email: user.email,
+      photoURL: user.photoURL,
+      isGoogleCalendarLinked: true 
+    }, { merge: true });
 
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (credential?.accessToken) {
@@ -141,8 +148,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setGoogleAccessToken(credential.accessToken);
     }
     
-    // Migrate guest tasks if any, and exit guest mode state
-    await migrateGuestTasks(result.user.uid);
+    await migrateGuestTasks(user.uid);
     sessionStorage.removeItem(GUEST_MODE_KEY);
     setIsGuestMode(false);
   }
@@ -157,13 +163,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return sendPasswordResetEmail(auth, email);
   }
 
-  function updateUserProfile(name: string) {
+  async function updateUserProfile(name: string) {
     if (auth.currentUser) {
-      return updateProfile(auth.currentUser, {
-        displayName: name
-      });
+      await updateProfile(auth.currentUser, { displayName: name });
+      const userDocRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userDocRef, { displayName: name });
+    } else {
+      return Promise.reject(new Error("No user is logged in."));
     }
-    return Promise.reject(new Error("No user is logged in."));
   }
   
   async function updateUserSettings(settings: Partial<UserSettings>) {
@@ -177,7 +184,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userDocRef = doc(db, 'users', currentUser.uid);
       const settingsToUpdate: { [key: string]: any } = { ...settings };
       
-      // Handle unsetting fields
+      if (settings.avatarUrl) {
+          settingsToUpdate.photoURL = settings.avatarUrl;
+      }
+      if (settings.avatarUrl === '') {
+          settingsToUpdate.photoURL = currentUser.photoURL; // Reset to original auth photoURL
+      }
+
       for (const key in settingsToUpdate) {
         if (settingsToUpdate[key] === null || settingsToUpdate[key] === undefined) {
           settingsToUpdate[key] = deleteField();
@@ -201,7 +214,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             sessionStorage.setItem(GOOGLE_ACCESS_TOKEN_KEY, credential.accessToken);
             setGoogleAccessToken(credential.accessToken);
             await updateUserSettings({ isGoogleCalendarLinked: true });
-            // Fix: Optimistically update local state to avoid race conditions
             setUserSettings(current => ({...(current || {}), isGoogleCalendarLinked: true }));
         } else {
             throw new Error("Không nhận được token truy cập từ Google sau khi xác thực.");
@@ -219,7 +231,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         sessionStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY);
         setGoogleAccessToken(null);
         await updateUserSettings({ isGoogleCalendarLinked: false });
-        // Fix: Optimistically update local state to avoid race conditions
         setUserSettings(current => ({...(current || {}), isGoogleCalendarLinked: false }));
     } catch (error) {
         console.error("Error unlinking Google account:", error);
@@ -246,6 +257,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 setUserSettings(settings);
             } else {
                 setDoc(userDocRef, {
+                    displayName: user.displayName || user.email?.split('@')[0],
+                    email: user.email,
+                    photoURL: user.photoURL,
                     apiKey: '',
                     googleSheetUrl: '',
                     theme: 'default',
@@ -257,11 +271,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setLoading(false);
         }, error => {
             console.error("Error fetching user settings:", error);
-            setUserSettings({}); // Provide empty settings to avoid blocking the app
+            setUserSettings({}); 
             setLoading(false);
         });
       } else {
-        // If no user, clear token and finish loading if not in guest mode
         sessionStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY);
         setGoogleAccessToken(null);
         if (!sessionStorage.getItem(GUEST_MODE_KEY)) {
@@ -276,7 +289,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
-  // Effect to handle initial load for guest mode
   useEffect(() => {
     if (isGuestMode && !currentUser) {
       setLoading(false);
