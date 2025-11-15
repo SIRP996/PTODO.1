@@ -16,6 +16,8 @@ import {
   deleteField,
   getDocs,
   arrayRemove,
+  // FIX: Import `writeBatch` from firestore to resolve reference error.
+  writeBatch,
 } from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
 
@@ -135,8 +137,15 @@ export const useProjects = () => {
       return;
     }
     try {
-      await deleteDoc(doc(db, 'projects', projectId));
-      addToast("Đã xóa dự án.", 'success');
+      const q = query(collection(db, 'tasks'), where('projectId', '==', projectId));
+      const querySnapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      querySnapshot.forEach(doc => {
+          batch.delete(doc.ref);
+      });
+      batch.delete(doc(db, 'projects', projectId));
+      await batch.commit();
+      addToast("Đã xóa dự án và tất cả công việc liên quan.", 'success');
     } catch (error) {
       console.error("Error deleting project: ", error);
       addToast("Không thể xóa dự án.", 'error');
@@ -181,15 +190,14 @@ export const useProjects = () => {
     }
 
     try {
+        // Check if a user with this email is ALREADY a member
         const usersQuery = await getDocs(query(collection(db, 'users'), where('email', '==', inviteeEmail)));
-        if (usersQuery.empty) {
-            addToast(`Không tìm thấy người dùng với email: ${inviteeEmail}`, 'error');
-            return;
-        }
-        const inviteeUser = usersQuery.docs[0];
-        if (project.memberIds.includes(inviteeUser.id)) {
-            addToast("Người dùng này đã là thành viên của dự án.", "info");
-            return;
+        if (!usersQuery.empty) {
+            const inviteeUser = usersQuery.docs[0];
+            if (project.memberIds.includes(inviteeUser.id)) {
+                addToast("Người dùng này đã là thành viên của dự án.", "info");
+                return;
+            }
         }
 
         const existingInvitationQuery = await getDocs(query(

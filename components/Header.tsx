@@ -1,11 +1,19 @@
-
 import React from 'react';
-import { CalendarDays, Minimize, Maximize } from 'lucide-react';
+import { CalendarDays, Minimize, Maximize, Bell } from 'lucide-react';
+import NotificationPanel from './NotificationPanel';
+import { Invitation } from '../types';
 
 interface HeaderProps {
     onSwitchToCalendar: () => void;
     onToggleZenMode: () => void;
     isZenMode: boolean;
+    notificationCount: number;
+    isNotificationPanelOpen: boolean;
+    onToggleNotifications: () => void;
+    onCloseNotifications: () => void;
+    notifications: Invitation[];
+    onAcceptInvitation: (invitation: Invitation) => Promise<void>;
+    onDeclineInvitation: (invitationId: string) => Promise<void>;
 }
 
 const PtodoLogo: React.FC = () => (
@@ -16,7 +24,18 @@ const PtodoLogo: React.FC = () => (
 );
 
 
-const Header: React.FC<HeaderProps> = ({ onSwitchToCalendar, onToggleZenMode, isZenMode }) => {
+const Header: React.FC<HeaderProps> = ({ 
+    onSwitchToCalendar, 
+    onToggleZenMode, 
+    isZenMode,
+    notificationCount,
+    isNotificationPanelOpen,
+    onToggleNotifications,
+    onCloseNotifications,
+    notifications,
+    onAcceptInvitation,
+    onDeclineInvitation
+ }) => {
     return (
         <header className="flex justify-between items-center">
             <div className="flex items-center">
@@ -28,7 +47,7 @@ const Header: React.FC<HeaderProps> = ({ onSwitchToCalendar, onToggleZenMode, is
                     <p className="text-slate-400">Trình quản lý công việc cá nhân của bạn</p>
                 </div>
             </div>
-             <div className="flex items-center justify-end gap-2">
+             <div className="relative flex items-center justify-end gap-2">
                 <button
                     onClick={onSwitchToCalendar}
                     className="flex items-center justify-center gap-2 bg-slate-700/50 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 px-4 rounded-lg transition-colors duration-200"
@@ -49,6 +68,25 @@ const Header: React.FC<HeaderProps> = ({ onSwitchToCalendar, onToggleZenMode, is
                     {isZenMode ? <Maximize className="h-4 w-4" /> : <Minimize className="h-4 w-4" />}
                     <span className="hidden sm:inline">{isZenMode ? "Hiển thị Sidebar" : "Zen Mode"}</span>
                 </button>
+                <button
+                    onClick={onToggleNotifications}
+                    className="relative flex items-center justify-center bg-slate-700/50 hover:bg-slate-700 text-slate-300 font-semibold p-2.5 rounded-lg transition-colors duration-200"
+                    title="Thông báo"
+                >
+                    <Bell className="h-4 w-4" />
+                    {notificationCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white ring-2 ring-[#0F172A]">
+                            {notificationCount}
+                        </span>
+                    )}
+                </button>
+                <NotificationPanel
+                  isOpen={isNotificationPanelOpen}
+                  onClose={onCloseNotifications}
+                  notifications={notifications}
+                  onAccept={onAcceptInvitation}
+                  onDecline={onDeclineInvitation}
+                />
             </div>
         </header>
     );

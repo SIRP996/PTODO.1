@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, createContext, ReactNode } from 'react';
+import React, { useContext, useState, useEffect, createContext, ReactNode, useCallback } from 'react';
 import { auth, db } from '../firebaseConfig';
 import { 
   User, 
@@ -14,8 +14,9 @@ import {
   UserCredential,
   signInWithPopup,
 } from 'firebase/auth';
-import { doc, onSnapshot, serverTimestamp, setDoc, writeBatch, collection, updateDoc, deleteField } from 'firebase/firestore';
+import { doc, onSnapshot, serverTimestamp, setDoc, writeBatch, collection, updateDoc, deleteField, query, where, getDocs, arrayUnion } from 'firebase/firestore';
 import { UserSettings, Task } from '../types';
+import { useToast } from './ToastContext';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -63,6 +64,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isGuestMode, setIsGuestMode] = useState(() => {
       return sessionStorage.getItem(GUEST_MODE_KEY) === 'true';
   });
+  const { addToast } = useToast();
+
+  const handlePendingInvitations = useCallback(async (user: User) => {
+    if (!user.email) return;
+
+    const invitationsQuery = query(
+        collection(db, 'invitations'),
+        where('inviteeEmail', '==', user.email),
+        where('status', '==', 'pending')
+    );
+
+    const querySnapshot = await getDocs(invitationsQuery);
+    if (querySnapshot.empty) return;
+
+    const batch = writeBatch(db);
+    const projectNames: string[] = [];
+
+    querySnapshot.forEach(docSnap => {
+        const invitation = docSnap.data();
+        
+        const projectRef = doc(db, 'projects', invitation.projectId);
+        batch.update(projectRef, {
+            memberIds: arrayUnion(user.uid)
+        });
+
+        const invitationRef = doc(db, 'invitations', docSnap.id);
+        batch.update(invitationRef, { status: 'accepted' });
+        projectNames.push(invitation.projectName);
+    });
+
+    try {
+        await batch.commit();
+        if (projectNames.length > 0) {
+            addToast(`Bạn đã được tự động thêm vào dự án: ${projectNames.join(', ')}`, 'success');
+        }
+    } catch (error) {
+        console.error("Error auto-accepting invitations: ", error);
+    }
+  }, [addToast]);
 
   const enterGuestMode = () => {
     if (currentUser) {
@@ -247,6 +287,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUserSettings(null);
       
       if (user) {
+        handlePendingInvitations(user);
         sessionStorage.removeItem(GUEST_MODE_KEY);
         setIsGuestMode(false);
         setLoading(true);
@@ -287,7 +328,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         unsubscribeAuth();
         unsubscribeSettings();
     };
-  }, []);
+  }, [handlePendingInvitations]);
 
   useEffect(() => {
     if (isGuestMode && !currentUser) {

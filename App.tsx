@@ -29,6 +29,7 @@ import { useToast } from './context/ToastContext';
 import { Chat, GoogleGenAI, Type } from '@google/genai';
 import { getGoogleGenAI } from './utils/gemini';
 import MemberManagerModal from './components/MemberManagerModal';
+import { useNotifications } from './hooks/useNotifications';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -493,6 +494,7 @@ const App: React.FC = () => {
   } = useTasks(projects);
 
   const { templates, addTemplate, updateTemplate, deleteTemplate } = useTaskTemplates();
+  const { notifications, acceptInvitation, declineInvitation } = useNotifications();
   
   const [page, setPage] = useState<'main' | 'calendar'>('main');
   const [showAuthPage, setShowAuthPage] = useState(false);
@@ -519,6 +521,7 @@ const App: React.FC = () => {
   const [isExtensionGuideOpen, setIsExtensionGuideOpen] = useState(false);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [projectToManage, setProjectToManage] = useState<Project | null>(null);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
 
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
@@ -894,6 +897,13 @@ const App: React.FC = () => {
                     onSwitchToCalendar={() => setPage('calendar')} 
                     onToggleZenMode={() => setIsZenMode(prev => !prev)}
                     isZenMode={isZenMode}
+                    notificationCount={notifications.length}
+                    isNotificationPanelOpen={isNotificationPanelOpen}
+                    onToggleNotifications={() => setIsNotificationPanelOpen(p => !p)}
+                    onCloseNotifications={() => setIsNotificationPanelOpen(false)}
+                    notifications={notifications}
+                    onAcceptInvitation={acceptInvitation}
+                    onDeclineInvitation={declineInvitation}
                   />
               </div>
               
