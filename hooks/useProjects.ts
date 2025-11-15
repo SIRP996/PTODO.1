@@ -40,22 +40,46 @@ export const useUserProfiles = (userIds: string[]) => {
 
     useEffect(() => {
         const fetchProfiles = async () => {
-            // Add current user's ID to the list to ensure their profile is always considered.
             const allIds = currentUser ? [...userIds, currentUser.uid] : userIds;
             const uniqueUserIds = [...new Set(allIds)];
 
             if (uniqueUserIds.length === 0) {
-                setProfiles(new Map());
+                setProfiles(new Map()); // Clear if no users
+                return;
+            }
+
+            // Find IDs that are not yet in our state, or are placeholders.
+            const idsToFetch = uniqueUserIds.filter(id => {
+                const existingProfile = profiles.get(id);
+                return !existingProfile || existingProfile.displayName === 'Unnamed User';
+            });
+            
+            // If nothing to fetch, we're done (unless currentUser info has changed).
+            if (idsToFetch.length === 0) {
+                 if (currentUser) {
+                    const existingProfile = profiles.get(currentUser.uid);
+                    if (!existingProfile || existingProfile.displayName !== (currentUser.displayName || (currentUser.email || '').split('@')[0]) || existingProfile.photoURL !== currentUser.photoURL) {
+                        setProfiles(prevProfiles => {
+                            const newProfiles = new Map(prevProfiles);
+                            newProfiles.set(currentUser.uid, {
+                                uid: currentUser.uid,
+                                displayName: currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Current User'),
+                                email: currentUser.email || 'N/A',
+                                photoURL: currentUser.photoURL,
+                            });
+                            return newProfiles;
+                        });
+                    }
+                }
                 return;
             }
 
             setLoading(true);
-            const newProfiles = new Map<string, UserProfile>();
-
             try {
                 // Fetch profiles from Firestore in chunks
-                for (let i = 0; i < uniqueUserIds.length; i += 30) {
-                    const chunk = uniqueUserIds.slice(i, i + 30);
+                const fetchedProfiles = new Map<string, UserProfile>();
+                for (let i = 0; i < idsToFetch.length; i += 30) {
+                    const chunk = idsToFetch.slice(i, i + 30);
                     if (chunk.length === 0) continue;
                     
                     const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
@@ -63,7 +87,7 @@ export const useUserProfiles = (userIds: string[]) => {
                     
                     querySnapshot.forEach(docSnap => {
                         const data = docSnap.data();
-                        newProfiles.set(docSnap.id, {
+                        fetchedProfiles.set(docSnap.id, {
                             uid: docSnap.id,
                             displayName: data.displayName || (data.email ? data.email.split('@')[0] : 'Unnamed User'),
                             email: data.email || 'N/A',
@@ -71,32 +95,43 @@ export const useUserProfiles = (userIds: string[]) => {
                         });
                     });
                 }
+                
+                // Update state by merging new results
+                setProfiles(prevProfiles => {
+                    const newProfiles = new Map(prevProfiles);
+                    
+                    // Add all successfully fetched profiles
+                    fetchedProfiles.forEach((profile, uid) => {
+                        newProfiles.set(uid, profile);
+                    });
+                    
+                    // Add placeholders ONLY for IDs we tried to fetch but couldn't find
+                    idsToFetch.forEach(id => {
+                        if (!fetchedProfiles.has(id)) {
+                            // Don't overwrite if we already have some (maybe stale) data
+                            if (!newProfiles.has(id)) {
+                                newProfiles.set(id, {
+                                    uid: id,
+                                    displayName: 'Unnamed User',
+                                    email: 'N/A',
+                                    photoURL: null,
+                                });
+                            }
+                        }
+                    });
 
-                // Create placeholders for any users not found in Firestore.
-                uniqueUserIds.forEach(id => {
-                    if (!newProfiles.has(id)) {
-                        newProfiles.set(id, {
-                            uid: id,
-                            displayName: 'Unnamed User',
-                            email: 'N/A',
-                            photoURL: null,
+                    // Finally, always ensure the current user's data is fresh from the auth context.
+                    if (currentUser) {
+                        newProfiles.set(currentUser.uid, {
+                            uid: currentUser.uid,
+                            displayName: currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Current User'),
+                            email: currentUser.email || 'N/A',
+                            photoURL: currentUser.photoURL,
                         });
                     }
+                    
+                    return newProfiles;
                 });
-                
-                // CRITICAL FIX: After all fetching and placeholder creation,
-                // ALWAYS overwrite the current user's profile with fresh data from the auth context.
-                // This resolves any race conditions where Firestore data might be stale or missing.
-                if (currentUser) {
-                    newProfiles.set(currentUser.uid, {
-                        uid: currentUser.uid,
-                        displayName: currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Current User'),
-                        email: currentUser.email || 'N/A',
-                        photoURL: currentUser.photoURL,
-                    });
-                }
-
-                setProfiles(newProfiles);
 
             } catch (error) {
                 console.error("Error fetching user profiles:", error);
@@ -106,7 +141,7 @@ export const useUserProfiles = (userIds: string[]) => {
         };
 
         fetchProfiles();
-    }, [JSON.stringify(userIds), currentUser]); // Reruns when userIds or the currentUser object changes.
+    }, [JSON.stringify(userIds), currentUser]);
 
     return { profiles, loading };
 };
