@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -536,6 +537,18 @@ const App: React.FC = () => {
 
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const sidebarResizeData = useRef<{ initialX: number; initialWidth: number } | null>(null);
+
+  // Handle invitation link from URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const invitationId = urlParams.get('invitationId');
+    if (invitationId) {
+      sessionStorage.setItem('pendingInvitationId', invitationId);
+      // Clean the URL
+      const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    }
+  }, []);
 
   const handleOpenMemberManager = (project: Project) => {
     setProjectToManage(project);

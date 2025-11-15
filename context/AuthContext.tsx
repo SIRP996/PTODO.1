@@ -1,3 +1,4 @@
+
 import React, { useContext, useState, useEffect, createContext, ReactNode, useCallback } from 'react';
 import { auth, db } from '../firebaseConfig';
 import { 
@@ -14,7 +15,7 @@ import {
   UserCredential,
   signInWithPopup,
 } from 'firebase/auth';
-import { doc, onSnapshot, serverTimestamp, setDoc, writeBatch, collection, updateDoc, deleteField, query, where, getDocs, arrayUnion } from 'firebase/firestore';
+import { doc, onSnapshot, serverTimestamp, setDoc, writeBatch, collection, updateDoc, deleteField, query, where, getDocs, arrayUnion, getDoc } from 'firebase/firestore';
 import { UserSettings, Task } from '../types';
 import { useToast } from './ToastContext';
 
@@ -55,6 +56,7 @@ interface AuthProviderProps {
 const GUEST_TASKS_KEY = 'ptodo-guest-tasks';
 const GUEST_MODE_KEY = 'ptodo-is-guest';
 const GOOGLE_ACCESS_TOKEN_KEY = 'ptodo-google-token';
+const PENDING_INVITATION_ID = 'pendingInvitationId';
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -69,38 +71,61 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const handlePendingInvitations = useCallback(async (user: User) => {
     if (!user.email) return;
 
+    const projectNames: string[] = [];
+    const batch = writeBatch(db);
+    let invitationsFound = false;
+
+    // 1. Check for invitation from URL
+    const pendingInvitationId = sessionStorage.getItem(PENDING_INVITATION_ID);
+    if (pendingInvitationId) {
+      const invRef = doc(db, 'invitations', pendingInvitationId);
+      const invSnap = await getDoc(invRef);
+      if (invSnap.exists()) {
+        const invitation = invSnap.data();
+        if (invitation.inviteeEmail === user.email && invitation.status === 'pending') {
+          const projectRef = doc(db, 'projects', invitation.projectId);
+          batch.update(projectRef, { memberIds: arrayUnion(user.uid) });
+          batch.update(invRef, { status: 'accepted' });
+          projectNames.push(invitation.projectName);
+          invitationsFound = true;
+        }
+      }
+      sessionStorage.removeItem(PENDING_INVITATION_ID);
+    }
+    
+    // 2. Check for other invitations matching user's email
     const invitationsQuery = query(
         collection(db, 'invitations'),
         where('inviteeEmail', '==', user.email),
         where('status', '==', 'pending')
     );
-
     const querySnapshot = await getDocs(invitationsQuery);
-    if (querySnapshot.empty) return;
+    if (!querySnapshot.empty) {
+      querySnapshot.forEach(docSnap => {
+        // Avoid processing the one from the link again
+        if (docSnap.id !== pendingInvitationId) {
+          const invitation = docSnap.data();
+          const projectRef = doc(db, 'projects', invitation.projectId);
+          batch.update(projectRef, { memberIds: arrayUnion(user.uid) });
+          const invitationRef = doc(db, 'invitations', docSnap.id);
+          batch.update(invitationRef, { status: 'accepted' });
+          if (!projectNames.includes(invitation.projectName)) {
+              projectNames.push(invitation.projectName);
+          }
+          invitationsFound = true;
+        }
+      });
+    }
 
-    const batch = writeBatch(db);
-    const projectNames: string[] = [];
-
-    querySnapshot.forEach(docSnap => {
-        const invitation = docSnap.data();
-        
-        const projectRef = doc(db, 'projects', invitation.projectId);
-        batch.update(projectRef, {
-            memberIds: arrayUnion(user.uid)
-        });
-
-        const invitationRef = doc(db, 'invitations', docSnap.id);
-        batch.update(invitationRef, { status: 'accepted' });
-        projectNames.push(invitation.projectName);
-    });
-
-    try {
+    if (invitationsFound) {
+      try {
         await batch.commit();
         if (projectNames.length > 0) {
-            addToast(`Bạn đã được tự động thêm vào dự án: ${projectNames.join(', ')}`, 'success');
+          addToast(`Bạn đã được tự động thêm vào dự án: ${projectNames.join(', ')}`, 'success');
         }
-    } catch (error) {
+      } catch (error) {
         console.error("Error auto-accepting invitations: ", error);
+      }
     }
   }, [addToast]);
 

@@ -1,5 +1,6 @@
+
 import { useState, useEffect, useCallback } from 'react';
-import { Project } from '../types';
+import { Project, UserProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebaseConfig';
 import {
@@ -16,7 +17,6 @@ import {
   deleteField,
   getDocs,
   arrayRemove,
-  // FIX: Import `writeBatch` from firestore to resolve reference error.
   writeBatch,
 } from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
@@ -30,6 +30,56 @@ const PROJECT_COLORS = [
   '#14b8a6', // teal
   '#3b82f6', // blue
 ];
+
+// Custom hook to fetch and cache user profiles
+export const useUserProfiles = (userIds: string[]) => {
+    const [profiles, setProfiles] = useState<Map<string, UserProfile>>(new Map());
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchProfiles = async () => {
+            if (userIds.length === 0) {
+                setProfiles(new Map());
+                return;
+            }
+            setLoading(true);
+            const idsToFetch = userIds.filter(id => !profiles.has(id));
+            if (idsToFetch.length === 0) {
+                setLoading(false);
+                return;
+            }
+
+            const newProfiles = new Map(profiles);
+            try {
+                 // Firestore 'in' query is limited to 30 elements. Chunking is needed for more users.
+                for (let i = 0; i < idsToFetch.length; i += 10) {
+                    const chunk = idsToFetch.slice(i, i + 10);
+                    const usersQuery = query(collection(db, "users"), where("__name__", "in", chunk));
+                    const querySnapshot = await getDocs(usersQuery);
+                    querySnapshot.forEach(docSnap => {
+                        const data = docSnap.data();
+                        newProfiles.set(docSnap.id, {
+                            uid: docSnap.id,
+                            displayName: data.displayName || 'Unnamed User',
+                            email: data.email,
+                            photoURL: data.photoURL || data.avatarUrl,
+                        });
+                    });
+                }
+                setProfiles(newProfiles);
+            } catch (error) {
+                console.error("Error fetching user profiles:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProfiles();
+    }, [JSON.stringify(userIds)]); // Rerun when the list of IDs changes
+
+    return { profiles, loading };
+};
+
 
 export const useProjects = () => {
   const { currentUser } = useAuth();
@@ -190,7 +240,6 @@ export const useProjects = () => {
     }
 
     try {
-        // Check if a user with this email is ALREADY a member
         const usersQuery = await getDocs(query(collection(db, 'users'), where('email', '==', inviteeEmail)));
         if (!usersQuery.empty) {
             const inviteeUser = usersQuery.docs[0];
@@ -221,7 +270,7 @@ export const useProjects = () => {
             status: 'pending',
             createdAt: serverTimestamp(),
         });
-        addToast(`Đã gửi lời mời đến ${inviteeEmail}!`, 'success');
+        addToast(`Đã gửi lời mời đến ${inviteeEmail}! Email sẽ được gửi ngay sau đây.`, 'success');
     } catch (error) {
         addToast("Không thể gửi lời mời.", 'error');
     }

@@ -9,20 +9,23 @@
  * 3. Trong thư mục gốc của dự án, khởi tạo Functions: `firebase init functions`
  *    - Chọn TypeScript hoặc JavaScript (mã này là JS).
  *    - Chọn dự án Firebase của bạn.
- *    - Cài đặt các dependencies: `cd functions && npm install node-fetch @google/genai firebase-admin firebase-functions`
+ *    - Cài đặt các dependencies: `cd functions && npm install node-fetch @google/genai firebase-admin firebase-functions nodemailer`
  * 4. Dán mã này vào file `functions/index.js`.
  * 5. Cấu hình biến môi trường (Rất quan trọng cho bảo mật):
  *    `firebase functions:config:set telegram.token="YOUR_TELEGRAM_BOT_TOKEN"`
  *    `firebase functions:config:set gemini.key="YOUR_GEMINI_API_KEY"`
+ *    `firebase functions:config:set mail.service="Gmail"` (hoặc dịch vụ khác như SendGrid)
+ *    `firebase functions:config:set mail.user="your-email@gmail.com"`
+ *    `firebase functions:config:set mail.pass="your-app-password"` (Nếu dùng Gmail, đây là mật khẩu ứng dụng)
+ *    `firebase functions:config:set app.url="https://your-app-url.com"` (URL của ứng dụng web PTODO)
  * 6. Triển khai: `firebase deploy --only functions`
- * 7. Sau khi triển khai, Firebase sẽ cung cấp một URL cho hàm `telegramWebhook`.
- *    Sử dụng URL đó để đăng ký webhook với Telegram Bot thông qua API của Telegram.
  */
 
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const fetch = require("node-fetch");
 const { GoogleGenAI, Type } = require("@google/genai");
+const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -30,6 +33,17 @@ const db = admin.firestore();
 // Lấy biến môi trường đã cấu hình
 const TELEGRAM_TOKEN = functions.config().telegram.token;
 const GEMINI_API_KEY = functions.config().gemini.key;
+const APP_URL = functions.config().app.url || "http://localhost:3000";
+
+// Cấu hình Nodemailer
+const transporter = nodemailer.createTransport({
+    service: functions.config().mail.service,
+    auth: {
+        user: functions.config().mail.user,
+        pass: functions.config().mail.pass,
+    },
+});
+
 
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -93,6 +107,51 @@ async function parseTaskWithGemini(text) {
 
 
 // --- CLOUD FUNCTIONS ---
+
+/**
+ * Gửi email mời khi một document mới được tạo trong collection 'invitations'.
+ */
+exports.sendProjectInvitationEmail = functions.firestore
+    .document("invitations/{invitationId}")
+    .onCreate(async (snap, context) => {
+        const { invitationId } = context.params;
+        const invitation = snap.data();
+
+        // Ngăn chặn việc gửi lại email nếu hàm được trigger lại một cách không mong muốn
+        if (invitation.emailSent) {
+            functions.logger.log("Email already sent for this invitation:", invitationId);
+            return null;
+        }
+
+        const invitationLink = `${APP_URL}?invitationId=${invitationId}`;
+        const mailOptions = {
+            from: `"PTODO App" <${functions.config().mail.user}>`,
+            to: invitation.inviteeEmail,
+            subject: `[PTODO] Lời mời tham gia dự án "${invitation.projectName}"`,
+            html: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                    <h2>Chào bạn,</h2>
+                    <p><b>${invitation.inviterName}</b> đã mời bạn tham gia vào dự án <b>"${invitation.projectName}"</b> trên PTODO.</p>
+                    <p>Nhấn vào nút bên dưới để chấp nhận lời mời và bắt đầu cộng tác:</p>
+                    <a href="${invitationLink}" style="background-color: #6D28D9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Chấp nhận lời mời</a>
+                    <p>Nếu bạn chưa có tài khoản, bạn sẽ được hướng dẫn đăng ký. Sau khi đăng ký, bạn sẽ được tự động thêm vào dự án.</p>
+                    <p>Trân trọng,<br/>Đội ngũ PTODO</p>
+                </div>
+            `,
+        };
+
+        try {
+            await transporter.sendMail(mailOptions);
+            functions.logger.log("Invitation email sent to:", invitation.inviteeEmail);
+            // Đánh dấu là email đã được gửi
+            return snap.ref.update({ emailSent: true });
+        } catch (error) {
+            functions.logger.error("Error sending email:", error);
+            // Có thể thêm logic để thử gửi lại sau
+            return null;
+        }
+    });
+
 
 /**
  * Hàm có thể gọi từ client (Callable Function) cho tiện ích mở rộng trình duyệt.
