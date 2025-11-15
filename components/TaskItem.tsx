@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, MouseEvent, TouchEvent, useEffect, KeyboardEvent } from 'react';
-import { Task, TaskStatus } from '../types';
-import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Pickaxe, StickyNote, Plus } from 'lucide-react';
+import { Task, TaskStatus, Project } from '../types';
+import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Pickaxe, StickyNote, Plus, Save, X } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
@@ -10,6 +9,7 @@ import { useToast } from '../context/ToastContext';
 interface TaskItemProps {
   task: Task;
   subtasks: Task[];
+  projects: Project[];
   onToggleTask: (id: string) => void;
   onDeleteTask: (id:string) => void;
   onUpdateTaskDueDate: (id: string, newDueDate: string | null) => void;
@@ -21,11 +21,13 @@ interface TaskItemProps {
   onUpdateTaskText: (id: string, newText: string) => void;
   onUpdateTaskStatus: (id: string, status: TaskStatus) => void;
   onUpdateTaskNote: (id: string, note: string) => void;
+  onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+  style?: React.CSSProperties;
 }
 
 const SWIPE_THRESHOLD = 80;
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote, onUpdateTask, style }) => {
   const isOverdue = task.dueDate && task.status !== 'completed' && isPast(new Date(task.dueDate));
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
@@ -39,30 +41,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   const currentTranslateXRef = useRef(0);
   
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(task.text);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [editState, setEditState] = useState<Task | null>(null);
 
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editNoteText, setEditNoteText] = useState(task.note || '');
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [newSubtaskText, setNewSubtaskText] = useState('');
-
-  // New state for editing subtasks
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [editingSubtaskText, setEditingSubtaskText] = useState('');
   const subtaskInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isEditing) {
-      const textarea = textareaRef.current;
-      if (textarea) {
-        textarea.focus();
-        textarea.style.height = 'auto';
-        textarea.style.height = `${textarea.scrollHeight}px`;
-      }
-    }
-  }, [isEditing]);
+  
+  const [currentEditTag, setCurrentEditTag] = useState('');
 
   useEffect(() => {
     if (isEditingNote && noteTextareaRef.current) {
@@ -78,36 +68,75 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
     }
   }, [editingSubtaskId]);
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setEditText(e.target.value);
-    const textarea = e.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  };
-
-  const handleSave = () => {
-    if (editText.trim() && editText.trim() !== task.text) {
-      onUpdateTaskText(task.id, editText);
-    }
-    setIsEditing(false);
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSave();
-    }
-    if (e.key === 'Escape') {
-      setIsEditing(false);
-      setEditText(task.text);
-    }
-  };
-
   const startEditing = () => {
     if (task.status === 'completed' || isGeneratingSubtasks) return;
-    setEditText(task.text);
+    setEditState({ ...task });
     setIsEditing(true);
   };
+
+  const handleCancelEditing = () => {
+    setIsEditing(false);
+    setEditState(null);
+  };
+
+  const handleSaveEditing = () => {
+    if (!editState) return;
+    const updates: Partial<Task> = {};
+    const originalTask = task;
+
+    (Object.keys(editState) as Array<keyof Task>).forEach(key => {
+        if (key === 'hashtags') {
+            if (JSON.stringify(editState[key]) !== JSON.stringify(originalTask[key])) {
+                updates[key] = editState[key];
+            }
+        } else if (editState[key] !== originalTask[key]) {
+            // FIX: Cast the object being assigned to `any` to avoid TS error with dynamic keys.
+            (updates as any)[key] = editState[key];
+        }
+    });
+    
+    // Ensure projectId is set to undefined if it's an empty string
+    if(updates.projectId === '') {
+        updates.projectId = undefined;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      onUpdateTask(task.id, updates);
+    }
+    setIsEditing(false);
+    setEditState(null);
+  };
+  
+  const handleEditChange = (updates: Partial<Task>) => {
+    if (editState) {
+      setEditState({ ...editState, ...updates });
+    }
+  };
+
+  const handleEditTagKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && currentEditTag.trim() && editState) {
+      e.preventDefault();
+      const newTag = currentEditTag.trim().toLowerCase();
+      if (!editState.hashtags.includes(newTag)) {
+        handleEditChange({ hashtags: [...editState.hashtags, newTag] });
+      }
+      setCurrentEditTag('');
+    }
+  };
+
+  const removeEditTag = (tagToRemove: string) => {
+    if (editState) {
+      handleEditChange({ hashtags: editState.hashtags.filter(tag => tag !== tagToRemove) });
+    }
+  };
+
+  const recurrenceOptions: Array<{id: 'none' | 'daily' | 'weekly' | 'monthly', label: string}> = [
+      { id: 'none', label: 'Không lặp lại'},
+      { id: 'daily', label: 'Hàng ngày'},
+      { id: 'weekly', label: 'Hàng tuần'},
+      { id: 'monthly', label: 'Hàng tháng'},
+  ];
+
 
   const handleSaveNote = () => {
     if (editNoteText.trim() !== (task.note || '').trim()) {
@@ -259,7 +288,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
   const dueDateForInput = task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd'T'HH:mm") : '';
 
   return (
-    <div className="relative overflow-hidden border-b border-slate-700/50 last:border-b-0">
+    <div
+      className="relative overflow-hidden border-b border-slate-700/50 last:border-b-0 animate-fadeIn"
+      style={style}
+    >
        {isGeneratingSubtasks && (
           <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-20">
               <Loader2 size={24} className="animate-spin text-primary-400" />
@@ -288,7 +320,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         onTouchEnd={onTouchEnd}
       >
         <div className="flex-shrink-0 mt-1">
-            {task.status !== 'completed' && (
+            {!isEditing && task.status !== 'completed' && (
                 <button 
                     onClick={() => onStartFocus(task)}
                     className="mr-3 text-slate-500 hover:text-primary-400 transition-colors"
@@ -300,76 +332,80 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
         </div>
         
         <div className="ml-0 flex-grow">
-          {isEditing ? (
-            <textarea
-              ref={textareaRef}
-              value={editText}
-              onChange={handleTextChange}
-              onBlur={handleSave}
-              onKeyDown={handleKeyDown}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:ring-1 focus:ring-primary-500 rounded-md p-2 -m-2 text-sm resize-none overflow-hidden block"
-              rows={1}
-            />
-          ) : (
-            <p 
-                className={`${task.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-200'}`}
-            >
-                {task.text}
-            </p>
-          )}
-
-          {task.hashtags && task.hashtags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {task.hashtags.map(tag => (
-                <span key={tag} className="px-2 py-0.5 text-xs font-medium text-primary-200 bg-primary-900/50 rounded-full">
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
-          
-          <div className="flex items-center gap-4">
-            {!isEditingDate && (
-              <div 
-                className={`flex items-center text-xs mt-2 ${isOverdue ? 'text-red-400' : task.dueDate ? 'text-slate-400' : 'text-slate-500'} ${task.status === 'completed' ? '' : 'cursor-pointer'}`}
-                onClick={() => task.status !== 'completed' && setIsEditingDate(true)}
-                title={task.status !== 'completed' ? (task.dueDate ? "Chỉnh sửa ngày hết hạn" : "Thêm ngày hết hạn") : ""}
-              >
-                <Calendar size={14} className="mr-1.5" />
-                {task.dueDate ? (
-                  <>
-                    <span>{format(new Date(task.dueDate), "dd/MM/yyyy 'lúc' h:mm a")}</span>
-                    {isOverdue && <span className="ml-2 px-2 py-0.5 bg-red-500 text-white rounded-md font-bold text-[10px]">(Quá hạn)</span>}
-                  </>
-                ) : (
-                  <span>Thêm ngày hết hạn</span>
-                )}
-              </div>
+            {isEditing && editState ? (
+                <div className="space-y-4" onClick={e => e.stopPropagation()}>
+                    <textarea
+                        value={editState.text}
+                        onChange={(e) => handleEditChange({ text: e.target.value })}
+                        className="w-full bg-[#293548] text-slate-200 border border-primary-600 focus:ring-1 focus:ring-primary-500 rounded-md p-2 text-sm resize-y"
+                        rows={2}
+                        autoFocus
+                    />
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Dự án</label>
+                        <select value={editState.projectId || ''} onChange={(e) => handleEditChange({ projectId: e.target.value || undefined })} className="w-full bg-[#293548] text-slate-200 border border-slate-600 rounded-lg px-2 py-1 text-sm">
+                            <option value="">Không thuộc dự án nào</option>
+                            {projects.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Thẻ</label>
+                        <div className="flex flex-wrap items-center gap-1 p-1 bg-[#293548] border border-slate-600 rounded-lg">
+                            {editState.hashtags.map(tag => (
+                                <span key={tag} className="flex items-center bg-primary-500 text-white text-xs px-2 py-1 rounded-full">
+                                    #{tag}
+                                    <button type="button" onClick={() => removeEditTag(tag)} className="ml-1.5"><X size={12} /></button>
+                                </span>
+                            ))}
+                            <input type="text" value={currentEditTag} onChange={(e) => setCurrentEditTag(e.target.value)} onKeyDown={handleEditTagKeyDown} placeholder="Thêm thẻ..." className="flex-grow bg-transparent focus:ring-0 border-0 p-1 text-xs"/>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Thời hạn</label>
+                            <input type="datetime-local" value={editState.dueDate ? format(new Date(editState.dueDate), "yyyy-MM-dd'T'HH:mm") : ''} onChange={(e) => handleEditChange({ dueDate: e.target.value ? new Date(e.target.value).toISOString() : null })} className="w-full bg-[#293548] text-slate-200 border border-slate-600 rounded-lg px-2 py-1 text-sm"/>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Lặp lại</label>
+                            <select value={editState.recurrenceRule || 'none'} onChange={(e) => handleEditChange({ recurrenceRule: e.target.value as Task['recurrenceRule'] })} disabled={!editState.dueDate} className="w-full bg-[#293548] text-slate-200 border border-slate-600 rounded-lg px-2 py-1 text-sm disabled:opacity-50">
+                                {recurrenceOptions.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="flex items-center">
+                        <input type="checkbox" id={`urgent-edit-${task.id}`} checked={editState.isUrgent} onChange={(e) => handleEditChange({ isUrgent: e.target.checked })} className="h-4 w-4 rounded bg-slate-700 border-slate-500 text-primary-600 focus:ring-primary-500"/>
+                        <label htmlFor={`urgent-edit-${task.id}`} className="ml-2 text-sm text-slate-300">Công việc khẩn cấp</label>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <p className={`${task.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{task.text}</p>
+                    {task.hashtags && task.hashtags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                        {task.hashtags.map(tag => (
+                            <span key={tag} className="px-2 py-0.5 text-xs font-medium text-primary-200 bg-primary-900/50 rounded-full">#{tag}</span>
+                        ))}
+                        </div>
+                    )}
+                    <div className="flex items-center gap-4">
+                        {!isEditingDate && (
+                        <div className={`flex items-center text-xs mt-2 ${isOverdue ? 'text-red-400' : task.dueDate ? 'text-slate-400' : 'text-slate-500'} ${task.status === 'completed' ? '' : 'cursor-pointer'}`} onClick={() => task.status !== 'completed' && setIsEditingDate(true)} title={task.status !== 'completed' ? (task.dueDate ? "Chỉnh sửa ngày hết hạn" : "Thêm ngày hết hạn") : ""}>
+                            <Calendar size={14} className="mr-1.5" />
+                            {task.dueDate ? (
+                                <>
+                                    <span>{format(new Date(task.dueDate), "dd/MM/yyyy 'lúc' h:mm a")}</span>
+                                    {isOverdue && <span className="ml-2 px-2 py-0.5 bg-red-500 text-white rounded-md font-bold text-[10px]">(Quá hạn)</span>}
+                                </>
+                            ) : (<span>Thêm ngày hết hạn</span>)}
+                        </div>
+                        )}
+                        {task.recurrenceRule && task.recurrenceRule !== 'none' && task.status !== 'completed' && (
+                        <div className="flex items-center text-xs mt-2 text-slate-400" title={`Lặp lại ${task.recurrenceRule === 'daily' ? 'hàng ngày' : task.recurrenceRule === 'weekly' ? 'hàng tuần' : 'hàng tháng'}`}><Repeat size={14} className="mr-1.5" /></div>
+                        )}
+                    </div>
+                    {isEditingDate && (<div className="mt-2"><input type="datetime-local" defaultValue={dueDateForInput} autoFocus onBlur={(e) => handleDateUpdate(e.target.value)} onKeyDown={(e) => {if (e.key === 'Enter') handleDateUpdate(e.currentTarget.value); if (e.key === 'Escape') setIsEditingDate(false);}} className="w-full sm:w-auto bg-[#293548] text-slate-200 border border-primary-600 rounded-lg px-2 py-1 text-xs"/></div>)}
+                </>
             )}
-            
-            {task.recurrenceRule && task.recurrenceRule !== 'none' && task.status !== 'completed' && (
-              <div className="flex items-center text-xs mt-2 text-slate-400" title={`Lặp lại ${task.recurrenceRule === 'daily' ? 'hàng ngày' : task.recurrenceRule === 'weekly' ? 'hàng tuần' : 'hàng tháng'}`}>
-                <Repeat size={14} className="mr-1.5" />
-              </div>
-            )}
-          </div>
-
-          {isEditingDate && (
-            <div className="mt-2">
-              <input
-                type="datetime-local"
-                defaultValue={dueDateForInput}
-                autoFocus
-                onBlur={(e) => handleDateUpdate(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleDateUpdate(e.currentTarget.value);
-                  if (e.key === 'Escape') setIsEditingDate(false);
-                }}
-                className="w-full sm:w-auto bg-[#293548] text-slate-200 border border-primary-600 focus:border-primary-500 focus:ring-0 rounded-lg px-2 py-1 text-xs transition"
-              />
-            </div>
-          )}
 
           {(task.note || isEditingNote) && !isEditing && (
             <div className="mt-3 pt-3 border-t border-slate-700/50">
@@ -404,15 +440,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
 
           <div className="mt-4 pt-3 pl-4 border-t border-slate-700/50">
               {subtasks.length > 0 && (
-                  <button 
-                  onClick={() => setAreSubtasksVisible(!areSubtasksVisible)}
-                  className="flex items-center text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 hover:text-slate-200 transition-colors w-full"
-                  >
+                  <button onClick={() => setAreSubtasksVisible(!areSubtasksVisible)} className="flex items-center text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 hover:text-slate-200 transition-colors w-full">
                   {areSubtasksVisible ? <ChevronDown size={16} className="mr-1" /> : <ChevronRight size={16} className="mr-1" />}
                   <span>Công việc con ({subtasks.length})</span>
                   </button>
               )}
-
               {(areSubtasksVisible || subtasks.length === 0) && (
               <div className="space-y-2">
                   {subtasks.map(subtask => (
@@ -420,15 +452,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                         {editingSubtaskId === subtask.id ? (
                             <div className="flex items-center gap-3 flex-grow">
                                 <span className="flex-shrink-0 w-4 h-4" /> {/* Spacer to align with checkbox */}
-                                <input
-                                    ref={subtaskInputRef}
-                                    type="text"
-                                    value={editingSubtaskText}
-                                    onChange={(e) => setEditingSubtaskText(e.target.value)}
-                                    onBlur={handleSaveSubtask}
-                                    onKeyDown={handleSubtaskKeyDown}
-                                    className="w-full bg-slate-700 text-slate-200 text-sm focus:ring-0 border-0 p-0 rounded"
-                                />
+                                <input ref={subtaskInputRef} type="text" value={editingSubtaskText} onChange={(e) => setEditingSubtaskText(e.target.value)} onBlur={handleSaveSubtask} onKeyDown={handleSubtaskKeyDown} className="w-full bg-slate-700 text-slate-200 text-sm focus:ring-0 border-0 p-0 rounded"/>
                             </div>
                         ) : (
                             <>
@@ -436,115 +460,47 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, onToggleTask, onDel
                                     <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
                                         {subtask.status === 'completed' ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
                                     </button>
-                                    <p className={`text-sm ${subtask.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
-                                        {subtask.text}
-                                    </p>
+                                    <p className={`text-sm ${subtask.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-300'}`}>{subtask.text}</p>
                                 </div>
                                 <div className="flex items-center">
-                                    <button
-                                        onClick={() => handleStartEditSubtask(subtask)}
-                                        className="text-slate-500 hover:text-primary-400 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full disabled:opacity-0 disabled:cursor-not-allowed"
-                                        title="Sửa công việc con"
-                                        disabled={subtask.status === 'completed'}
-                                    >
-                                        <Pencil size={14} />
-                                    </button>
-                                    <button
-                                        onClick={() => onDeleteTask(subtask.id)}
-                                        className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full"
-                                        title="Xóa công việc con"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
+                                    <button onClick={() => handleStartEditSubtask(subtask)} className="text-slate-500 hover:text-primary-400 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full disabled:opacity-0 disabled:cursor-not-allowed" title="Sửa công việc con" disabled={subtask.status === 'completed'}><Pencil size={14} /></button>
+                                    <button onClick={() => onDeleteTask(subtask.id)} className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full" title="Xóa công việc con"><Trash2 size={14} /></button>
                                 </div>
                             </>
                         )}
                     </div>
                   ))}
                   <div className="flex items-center gap-3 group">
-                      <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center ml-px">
-                          <Plus size={16} className="text-slate-500" />
-                      </span>
-                      <input
-                          type="text"
-                          value={newSubtaskText}
-                          onChange={(e) => setNewSubtaskText(e.target.value)}
-                          onKeyDown={handleAddSubtaskKeyDown}
-                          placeholder="Thêm công việc con và nhấn Enter"
-                          className="w-full bg-transparent text-slate-300 placeholder:text-slate-500 text-sm focus:ring-0 border-0 p-0"
-                          disabled={isGeneratingSubtasks || task.status === 'completed'}
-                      />
+                      <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center ml-px"><Plus size={16} className="text-slate-500" /></span>
+                      <input type="text" value={newSubtaskText} onChange={(e) => setNewSubtaskText(e.target.value)} onKeyDown={handleAddSubtaskKeyDown} placeholder="Thêm công việc con và nhấn Enter" className="w-full bg-transparent text-slate-300 placeholder:text-slate-500 text-sm focus:ring-0 border-0 p-0" disabled={isGeneratingSubtasks || task.status === 'completed'}/>
                   </div>
               </div>
               )}
           </div>
         </div>
         <div className="ml-4 flex-shrink-0 flex items-center gap-4">
-          {task.status !== 'completed' && (
+          {isEditing ? (
             <>
-              {!task.parentId && (
-                <button
-                    onClick={handleGenerateSubtasks}
-                    disabled={isGeneratingSubtasks || !hasApiKey}
-                    className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10 disabled:text-slate-600 disabled:hover:text-slate-600 disabled:cursor-not-allowed"
-                    title={hasApiKey ? "Chia nhỏ công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}
-                >
-                    <ListTree size={18} />
-                </button>
+              <button onClick={handleCancelEditing} title="Hủy" className="text-slate-400 hover:text-white transition-colors duration-200 z-10"><X size={20} /></button>
+              <button onClick={handleSaveEditing} title="Lưu" className="text-primary-400 hover:text-primary-300 transition-colors duration-200 z-10"><Save size={20} /></button>
+            </>
+          ) : (
+            <>
+              {task.status !== 'completed' && (
+                <>
+                  {!task.parentId && (
+                    <button onClick={handleGenerateSubtasks} disabled={isGeneratingSubtasks || !hasApiKey} className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10 disabled:text-slate-600 disabled:hover:text-slate-600 disabled:cursor-not-allowed" title={hasApiKey ? "Chia nhỏ công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}><ListTree size={18} /></button>
+                  )}
+                  <button onClick={() => { setIsEditingNote(prev => !prev); if(!isEditingNote) setEditNoteText(task.note || '') }} className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10" aria-label="Thêm/Sửa ghi chú" title="Thêm/Sửa ghi chú"><StickyNote size={18} /></button>
+                  <button onClick={startEditing} className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10" aria-label="Chỉnh sửa nội dung" title="Chỉnh sửa nội dung"><Pencil size={18} /></button>
+                  <button onClick={() => onUpdateTaskStatus(task.id, task.status === 'inprogress' ? 'todo' : 'inprogress')} className={`transition-colors duration-200 z-10 ${task.status === 'inprogress' ? 'text-primary-400 hover:text-primary-300' : 'text-slate-500 hover:text-primary-400'}`} title={task.status === 'inprogress' ? 'Dừng làm' : 'Bắt đầu làm'}><Pickaxe size={18} className={task.status === 'inprogress' ? 'digging-animation' : ''} /></button>
+                  <button onClick={() => onToggleTaskUrgency(task.id)} className={`transition-colors duration-200 z-10 ${task.isUrgent ? 'text-red-500 hover:text-red-400' : 'text-slate-500 hover:text-red-500'}`} aria-label={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"} title={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"}><Flag size={18} /></button>
+                </>
               )}
-               <button
-                  onClick={() => { setIsEditingNote(prev => !prev); if(!isEditingNote) setEditNoteText(task.note || '') }}
-                  className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10"
-                  aria-label="Thêm/Sửa ghi chú"
-                  title="Thêm/Sửa ghi chú"
-                >
-                  <StickyNote size={18} />
-                </button>
-               <button
-                  onClick={startEditing}
-                  className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10"
-                  aria-label="Chỉnh sửa nội dung"
-                  title="Chỉnh sửa nội dung"
-              >
-                  <Pencil size={18} />
-              </button>
-               <button
-                  onClick={() => onUpdateTaskStatus(task.id, task.status === 'inprogress' ? 'todo' : 'inprogress')}
-                  className={`transition-colors duration-200 z-10 ${
-                      task.status === 'inprogress'
-                      ? 'text-primary-400 hover:text-primary-300'
-                      : 'text-slate-500 hover:text-primary-400'
-                  }`}
-                  title={task.status === 'inprogress' ? 'Dừng làm' : 'Bắt đầu làm'}
-              >
-                  <Pickaxe size={18} className={task.status === 'inprogress' ? 'digging-animation' : ''} />
-              </button>
-              <button 
-                onClick={() => onToggleTaskUrgency(task.id)}
-                className={`transition-colors duration-200 z-10 ${task.isUrgent ? 'text-red-500 hover:text-red-400' : 'text-slate-500 hover:text-red-500'}`}
-                aria-label={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"}
-                title={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"}
-              >
-                <Flag size={18} />
-              </button>
+              <button onClick={() => onToggleTask(task.id)} className="text-slate-500 hover:text-green-500 transition-colors duration-200 z-10" aria-label={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"} title={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"}><CheckCircle2 size={20} className={task.status === 'completed' ? "text-green-500" : ""} /></button>
+              <button onClick={() => onDeleteTask(task.id)} className="text-slate-500 hover:text-red-500 transition-colors duration-200 z-10" aria-label="Xóa công việc" title="Xóa công việc"><Trash2 size={18} /></button>
             </>
           )}
-          <button 
-            onClick={() => onToggleTask(task.id)}
-            className="text-slate-500 hover:text-green-500 transition-colors duration-200 z-10"
-            aria-label={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"}
-            title={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"}
-          >
-            <CheckCircle2 size={20} className={task.status === 'completed' ? "text-green-500" : ""} />
-          </button>
-          <button 
-            onClick={() => onDeleteTask(task.id)}
-            className="text-slate-500 hover:text-red-500 transition-colors duration-200 z-10"
-            aria-label="Xóa công việc"
-            title="Xóa công việc"
-            >
-              <Trash2 size={18} />
-          </button>
         </div>
       </div>
     </div>

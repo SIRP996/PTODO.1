@@ -17,6 +17,7 @@ interface KanbanColumnProps {
   onStartFocus: (task: Task) => void;
   onToggleTask: (id: string) => void;
   onUpdateTaskNote: (id: string, note: string) => void;
+  style?: React.CSSProperties;
 }
 
 const columnStyles: Record<TaskStatus, { header: string; title: string; countBg: string; countText: string; }> = {
@@ -53,7 +54,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onDeleteTask, 
   onStartFocus,
   onToggleTask,
-  onUpdateTaskNote
+  onUpdateTaskNote,
+  style
 }) => {
   const [isOver, setIsOver] = useState(false);
 
@@ -91,7 +93,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col transition-colors md:h-[600px] ${isOver ? 'bg-slate-700/20' : ''}`}
+      className={`bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col transition-colors h-[65vh] animate-fadeIn ${isOver ? 'bg-slate-700/20' : ''}`}
+      style={style}
     >
       <div className={`p-4 flex-shrink-0 ${styles.header}`}>
         <h3 className={`font-semibold flex justify-between items-center ${styles.title}`}>
@@ -99,8 +102,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
           <span className={`text-sm font-normal rounded-full px-2 py-0.5 ${styles.countBg} ${styles.countText}`}>{tasks.length}</span>
         </h3>
       </div>
-      <div className="space-y-4 p-4 pr-3 min-h-[150px] flex-grow overflow-y-auto">
-        {sortedTasks.map(task => (
+      <div className="space-y-4 p-4 pr-3 flex-grow overflow-y-auto">
+        {sortedTasks.map((task, index) => (
           <KanbanCard
             key={task.id}
             task={task}
@@ -112,6 +115,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             onStartFocus={onStartFocus}
             onToggleTask={onToggleTask}
             onUpdateTaskNote={onUpdateTaskNote}
+            style={{ animationDelay: `${index * 50}ms` }}
           />
         ))}
       </div>

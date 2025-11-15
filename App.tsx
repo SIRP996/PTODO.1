@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -493,6 +494,7 @@ const App: React.FC = () => {
   const { 
     tasks, addTask, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency,
     addSubtasksBatch, addTasksBatch, updateTaskText, updateTaskStatus, updateTaskNote, syncExistingTasksToCalendar,
+    updateTask,
   } = useTasks();
 
   const { projects, addProject } = useProjects();
@@ -920,11 +922,11 @@ const App: React.FC = () => {
                 )}
 
                 <div className={`space-y-6 transition-all duration-300 flex-grow ${isZenMode ? 'w-full' : ''}`}>
-                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
+                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 animate-fadeIn">
                     <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onOpenImportModal={() => setIsImportModalOpen(true)} projects={projects} selectedProjectId={activeFilter.type === 'project' ? activeFilter.id : null} templates={templates} onOpenApplyTemplateModal={handleOpenApplyTemplateModal} onOpenPlannerModal={handleOpenPlannerModal} />
                   </div>
                   
-                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
+                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 animate-fadeIn" style={{ animationDelay: '100ms' }}>
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
                             <button onClick={() => setDisplayMode('kanban')} className={`px-3 py-1 text-sm font-medium rounded-md flex items-center gap-2 ${displayMode === 'kanban' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}><LayoutGrid size={16} /><span>Bảng</span></button>
@@ -951,7 +953,7 @@ const App: React.FC = () => {
                     ) : displayMode === 'list' ? (
                       <div style={{ position: 'relative' }}>
                         <div className="overflow-y-auto pr-2" style={{ height: `${taskListHeight}px` }}>
-                            <TaskList tasks={tasksForList} onToggleTask={toggleTask} onDeleteTask={deleteTask} onUpdateTaskDueDate={updateTaskDueDate} onToggleTaskUrgency={toggleTaskUrgency} onStartFocus={handleStartFocus} onAddSubtasksBatch={addSubtasksBatch} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onUpdateTaskText={updateTaskText} onUpdateTaskStatus={updateTaskStatus} onUpdateTaskNote={updateTaskNote} />
+                            <TaskList tasks={tasksForList} onToggleTask={toggleTask} onDeleteTask={deleteTask} onUpdateTaskDueDate={updateTaskDueDate} onToggleTaskUrgency={toggleTaskUrgency} onStartFocus={handleStartFocus} onAddSubtasksBatch={addSubtasksBatch} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onUpdateTaskText={updateTaskText} onUpdateTaskStatus={updateTaskStatus} onUpdateTaskNote={updateTaskNote} onUpdateTask={updateTask} projects={projects} />
                         </div>
                          <div onMouseDown={handleResizeMouseDown} className="absolute bottom-0 right-0 w-6 h-6 cursor-ns-resize flex items-center justify-center group" title="Kéo để thay đổi kích thước"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-600 group-hover:text-slate-400 transition-colors"><path d="M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>
                       </div>

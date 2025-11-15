@@ -1,12 +1,13 @@
 
 
 import React, { useMemo } from 'react';
-import { Task, TaskStatus } from '../types';
+import { Task, TaskStatus, Project } from '../types';
 import TaskItem from './TaskItem';
 import { ClipboardList } from 'lucide-react';
 
 interface TaskListProps {
   tasks: Task[];
+  projects: Project[];
   onToggleTask: (id: string) => void;
   onDeleteTask: (id: string) => void;
   onUpdateTaskDueDate: (id: string, newDueDate: string | null) => void;
@@ -18,9 +19,10 @@ interface TaskListProps {
   onUpdateTaskText: (id: string, newText: string) => void;
   onUpdateTaskStatus: (id: string, status: TaskStatus) => void;
   onUpdateTaskNote: (id: string, note: string) => void;
+  onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote }) => {
+const TaskList: React.FC<TaskListProps> = ({ tasks, projects, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote, onUpdateTask }) => {
 
   const { parentTasks, subtasksByParent } = useMemo(() => {
     const parentTasks: Task[] = [];
@@ -65,10 +67,12 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, 
 
   return (
     <div className="rounded-lg bg-slate-800/40">
-      {sortedTasks.map(task => (
+      {sortedTasks.map((task, index) => (
         <TaskItem
           key={task.id}
+          style={{ animationDelay: `${index * 50}ms` }}
           task={task}
+          projects={projects}
           subtasks={subtasksByParent[task.id] || []}
           onToggleTask={onToggleTask}
           onDeleteTask={onDeleteTask}
@@ -81,6 +85,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleTask, onDeleteTask, 
           onUpdateTaskText={onUpdateTaskText}
           onUpdateTaskStatus={onUpdateTaskStatus}
           onUpdateTaskNote={onUpdateTaskNote}
+          onUpdateTask={onUpdateTask}
         />
       ))}
     </div>

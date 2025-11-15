@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { Task } from '../types';
 import { format, isPast } from 'date-fns';
@@ -13,9 +15,10 @@ interface KanbanCardProps {
   onStartFocus: (task: Task) => void;
   onToggleTask: (id: string) => void;
   onUpdateTaskNote: (id: string, note: string) => void;
+  style?: React.CSSProperties;
 }
 
-const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, isDragging, onToggleTaskUrgency, onDeleteTask, onStartFocus, onToggleTask, onUpdateTaskNote }) => {
+const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, isDragging, onToggleTaskUrgency, onDeleteTask, onStartFocus, onToggleTask, onUpdateTaskNote, style }) => {
   const isOverdue = task.dueDate && task.status !== 'completed' && isPast(new Date(task.dueDate));
   const [areSubtasksVisible, setAreSubtasksVisible] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
@@ -38,7 +41,8 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, is
     <div
       draggable
       onDragStart={handleDragStart}
-      className={`bg-black/20 backdrop-blur-sm p-4 rounded-xl shadow-md cursor-grab active:cursor-grabbing border transition-all duration-200 hover:bg-black/30 hover:border-slate-600 ${isDragging ? 'opacity-50 scale-95' : 'opacity-100'} ${task.isUrgent && task.status !== 'completed' ? 'border-red-500' : 'border-slate-700/50'}`}
+      className={`bg-black/20 backdrop-blur-sm p-4 rounded-xl shadow-md cursor-grab active:cursor-grabbing border transition-all duration-200 hover:bg-black/30 hover:border-slate-600 animate-fadeIn ${isDragging ? 'opacity-50 scale-95' : 'opacity-100'} ${task.isUrgent && task.status !== 'completed' ? 'border-red-500' : 'border-slate-700/50'}`}
+      style={style}
     >
       <p className={`font-semibold mb-2 ${task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-100'}`}>{task.text}</p>
       

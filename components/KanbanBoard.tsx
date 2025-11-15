@@ -53,7 +53,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {columns.map(col => (
+      {columns.map((col, index) => (
         <KanbanColumn
           key={col.status}
           title={col.title}
@@ -68,6 +68,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           onStartFocus={onStartFocus}
           onToggleTask={onToggleTask}
           onUpdateTaskNote={onUpdateTaskNote}
+          style={{ animationDelay: `${index * 100}ms` }}
         />
       ))}
     </div>

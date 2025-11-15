@@ -217,6 +217,57 @@ export const useTasks = () => {
     return undefined;
   }, [currentUser, isGuestMode, syncWithCalendar, addToast]);
 
+  const updateTask = useCallback(async (id: string, updates: Partial<Omit<Task, 'id' | 'createdAt' | 'userId'>>) => {
+    const task = tasksRef.current.find(t => t.id === id);
+    if (!task) return;
+
+    if (isGuestMode) {
+      const currentTasks = getGuestTasks();
+      const updatedTasks = currentTasks.map(t => 
+        t.id === id ? { ...t, ...updates } : t
+      );
+      updateGuestTasks(updatedTasks);
+      addToast("Đã cập nhật công việc.", 'success');
+      return;
+    }
+
+    if (currentUser) {
+        try {
+            const taskDocRef = doc(db, 'tasks', id);
+            
+            const dataToUpdate: {[key:string]: any} = { ...updates };
+            if (updates.dueDate !== undefined) {
+                dataToUpdate.dueDate = updates.dueDate ? new Date(updates.dueDate) : null;
+            }
+
+            const updatedTaskForSync = { ...task, ...updates, dueDate: updates.dueDate === undefined ? task.dueDate : updates.dueDate };
+
+            if ('dueDate' in updates) { 
+                let googleCalendarEventId = task.googleCalendarEventId;
+                if (updates.dueDate && !task.googleCalendarEventId) {
+                    googleCalendarEventId = await syncWithCalendar('create', updatedTaskForSync);
+                } else if (updates.dueDate && task.googleCalendarEventId) {
+                    await syncWithCalendar('update', updatedTaskForSync);
+                } else if (updates.dueDate === null && task.googleCalendarEventId) {
+                    await syncWithCalendar('delete', task);
+                    googleCalendarEventId = null;
+                }
+                dataToUpdate.googleCalendarEventId = googleCalendarEventId;
+            } else if (('text' in updates || 'note' in updates) && task.googleCalendarEventId) {
+                await syncWithCalendar('update', updatedTaskForSync);
+            }
+
+            await updateDoc(taskDocRef, dataToUpdate);
+            addToast("Đã cập nhật công việc.", 'success');
+            
+        } catch (error) {
+            console.error("Error updating task: ", error);
+            addToast("Không thể cập nhật công việc.", 'error');
+        }
+    }
+  }, [currentUser, isGuestMode, syncWithCalendar, addToast]);
+
+
   const toggleTask = useCallback(async (id: string) => {
     const task = tasksRef.current.find(t => t.id === id);
     if (!task) return;
@@ -226,6 +277,7 @@ export const useTasks = () => {
     if (isGuestMode) {
       const updatedTasks = getGuestTasks().map(t => t.id === id ? { ...t, status: newStatus } : t);
       updateGuestTasks(updatedTasks);
+      // No recurrence in guest mode for simplicity
       return;
     }
 
@@ -607,5 +659,6 @@ export const useTasks = () => {
     updateTaskStatus,
     updateTaskNote,
     syncExistingTasksToCalendar,
+    updateTask,
   };
 };
