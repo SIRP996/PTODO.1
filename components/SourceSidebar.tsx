@@ -182,9 +182,9 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                 setConfirmingDeleteId(null);
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('click', handleClickOutside);
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('click', handleClickOutside);
         };
     }, []);
 
