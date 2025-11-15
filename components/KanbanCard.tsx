@@ -1,14 +1,16 @@
 
-
 import React, { useState, useMemo } from 'react';
-import { Task, UserProfile } from '../types';
+import { Task, UserProfile, Project } from '../types';
 import { format, isPast } from 'date-fns';
 import { Flag, Calendar, ListTree, Trash2, Play, ChevronRight, ChevronDown, Circle, CheckCircle2, StickyNote, UserCircle } from 'lucide-react';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 interface KanbanCardProps {
   task: Task;
   subtasks: Task[];
   profiles: Map<string, UserProfile>;
+  currentUser: FirebaseUser | null;
+  projects: Project[];
   onDragStart: (taskId: string) => void;
   isDragging: boolean;
   onToggleTaskUrgency: (id: string) => void;
@@ -19,11 +21,20 @@ interface KanbanCardProps {
   style?: React.CSSProperties;
 }
 
-const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, profiles, onDragStart, isDragging, onToggleTaskUrgency, onDeleteTask, onStartFocus, onToggleTask, onUpdateTaskNote, style }) => {
+const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, profiles, currentUser, projects, onDragStart, isDragging, onToggleTaskUrgency, onDeleteTask, onStartFocus, onToggleTask, onUpdateTaskNote, style }) => {
   const isOverdue = task.dueDate && task.status !== 'completed' && isPast(new Date(task.dueDate));
   const [areSubtasksVisible, setAreSubtasksVisible] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editNoteText, setEditNoteText] = useState(task.note || '');
+
+  const isOwner = useMemo(() => {
+    if (!currentUser) return false;
+    if (!task.projectId) { // Personal task
+        return task.userId === currentUser.uid;
+    }
+    const project = projects.find(p => p.id === task.projectId);
+    return project ? project.ownerId === currentUser.uid : false;
+  }, [currentUser, task, projects]);
 
   const assignees = useMemo(() => 
     task.assigneeIds.map(id => profiles.get(id)).filter(Boolean) as UserProfile[],
@@ -101,13 +112,15 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, profiles, onDra
                             {subtask.text}
                         </p>
                     </div>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onDeleteTask(subtask.id); }}
-                        className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full"
-                        title="Xóa công việc con"
-                    >
-                        <Trash2 size={14} />
-                    </button>
+                    {isOwner && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onDeleteTask(subtask.id); }}
+                            className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full"
+                            title="Xóa công việc con"
+                        >
+                            <Trash2 size={14} />
+                        </button>
+                    )}
                 </div>
             ))}
         </div>
@@ -164,13 +177,15 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, profiles, onDra
             >
                 <Flag size={16} />
             </button>
-            <button
-                onClick={(e) => { e.stopPropagation(); onDeleteTask(task.id); }}
-                className="text-slate-500 hover:text-red-500 p-1 rounded-full transition-colors"
-                title="Xóa công việc"
-            >
-                <Trash2 size={16} />
-            </button>
+            {isOwner && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onDeleteTask(task.id); }}
+                    className="text-slate-500 hover:text-red-500 p-1 rounded-full transition-colors"
+                    title="Xóa công việc"
+                >
+                    <Trash2 size={16} />
+                </button>
+            )}
         </div>
       </div>
     </div>

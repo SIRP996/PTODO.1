@@ -1,8 +1,8 @@
 
-
 import React, { useState, useMemo } from 'react';
-import { Task, TaskStatus, UserProfile } from '../types';
+import { Task, TaskStatus, UserProfile, Project } from '../types';
 import KanbanCard from './KanbanCard';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 interface KanbanColumnProps {
   title: string;
@@ -10,6 +10,8 @@ interface KanbanColumnProps {
   tasks: Task[];
   subtasksByParentId: { [key: string]: Task[] };
   profiles: Map<string, UserProfile>;
+  currentUser: FirebaseUser | null;
+  projects: Project[];
   onDrop: (status: TaskStatus) => void;
   onDragStart: (taskId: string) => void;
   draggedTaskId: string | null;
@@ -49,6 +51,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   tasks, 
   subtasksByParentId,
   profiles,
+  currentUser,
+  projects,
   onDrop, 
   onDragStart, 
   draggedTaskId, 
@@ -119,6 +123,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             onToggleTask={onToggleTask}
             onUpdateTaskNote={onUpdateTaskNote}
             style={{ animationDelay: `${index * 50}ms` }}
+            currentUser={currentUser}
+            projects={projects}
           />
         ))}
       </div>

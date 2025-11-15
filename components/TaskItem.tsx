@@ -6,12 +6,14 @@ import { format, isPast } from 'date-fns';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
 import { useToast } from '../context/ToastContext';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 interface TaskItemProps {
   task: Task;
   subtasks: Task[];
   projects: Project[];
   profiles: Map<string, UserProfile>;
+  currentUser: FirebaseUser | null;
   onToggleTask: (id: string) => void;
   onDeleteTask: (id:string) => void;
   onUpdateTaskDueDate: (id: string, newDueDate: string | null) => void;
@@ -29,7 +31,7 @@ interface TaskItemProps {
 
 const SWIPE_THRESHOLD = 80;
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, profiles, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote, onUpdateTask, style }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, profiles, currentUser, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote, onUpdateTask, style }) => {
   const isOverdue = task.dueDate && task.status !== 'completed' && isPast(new Date(task.dueDate));
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
@@ -58,6 +60,17 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, profiles,
   const [isAssigning, setIsAssigning] = useState(false);
   const assignButtonRef = useRef<HTMLButtonElement>(null);
   const assignPopoverRef = useRef<HTMLDivElement>(null);
+
+  const isOwner = useMemo(() => {
+    if (!currentUser) return false;
+    // Personal tasks (no project) belong to the user who created them
+    if (!task.projectId) {
+      return task.userId === currentUser.uid;
+    }
+    // For project tasks, only the project owner has full rights
+    const project = projects.find(p => p.id === task.projectId);
+    return project ? project.ownerId === currentUser.uid : false;
+  }, [currentUser, task, projects]);
 
   const projectMembers = useMemo(() => {
     if (!task.projectId) return [];
@@ -381,27 +394,44 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, profiles,
                     />
                     <div>
                         <label className="block text-xs font-medium text-slate-400 mb-1">Giao cho</label>
-                        {task.projectId && projectMembers.length > 0 ? (
-                            <div className="flex flex-wrap items-center gap-1 p-1 bg-[#293548] border border-slate-600 rounded-lg">
-                                {projectMembers.map(member => (
-                                    <button
-                                        key={member.uid}
-                                        type="button"
-                                        onClick={() => handleEditChange({ assigneeIds: editState.assigneeIds.includes(member.uid) ? editState.assigneeIds.filter(id => id !== member.uid) : [...editState.assigneeIds, member.uid] })}
-                                        className={`flex items-center gap-2 p-1 rounded-md transition-colors ${editState.assigneeIds.includes(member.uid) ? 'bg-primary-600/80 text-white' : 'hover:bg-slate-700 text-slate-300'}`}
-                                        title={member.displayName}
-                                    >
-                                        <div className="w-5 h-5 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
-                                            {member.photoURL ? <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" /> : <UserCircle size={14} className="text-slate-400 m-auto" />}
-                                        </div>
-                                        <span className="text-xs truncate max-w-[100px]">{member.displayName}</span>
-                                    </button>
-                                ))}
-                            </div>
+                        {isOwner ? (
+                            task.projectId && projectMembers.length > 0 ? (
+                                <div className="flex flex-wrap items-center gap-1 p-1 bg-[#293548] border border-slate-600 rounded-lg">
+                                    {projectMembers.map(member => (
+                                        <button
+                                            key={member.uid}
+                                            type="button"
+                                            onClick={() => handleEditChange({ assigneeIds: editState.assigneeIds.includes(member.uid) ? editState.assigneeIds.filter(id => id !== member.uid) : [...editState.assigneeIds, member.uid] })}
+                                            className={`flex items-center gap-2 p-1 rounded-md transition-colors ${editState.assigneeIds.includes(member.uid) ? 'bg-primary-600/80 text-white' : 'hover:bg-slate-700 text-slate-300'}`}
+                                            title={member.displayName}
+                                        >
+                                            <div className="w-5 h-5 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
+                                                {member.photoURL ? <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" /> : <UserCircle size={14} className="text-slate-400 m-auto" />}
+                                            </div>
+                                            <span className="text-xs truncate max-w-[100px]">{member.displayName}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <span className="text-xs text-slate-500 p-1 italic">
+                                    {task.projectId ? 'Chưa có thành viên trong dự án.' : 'Công việc không thuộc dự án nào.'}
+                                </span>
+                            )
                         ) : (
-                            <span className="text-xs text-slate-500 p-1 italic">
-                                {task.projectId ? 'Chưa có thành viên trong dự án.' : 'Công việc không thuộc dự án nào.'}
-                            </span>
+                            assignees.length > 0 ? (
+                                <div className="flex flex-wrap items-center gap-1 p-1 bg-[#293548] border border-slate-600 rounded-lg">
+                                    {assignees.map(member => (
+                                        <div key={member.uid} className="flex items-center gap-2 p-1 rounded-md bg-slate-700 text-slate-300" title={member.displayName}>
+                                            <div className="w-5 h-5 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
+                                                {member.photoURL ? <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" /> : <UserCircle size={14} className="text-slate-400 m-auto" />}
+                                            </div>
+                                            <span className="text-xs truncate max-w-[100px]">{member.displayName}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <span className="text-xs text-slate-500 p-1 italic">Chưa giao cho ai.</span>
+                            )
                         )}
                     </div>
                     <div>
@@ -538,7 +568,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, profiles,
                                 </div>
                                 <div className="flex items-center" onMouseDown={e => e.stopPropagation()}>
                                     <button onClick={() => handleStartEditSubtask(subtask)} className="text-slate-500 hover:text-primary-400 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full disabled:opacity-0 disabled:cursor-not-allowed" title="Sửa công việc con" disabled={subtask.status === 'completed'}><Pencil size={14} /></button>
-                                    <button onClick={() => onDeleteTask(subtask.id)} className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full" title="Xóa công việc con"><Trash2 size={14} /></button>
+                                    {isOwner && <button onClick={() => onDeleteTask(subtask.id)} className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full" title="Xóa công việc con"><Trash2 size={14} /></button>}
                                 </div>
                             </>
                         )}
@@ -567,7 +597,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, profiles,
                   )}
                   <button onClick={() => { setIsEditingNote(prev => !prev); if(!isEditingNote) setEditNoteText(task.note || '') }} className="p-2 text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10" aria-label="Thêm/Sửa ghi chú" title="Thêm/Sửa ghi chú"><StickyNote size={18} /></button>
                   <button onClick={startEditing} className="p-2 text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10" aria-label="Chỉnh sửa nội dung" title="Chỉnh sửa nội dung"><Pencil size={18} /></button>
-                  {task.projectId && (
+                  {isOwner && task.projectId && (
                     <div className="relative">
                         <button
                             ref={assignButtonRef}
@@ -606,7 +636,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, profiles,
                 </>
               )}
               <button onClick={() => onToggleTask(task.id)} className="p-2 text-slate-500 hover:text-green-500 transition-colors duration-200 z-10" aria-label={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"} title={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"}><CheckCircle2 size={20} className={task.status === 'completed' ? "text-green-500" : ""} /></button>
-              <button onClick={() => onDeleteTask(task.id)} className="p-2 text-slate-500 hover:text-red-500 transition-colors duration-200 z-10" aria-label="Xóa công việc" title="Xóa công việc"><Trash2 size={18} /></button>
+              {isOwner && <button onClick={() => onDeleteTask(task.id)} className="p-2 text-slate-500 hover:text-red-500 transition-colors duration-200 z-10" aria-label="Xóa công việc" title="Xóa công việc"><Trash2 size={18} /></button>}
             </>
           )}
         </div>

@@ -1,13 +1,15 @@
 
-
 import React, { useState } from 'react';
-import { Task, TaskStatus, UserProfile } from '../types';
+import { Task, TaskStatus, UserProfile, Project } from '../types';
 import KanbanColumn from './KanbanColumn';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 interface KanbanBoardProps {
   tasks: Task[];
   subtasksByParentId: { [key: string]: Task[] };
   profiles: Map<string, UserProfile>;
+  currentUser: FirebaseUser | null;
+  projects: Project[];
   onUpdateTaskStatus: (id: string, status: TaskStatus) => void;
   toggleTaskUrgency: (id: string) => void;
   onDeleteTask: (id: string) => void;
@@ -20,6 +22,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   tasks, 
   subtasksByParentId, 
   profiles,
+  currentUser,
+  projects,
   onUpdateTaskStatus, 
   toggleTaskUrgency, 
   onDeleteTask, 
@@ -72,6 +76,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           onToggleTask={onToggleTask}
           onUpdateTaskNote={onUpdateTaskNote}
           style={{ animationDelay: `${index * 100}ms` }}
+          currentUser={currentUser}
+          projects={projects}
         />
       ))}
     </div>
