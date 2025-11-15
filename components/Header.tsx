@@ -1,11 +1,12 @@
 import React from 'react';
-import { CalendarDays, Minimize, Maximize, Bell } from 'lucide-react';
+import { CalendarDays, Minimize, Maximize, Bell, Menu } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 import { Invitation } from '../types';
 
 interface HeaderProps {
     onSwitchToCalendar: () => void;
     onToggleZenMode: () => void;
+    onToggleMobileSidebar: () => void;
     isZenMode: boolean;
     notificationCount: number;
     isNotificationPanelOpen: boolean;
@@ -34,17 +35,25 @@ const Header: React.FC<HeaderProps> = ({
     onCloseNotifications,
     notifications,
     onAcceptInvitation,
-    onDeclineInvitation
+    onDeclineInvitation,
+    onToggleMobileSidebar
  }) => {
     return (
         <header className="flex justify-between items-center">
             <div className="flex items-center">
-                <div className="bg-primary-600 p-3 rounded-xl mr-4">
+                <button 
+                    onClick={onToggleMobileSidebar}
+                    className="lg:hidden mr-2 p-2 -ml-2 rounded-md text-slate-300 hover:bg-slate-700"
+                    aria-label="Mở menu"
+                >
+                    <Menu size={24} />
+                </button>
+                <div className="bg-primary-600 p-3 rounded-xl mr-4 hidden sm:flex">
                     <PtodoLogo />
                 </div>
                 <div>
-                    <h1 className="text-3xl font-bold text-white">PTODO</h1>
-                    <p className="text-slate-400">Trình quản lý công việc cá nhân của bạn</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white">PTODO</h1>
+                    <p className="text-slate-400 text-sm hidden sm:block">Trình quản lý công việc cá nhân của bạn</p>
                 </div>
             </div>
              <div className="relative flex items-center justify-end gap-2">
@@ -85,6 +94,7 @@ const Header: React.FC<HeaderProps> = ({
                   onClose={onCloseNotifications}
                   notifications={notifications}
                   onAccept={onAcceptInvitation}
+                  // FIX: Pass the correct prop 'onDeclineInvitation' instead of the undefined 'declineInvitation'.
                   onDecline={onDeclineInvitation}
                 />
             </div>

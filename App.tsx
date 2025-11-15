@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -539,6 +541,7 @@ const App: React.FC = () => {
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isZenMode, setIsZenMode] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const [focusTask, setFocusTask] = useState<Task | null>(null);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
@@ -860,6 +863,17 @@ const App: React.FC = () => {
 
   const handleNavigateToAuth = () => { exitGuestMode(); setShowAuthPage(true); };
 
+  const sidebarProps = {
+    // FIX: Pass currentUser to the 'user' prop as expected by SourceSidebar. The 'user' variable was not defined.
+    user: currentUser,
+    tasks, projects, searchTerm, onSearchChange: setSearchTerm, activeFilter, onFilterChange: setActiveFilter,
+    onLogout: logout, hasApiKey, onManageApiKey: () => setUpdateKeyModalOpen(true), onOpenSettings: () => setSettingsModalOpen(true),
+    onToggleLogViewer: () => setIsLogViewerOpen(prev => !prev), onOpenTemplateManager: () => setIsTemplateManagerOpen(true),
+    onOpenWeeklyReview: () => setIsWeeklyReviewModalOpen(true), notificationPermissionStatus, onRequestNotificationPermission: handleRequestPermission,
+    onOpenExtensionGuide: () => setIsExtensionGuideOpen(true), onOpenMemberManager: handleOpenMemberManager, onAddProject: addProject,
+    onDeleteProject: deleteProject, onUpdateProject: updateProject,
+  };
+
   if (loading) { return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary-500" /></div>; }
   if (!currentUser && !isGuestMode) {
       if (showAuthPage) return <AuthPage />;
@@ -929,49 +943,47 @@ const App: React.FC = () => {
                     notifications={notifications}
                     onAcceptInvitation={acceptInvitation}
                     onDeclineInvitation={declineInvitation}
+                    onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
                   />
               </div>
               
               <main className="px-4 sm:px-6 lg:p-8 flex flex-grow transition-all duration-300 overflow-hidden">
-                <div 
-                    className={`flex-shrink-0 transition-all duration-300 ${isZenMode ? 'hidden' : 'block'}`}
-                    style={{ width: `${sidebarWidth}px` }}
-                >
-                    <SourceSidebar 
-                      user={currentUser}
-                      tasks={tasks}
-                      projects={projects}
-                      searchTerm={searchTerm}
-                      onSearchChange={setSearchTerm}
-                      activeFilter={activeFilter}
-                      onFilterChange={setActiveFilter}
-                      onLogout={logout}
-                      hasApiKey={hasApiKey}
-                      onManageApiKey={() => setUpdateKeyModalOpen(true)}
-                      onOpenSettings={() => setSettingsModalOpen(true)}
-                      onToggleLogViewer={() => setIsLogViewerOpen(prev => !prev)}
-                      onOpenTemplateManager={() => setIsTemplateManagerOpen(true)}
-                      // FIX: Corrected typo from `setWeeklyReviewModalOpen` to `setIsWeeklyReviewModalOpen`.
-                      onOpenWeeklyReview={() => setIsWeeklyReviewModalOpen(true)}
-                      notificationPermissionStatus={notificationPermissionStatus}
-                      onRequestNotificationPermission={handleRequestPermission}
-                      onOpenExtensionGuide={() => setIsExtensionGuideOpen(true)}
-                      onOpenMemberManager={handleOpenMemberManager}
-                      onAddProject={addProject}
-                      onDeleteProject={deleteProject}
-                      onUpdateProject={updateProject}
-                    />
-                </div>
-
+                {/* --- MOBILE SIDEBAR --- */}
+                {isMobileSidebarOpen && (
+                    <div className="lg:hidden" role="dialog" aria-modal="true">
+                        <div 
+                            className="fixed inset-0 bg-black/60 z-30 animate-simpleFadeIn"
+                            onClick={() => setIsMobileSidebarOpen(false)}
+                            aria-hidden="true"
+                        ></div>
+                        <div className="fixed inset-y-0 left-0 w-80 max-w-[calc(100%-3rem)] bg-[#0f172a] z-40 p-4 border-r border-slate-700 animate-slideInLeft">
+                            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-4 h-full">
+                                <SourceSidebar {...sidebarProps} />
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                {/* --- DESKTOP SIDEBAR --- */}
                 {!isZenMode && (
-                    <div 
-                        onMouseDown={handleSidebarResizeMouseDown}
-                        className="sidebar-resizer"
-                        title="Kéo để thay đổi kích thước"
-                    />
+                    <div className="hidden lg:flex">
+                        <div 
+                            className="transition-all duration-300"
+                            style={{ width: `${sidebarWidth}px` }}
+                        >
+                           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-4 h-full">
+                             <SourceSidebar {...sidebarProps} />
+                           </div>
+                        </div>
+                        <div 
+                            onMouseDown={handleSidebarResizeMouseDown}
+                            className="sidebar-resizer"
+                            title="Kéo để thay đổi kích thước"
+                        />
+                    </div>
                 )}
 
-                <div className={`space-y-6 transition-all duration-300 flex-grow ${isZenMode ? 'w-full' : ''}`}>
+                <div className={`space-y-6 transition-all duration-300 flex-grow w-full`}>
                   <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 animate-fadeIn">
                     <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onOpenImportModal={() => setIsImportModalOpen(true)} projects={projects} selectedProjectId={activeFilter.type === 'project' ? activeFilter.id : null} templates={templates} onOpenApplyTemplateModal={handleOpenApplyTemplateModal} onOpenPlannerModal={handleOpenPlannerModal} />
                   </div>

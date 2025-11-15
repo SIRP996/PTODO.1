@@ -244,7 +244,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
     const isAnyMenuOpen = !!menuProjectId;
 
     return (
-        <aside className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-4 space-y-6 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary-600 scrollbar-track-slate-800/50">
+        <div className="space-y-6 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary-600 scrollbar-track-slate-800/50 flex flex-col">
             <div className="relative z-10 bg-black/10 backdrop-blur-lg p-4 rounded-2xl border border-white/10 shadow-lg flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
@@ -502,7 +502,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                 </div>
             </div>
             
-        </aside>
+        </div>
     );
 };
 
