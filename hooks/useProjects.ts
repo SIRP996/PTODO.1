@@ -34,17 +34,29 @@ const PROJECT_COLORS = [
 
 // Custom hook to fetch and cache user profiles
 export const useUserProfiles = (userIds: string[]) => {
-    const { currentUser } = useAuth();
+    const { currentUser, userSettings } = useAuth();
     const [profiles, setProfiles] = useState<Map<string, UserProfile>>(new Map());
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         const fetchProfiles = async () => {
-            const allIds = currentUser ? [...userIds, currentUser.uid] : userIds;
-            const idsToFetch = [...new Set(allIds)];
+            const idsToFetch = [...new Set(userIds)];
 
             if (idsToFetch.length === 0) {
-                setProfiles(new Map());
+                // If there are no userIds, but we have a currentUser, we should still ensure their profile is in the map.
+                if (currentUser) {
+                    const photoURL = userSettings?.avatarUrl || userSettings?.photoURL || currentUser.photoURL;
+                    const newProfiles = new Map<string, UserProfile>();
+                    newProfiles.set(currentUser.uid, {
+                        uid: currentUser.uid,
+                        displayName: userSettings?.displayName || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Current User'),
+                        email: currentUser.email || 'N/A',
+                        photoURL: photoURL,
+                    });
+                    setProfiles(newProfiles);
+                } else {
+                    setProfiles(new Map());
+                }
                 return;
             }
 
@@ -83,17 +95,18 @@ export const useUserProfiles = (userIds: string[]) => {
                     }
                 });
 
-                // Finally, ensure the current user's data is correct, merging auth data with Firestore data.
+                // Finally, ensure the current user's data is correct, using real-time userSettings.
+                // This overwrites any potentially stale data from the one-time fetch.
                 if (currentUser) {
-                    const firestoreProfile = newProfiles.get(currentUser.uid);
+                    const photoURL = userSettings?.avatarUrl || userSettings?.photoURL || currentUser.photoURL;
+                    const existingProfile = newProfiles.get(currentUser.uid);
                     
                     newProfiles.set(currentUser.uid, {
+                        ...existingProfile,
                         uid: currentUser.uid,
-                        displayName: (firestoreProfile?.displayName && firestoreProfile.displayName !== 'Unnamed User')
-                            ? firestoreProfile.displayName 
-                            : currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Current User'),
-                        email: currentUser.email || 'N/A',
-                        photoURL: firestoreProfile?.photoURL || currentUser.photoURL,
+                        displayName: userSettings?.displayName || currentUser.displayName || existingProfile?.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Current User'),
+                        email: currentUser.email || existingProfile?.email || 'N/A',
+                        photoURL: photoURL,
                     });
                 }
                 
@@ -107,7 +120,7 @@ export const useUserProfiles = (userIds: string[]) => {
         };
 
         fetchProfiles();
-    }, [JSON.stringify(userIds), currentUser]);
+    }, [JSON.stringify(userIds), currentUser, userSettings]);
 
     return { profiles, loading };
 };
