@@ -1,12 +1,13 @@
 
 
 import React, { useState } from 'react';
-import { Task, TaskStatus } from '../types';
+import { Task, TaskStatus, UserProfile } from '../types';
 import KanbanColumn from './KanbanColumn';
 
 interface KanbanBoardProps {
   tasks: Task[];
   subtasksByParentId: { [key: string]: Task[] };
+  profiles: Map<string, UserProfile>;
   onUpdateTaskStatus: (id: string, status: TaskStatus) => void;
   toggleTaskUrgency: (id: string) => void;
   onDeleteTask: (id: string) => void;
@@ -18,6 +19,7 @@ interface KanbanBoardProps {
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
   tasks, 
   subtasksByParentId, 
+  profiles,
   onUpdateTaskStatus, 
   toggleTaskUrgency, 
   onDeleteTask, 
@@ -60,6 +62,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           status={col.status}
           tasks={col.tasks}
           subtasksByParentId={subtasksByParentId}
+          profiles={profiles}
           onDrop={handleDrop}
           onDragStart={handleDragStart}
           draggedTaskId={draggedTaskId}

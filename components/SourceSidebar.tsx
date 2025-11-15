@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, KeyboardEvent } from 'reac
 import { User } from 'firebase/auth';
 import { Task, Project, Filter, SectionKey } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { Download, LogOut, KeyRound, UserCircle, UserPlus, BookOpen, Calendar, Sun, AlertTriangle, Layers3, ChevronDown, BellRing, ShieldOff, Link as LinkIcon } from 'lucide-react';
+import { Download, LogOut, KeyRound, UserCircle, Users, BookOpen, Calendar, Sun, AlertTriangle, Layers3, ChevronDown, BellRing, ShieldOff, Link as LinkIcon } from 'lucide-react';
 import SearchBar from './SearchBar';
 import Dashboard from './Dashboard';
 import AdvancedDashboard from './AdvancedDashboard';
@@ -178,7 +178,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                     {isUserMenuOpen && (
                         <div className="absolute top-full right-0 mt-2 w-64 bg-slate-800/80 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50">
                              {isGuestMode ? (
-                                <div className="p-2"><button onClick={() => { exitGuestMode(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-white bg-primary-600 hover:bg-primary-700"><UserPlus className="h-4 w-4" /><span>Đăng ký để lưu dữ liệu</span></button></div>
+                                <div className="p-2"><button onClick={() => { exitGuestMode(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-white bg-primary-600 hover:bg-primary-700"><Users className="h-4 w-4" /><span>Đăng ký để lưu dữ liệu</span></button></div>
                             ) : (
                                 <div className="p-2">
                                     <button onClick={() => { onOpenSettings(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-slate-300 hover:bg-white/10"><UserCircle className="h-4 w-4" /><span>Cài đặt tài khoản</span></button>
@@ -225,14 +225,14 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                             <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full group-hover:opacity-0 transition-opacity ${activeFilter.type === 'project' && activeFilter.id === project.id ? 'bg-primary-500' : 'bg-black/20'}`}>
                                 {taskCountsByProject[project.id] || 0}
                             </span>
-                            {user && project.ownerId === user.uid && (
+                            {user && (
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); onOpenMemberManager(project); }} 
                                         className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-700"
-                                        title="Chia sẻ & Quản lý thành viên"
+                                        title={project.ownerId === user.uid ? "Chia sẻ & Quản lý thành viên" : "Xem thành viên"}
                                     >
-                                        <UserPlus size={16} />
+                                        <Users size={16} />
                                     </button>
                                 </div>
                             )}

@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -6,7 +8,7 @@ import SourceSidebar from './components/SourceSidebar';
 import TaskInput from './components/TaskInput';
 import TaskList from './components/TaskList';
 import { BellRing, ShieldOff, Loader2, List, LayoutGrid, Bot, Clock, Send, User, RotateCw, Settings, Link as LinkIcon, Check, BrainCircuit, X, UserPlus, Users, Mail, Trash2 } from 'lucide-react';
-import { Task, TaskStatus, Project, Filter, TaskTemplate, SectionKey } from './types';
+import { Task, TaskStatus, Project, Filter, TaskTemplate, SectionKey, UserProfile } from './types';
 import { isPast, isToday, addDays, isWithinInterval, parseISO } from 'date-fns';
 import FocusModeOverlay from './components/FocusModeOverlay';
 import AuthPage from './components/auth/AuthPage';
@@ -20,7 +22,7 @@ import ChatAssistant from './components/ChatAssistant';
 import GuestBanner from './components/GuestBanner';
 import LogViewer from './components/LogViewer';
 import CalendarPage from './pages/CalendarPage';
-import { useProjects } from './hooks/useProjects';
+import { useProjects, useUserProfiles } from './hooks/useProjects';
 import TimelineView from './components/TimelineView';
 import { useTaskTemplates } from './hooks/useTaskTemplates';
 import TemplateManagerModal from './components/TemplateManagerModal';
@@ -497,6 +499,14 @@ const App: React.FC = () => {
   const { templates, addTemplate, updateTemplate, deleteTemplate } = useTaskTemplates();
   const { notifications, acceptInvitation, declineInvitation } = useNotifications();
   
+  const allMemberIds = useMemo(() => {
+    const ids = new Set<string>();
+    projects.forEach(p => p.memberIds.forEach(id => ids.add(id)));
+    tasks.forEach(t => t.assigneeIds.forEach(id => ids.add(id)));
+    return Array.from(ids);
+  }, [projects, tasks]);
+  const { profiles } = useUserProfiles(allMemberIds);
+  
   const [page, setPage] = useState<'main' | 'calendar'>('main');
   const [showAuthPage, setShowAuthPage] = useState(false);
   const [view, setView] = useState<TaskStatus>('todo');
@@ -514,7 +524,7 @@ const App: React.FC = () => {
   const [isUpdateKeyModalOpen, setUpdateKeyModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
-  const [isWeeklyReviewModalOpen, setWeeklyReviewModalOpen] = useState(false);
+  const [isWeeklyReviewModalOpen, setIsWeeklyReviewModalOpen] = useState(false);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [selectedTemplateForApply, setSelectedTemplateForApply] = useState<TaskTemplate | null>(null);
   const [isPlannerModalOpen, setIsPlannerModalOpen] = useState(false);
@@ -869,7 +879,7 @@ const App: React.FC = () => {
       {isUpdateKeyModalOpen && currentUser && <ApiKeyPrompt isStudioEnv={isStudioEnv} onSelectKey={handleSelectStudioKey} onSaveManualKey={handleSaveManualKey} error={apiKeyError} isModal={true} onClose={() => setUpdateKeyModalOpen(false)} />}
       {isImportModalOpen && currentUser && hasApiKey && <ImportAssistantModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onAddTasksBatch={addTasksBatch} onApiKeyError={onApiKeyError} />}
       {isTemplateManagerOpen && currentUser && <TemplateManagerModal isOpen={isTemplateManagerOpen} onClose={() => setIsTemplateManagerOpen(false)} templates={templates} onAddTemplate={addTemplate} onUpdateTemplate={updateTemplate} onDeleteTemplate={deleteTemplate} />}
-      {isWeeklyReviewModalOpen && currentUser && hasApiKey && <WeeklyReviewModal isOpen={isWeeklyReviewModalOpen} onClose={() => setWeeklyReviewModalOpen(false)} tasks={tasks} onApiKeyError={onApiKeyError} />}
+      {isWeeklyReviewModalOpen && currentUser && hasApiKey && <WeeklyReviewModal isOpen={isWeeklyReviewModalOpen} onClose={() => setIsWeeklyReviewModalOpen(false)} tasks={tasks} onApiKeyError={onApiKeyError} />}
       <AIProjectPlannerModal 
         isOpen={isPlannerModalOpen}
         onClose={() => setIsPlannerModalOpen(false)}
@@ -939,7 +949,8 @@ const App: React.FC = () => {
                       onOpenSettings={() => setSettingsModalOpen(true)}
                       onToggleLogViewer={() => setIsLogViewerOpen(prev => !prev)}
                       onOpenTemplateManager={() => setIsTemplateManagerOpen(true)}
-                      onOpenWeeklyReview={() => setWeeklyReviewModalOpen(true)}
+                      // FIX: Corrected typo from `setWeeklyReviewModalOpen` to `setIsWeeklyReviewModalOpen`.
+                      onOpenWeeklyReview={() => setIsWeeklyReviewModalOpen(true)}
                       notificationPermissionStatus={notificationPermissionStatus}
                       onRequestNotificationPermission={handleRequestPermission}
                       onOpenExtensionGuide={() => setIsExtensionGuideOpen(true)}
@@ -987,12 +998,12 @@ const App: React.FC = () => {
                     ) : displayMode === 'list' ? (
                       <div style={{ position: 'relative' }}>
                         <div className="overflow-y-auto pr-2" style={{ height: `${taskListHeight}px` }}>
-                            <TaskList tasks={tasksForList} onToggleTask={toggleTask} onDeleteTask={deleteTask} onUpdateTaskDueDate={updateTaskDueDate} onToggleTaskUrgency={toggleTaskUrgency} onStartFocus={handleStartFocus} onAddSubtasksBatch={addSubtasksBatch} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onUpdateTaskText={updateTaskText} onUpdateTaskStatus={updateTaskStatus} onUpdateTaskNote={updateTaskNote} onUpdateTask={updateTask} projects={projects} />
+                            <TaskList tasks={tasksForList} onToggleTask={toggleTask} onDeleteTask={deleteTask} onUpdateTaskDueDate={updateTaskDueDate} onToggleTaskUrgency={toggleTaskUrgency} onStartFocus={handleStartFocus} onAddSubtasksBatch={addSubtasksBatch} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onUpdateTaskText={updateTaskText} onUpdateTaskStatus={updateTaskStatus} onUpdateTaskNote={updateTaskNote} onUpdateTask={updateTask} projects={projects} profiles={profiles} />
                         </div>
                          <div onMouseDown={handleResizeMouseDown} className="absolute bottom-0 right-0 w-6 h-6 cursor-ns-resize flex items-center justify-center group" title="Kéo để thay đổi kích thước"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-600 group-hover:text-slate-400 transition-colors"><path d="M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>
                       </div>
                     ) : (
-                      <KanbanBoard tasks={parentTasks} subtasksByParentId={subtasksByParentId} onUpdateTaskStatus={updateTaskStatus} toggleTaskUrgency={toggleTaskUrgency} onDeleteTask={deleteTask} onStartFocus={handleStartFocus} onToggleTask={toggleTask} onUpdateTaskNote={updateTaskNote} />
+                      <KanbanBoard tasks={parentTasks} subtasksByParentId={subtasksByParentId} onUpdateTaskStatus={updateTaskStatus} toggleTaskUrgency={toggleTaskUrgency} onDeleteTask={deleteTask} onStartFocus={handleStartFocus} onToggleTask={toggleTask} onUpdateTaskNote={updateTaskNote} profiles={profiles} />
                     )}
                   </div>
                 </div>

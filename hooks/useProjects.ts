@@ -109,9 +109,12 @@ export const useProjects = () => {
             const data = docSnap.data();
             projectsMap.set(docSnap.id, {
                 id: docSnap.id,
-                ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                name: data.name,
+                ownerId: data.ownerId,
                 memberIds: data.memberIds || [],
+                createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                color: data.color,
+                isVisible: data.isVisible,
             } as Project);
         });
         updateStateFromMap();
@@ -129,12 +132,18 @@ export const useProjects = () => {
             if (!projectsMap.has(docSnap.id)) {
                 hasChanges = true;
                 const data = docSnap.data();
-                projectsMap.set(docSnap.id, {
+                // Normalize old project data model to the new one on the fly.
+                // This ensures the rest of the app can work with a consistent data structure.
+                const normalizedProject: Project = {
                     id: docSnap.id,
-                    ...data,
+                    name: data.name,
+                    ownerId: data.ownerId || data.userId, // Use userId as ownerId for old projects
+                    memberIds: data.memberIds || [data.userId], // Initialize memberIds with the owner
                     createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-                    memberIds: data.memberIds || [],
-                } as Project);
+                    color: data.color,
+                    isVisible: data.isVisible,
+                };
+                projectsMap.set(docSnap.id, normalizedProject);
             }
         });
         if (hasChanges) {

@@ -1,13 +1,14 @@
 
 
 import React, { useMemo } from 'react';
-import { Task, TaskStatus, Project } from '../types';
+import { Task, TaskStatus, Project, UserProfile } from '../types';
 import TaskItem from './TaskItem';
 import { ClipboardList } from 'lucide-react';
 
 interface TaskListProps {
   tasks: Task[];
   projects: Project[];
+  profiles: Map<string, UserProfile>;
   onToggleTask: (id: string) => void;
   onDeleteTask: (id: string) => void;
   onUpdateTaskDueDate: (id: string, newDueDate: string | null) => void;
@@ -22,7 +23,7 @@ interface TaskListProps {
   onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, projects, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote, onUpdateTask }) => {
+const TaskList: React.FC<TaskListProps> = ({ tasks, projects, profiles, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote, onUpdateTask }) => {
 
   const { parentTasks, subtasksByParent } = useMemo(() => {
     const parentTasks: Task[] = [];
@@ -73,6 +74,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, projects, onToggleTask, onDe
           style={{ animationDelay: `${index * 50}ms` }}
           task={task}
           projects={projects}
+          profiles={profiles}
           subtasks={subtasksByParent[task.id] || []}
           onToggleTask={onToggleTask}
           onDeleteTask={onDeleteTask}

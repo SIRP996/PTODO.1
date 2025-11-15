@@ -130,7 +130,7 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
                     </div>
 
                     {/* Pending Invitations */}
-                    {invitations.length > 0 && (
+                    {currentUser.uid === project.ownerId && invitations.length > 0 && (
                         <div>
                              <h4 className="text-md font-semibold text-slate-300 mb-3">Lời mời đang chờ ({invitations.length})</h4>
                              <div className="space-y-2">
@@ -153,7 +153,7 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
             )}
         </div>
 
-        {currentUser.uid === project.ownerId && (
+        {currentUser.uid === project.ownerId ? (
             <div className="p-4 border-t border-slate-700 flex-shrink-0">
                 <h4 className="text-md font-semibold text-slate-300 mb-3 flex items-center gap-2"><UserPlus size={18}/> Mời thành viên mới</h4>
                 <div className="flex items-center gap-2">
@@ -176,6 +176,10 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
                         {isInviting ? <Loader2 className="animate-spin" size={20}/> : <Send size={20} />}
                     </button>
                 </div>
+            </div>
+        ) : (
+            <div className="p-4 border-t border-slate-700 flex-shrink-0">
+                <p className="text-sm text-slate-500 text-center italic">Chỉ chủ sở hữu dự án mới có thể mời thành viên mới.</p>
             </div>
         )}
       </div>

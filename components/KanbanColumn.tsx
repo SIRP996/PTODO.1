@@ -1,7 +1,7 @@
 
 
 import React, { useState, useMemo } from 'react';
-import { Task, TaskStatus } from '../types';
+import { Task, TaskStatus, UserProfile } from '../types';
 import KanbanCard from './KanbanCard';
 
 interface KanbanColumnProps {
@@ -9,6 +9,7 @@ interface KanbanColumnProps {
   status: TaskStatus;
   tasks: Task[];
   subtasksByParentId: { [key: string]: Task[] };
+  profiles: Map<string, UserProfile>;
   onDrop: (status: TaskStatus) => void;
   onDragStart: (taskId: string) => void;
   draggedTaskId: string | null;
@@ -46,7 +47,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   title, 
   status, 
   tasks, 
-  subtasksByParentId, 
+  subtasksByParentId,
+  profiles,
   onDrop, 
   onDragStart, 
   draggedTaskId, 
@@ -108,6 +110,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             key={task.id}
             task={task}
             subtasks={subtasksByParentId[task.id] || []}
+            profiles={profiles}
             onDragStart={onDragStart}
             isDragging={draggedTaskId === task.id}
             onToggleTaskUrgency={onToggleTaskUrgency}

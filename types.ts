@@ -1,3 +1,4 @@
+
 export type TaskStatus = 'todo' | 'inprogress' | 'completed';
 export type Theme = 'default' | 'crimson' | 'emerald' | 'amber' | 'sapphire' | 'slate' | 'noir';
 export type SectionKey = 'dashboard' | 'advancedDashboard' | 'utilities';

@@ -1,6 +1,7 @@
-import React, { useState, useRef, MouseEvent, TouchEvent, useEffect, KeyboardEvent } from 'react';
-import { Task, TaskStatus, Project } from '../types';
-import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Pickaxe, StickyNote, Plus, Save, X } from 'lucide-react';
+
+import React, { useState, useRef, MouseEvent, TouchEvent, useEffect, KeyboardEvent, useMemo } from 'react';
+import { Task, TaskStatus, Project, UserProfile } from '../types';
+import { Trash2, Calendar, CheckCircle2, Flag, Repeat, Play, ListTree, Loader2, Circle, ChevronDown, ChevronRight, Pencil, Pickaxe, StickyNote, Plus, Save, X, UserPlus, Check, UserCircle } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { Type } from '@google/genai';
 import { getGoogleGenAI } from '../utils/gemini';
@@ -10,6 +11,7 @@ interface TaskItemProps {
   task: Task;
   subtasks: Task[];
   projects: Project[];
+  profiles: Map<string, UserProfile>;
   onToggleTask: (id: string) => void;
   onDeleteTask: (id:string) => void;
   onUpdateTaskDueDate: (id: string, newDueDate: string | null) => void;
@@ -27,7 +29,7 @@ interface TaskItemProps {
 
 const SWIPE_THRESHOLD = 80;
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote, onUpdateTask, style }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, profiles, onToggleTask, onDeleteTask, onUpdateTaskDueDate, onToggleTaskUrgency, onStartFocus, onAddSubtasksBatch, onApiKeyError, hasApiKey, onUpdateTaskText, onUpdateTaskStatus, onUpdateTaskNote, onUpdateTask, style }) => {
   const isOverdue = task.dueDate && task.status !== 'completed' && isPast(new Date(task.dueDate));
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
@@ -53,6 +55,43 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
   const subtaskInputRef = useRef<HTMLInputElement>(null);
   
   const [currentEditTag, setCurrentEditTag] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+  const assignButtonRef = useRef<HTMLButtonElement>(null);
+  const assignPopoverRef = useRef<HTMLDivElement>(null);
+
+  const projectMembers = useMemo(() => {
+    if (!task.projectId) return [];
+    const project = projects.find(p => p.id === task.projectId);
+    if (!project) return [];
+    return project.memberIds.map(id => profiles.get(id)).filter(Boolean) as UserProfile[];
+  }, [task.projectId, projects, profiles]);
+
+  const assignees = useMemo(() => 
+    task.assigneeIds.map(id => profiles.get(id)).filter(Boolean) as UserProfile[],
+    [task.assigneeIds, profiles]
+  );
+
+  const handleAssignClick = () => {
+    setIsAssigning(p => !p);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: globalThis.MouseEvent) => {
+      if (isAssigning && assignPopoverRef.current && !assignPopoverRef.current.contains(event.target as Node) && !assignButtonRef.current?.contains(event.target as Node)) {
+        setIsAssigning(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isAssigning]);
+
+  const handleToggleAssignee = (memberId: string) => {
+    const newAssigneeIds = task.assigneeIds.includes(memberId)
+      ? task.assigneeIds.filter(id => id !== memberId)
+      : [...task.assigneeIds, memberId];
+    onUpdateTask(task.id, { assigneeIds: newAssigneeIds });
+  };
+
 
   useEffect(() => {
     if (isEditingNote && noteTextareaRef.current) {
@@ -85,17 +124,15 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
     const originalTask = task;
 
     (Object.keys(editState) as Array<keyof Task>).forEach(key => {
-        if (key === 'hashtags') {
+        if (key === 'hashtags' || key === 'assigneeIds') {
             if (JSON.stringify(editState[key]) !== JSON.stringify(originalTask[key])) {
                 updates[key] = editState[key];
             }
         } else if (editState[key] !== originalTask[key]) {
-            // FIX: Cast the object being assigned to `any` to avoid TS error with dynamic keys.
             (updates as any)[key] = editState[key];
         }
     });
     
-    // Ensure projectId is set to undefined if it's an empty string
     if(updates.projectId === '') {
         updates.projectId = undefined;
     }
@@ -289,7 +326,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
 
   return (
     <div
-      className="relative overflow-hidden border-b border-slate-700/50 last:border-b-0 animate-fadeIn"
+      className={`relative border-b border-slate-700/50 last:border-b-0 animate-fadeIn ${isAssigning ? 'overflow-visible z-10' : 'overflow-hidden'}`}
       style={style}
     >
        {isGeneratingSubtasks && (
@@ -322,6 +359,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
         <div className="flex-shrink-0 mt-1">
             {!isEditing && task.status !== 'completed' && (
                 <button 
+                    onMouseDown={e => e.stopPropagation()}
                     onClick={() => onStartFocus(task)}
                     className="mr-3 text-slate-500 hover:text-primary-400 transition-colors"
                     title="Bắt đầu tập trung"
@@ -333,7 +371,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
         
         <div className="ml-0 flex-grow">
             {isEditing && editState ? (
-                <div className="space-y-4" onClick={e => e.stopPropagation()}>
+                <div className="space-y-4" onMouseDown={e => e.stopPropagation()}>
                     <textarea
                         value={editState.text}
                         onChange={(e) => handleEditChange({ text: e.target.value })}
@@ -341,6 +379,31 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
                         rows={2}
                         autoFocus
                     />
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Giao cho</label>
+                        {task.projectId && projectMembers.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-1 p-1 bg-[#293548] border border-slate-600 rounded-lg">
+                                {projectMembers.map(member => (
+                                    <button
+                                        key={member.uid}
+                                        type="button"
+                                        onClick={() => handleEditChange({ assigneeIds: editState.assigneeIds.includes(member.uid) ? editState.assigneeIds.filter(id => id !== member.uid) : [...editState.assigneeIds, member.uid] })}
+                                        className={`flex items-center gap-2 p-1 rounded-md transition-colors ${editState.assigneeIds.includes(member.uid) ? 'bg-primary-600/80 text-white' : 'hover:bg-slate-700 text-slate-300'}`}
+                                        title={member.displayName}
+                                    >
+                                        <div className="w-5 h-5 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
+                                            {member.photoURL ? <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" /> : <UserCircle size={14} className="text-slate-400 m-auto" />}
+                                        </div>
+                                        <span className="text-xs truncate max-w-[100px]">{member.displayName}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <span className="text-xs text-slate-500 p-1 italic">
+                                {task.projectId ? 'Chưa có thành viên trong dự án.' : 'Công việc không thuộc dự án nào.'}
+                            </span>
+                        )}
+                    </div>
                     <div>
                         <label className="block text-xs font-medium text-slate-400 mb-1">Dự án</label>
                         <select value={editState.projectId || ''} onChange={(e) => handleEditChange({ projectId: e.target.value || undefined })} className="w-full bg-[#293548] text-slate-200 border border-slate-600 rounded-lg px-2 py-1 text-sm">
@@ -387,9 +450,20 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
                         ))}
                         </div>
                     )}
+                    {assignees.length > 0 && (
+                        <div className="flex items-center gap-2 mt-2">
+                        <div className="flex -space-x-2">
+                            {assignees.map(assignee => (
+                            <div key={assignee.uid} title={assignee.displayName} className="w-6 h-6 rounded-full bg-slate-700 overflow-hidden ring-2 ring-slate-800/80">
+                                {assignee.photoURL ? <img src={assignee.photoURL} alt={assignee.displayName} className="w-full h-full object-cover" /> : <UserCircle size={16} className="text-slate-400 m-auto" />}
+                            </div>
+                            ))}
+                        </div>
+                        </div>
+                    )}
                     <div className="flex items-center gap-4">
                         {!isEditingDate && (
-                        <div className={`flex items-center text-xs mt-2 ${isOverdue ? 'text-red-400' : task.dueDate ? 'text-slate-400' : 'text-slate-500'} ${task.status === 'completed' ? '' : 'cursor-pointer'}`} onClick={() => task.status !== 'completed' && setIsEditingDate(true)} title={task.status !== 'completed' ? (task.dueDate ? "Chỉnh sửa ngày hết hạn" : "Thêm ngày hết hạn") : ""}>
+                        <div onMouseDown={e => e.stopPropagation()} className={`flex items-center text-xs mt-2 ${isOverdue ? 'text-red-400' : task.dueDate ? 'text-slate-400' : 'text-slate-500'} ${task.status === 'completed' ? '' : 'cursor-pointer'}`} onClick={() => task.status !== 'completed' && setIsEditingDate(true)} title={task.status !== 'completed' ? (task.dueDate ? "Chỉnh sửa ngày hết hạn" : "Thêm ngày hết hạn") : ""}>
                             <Calendar size={14} className="mr-1.5" />
                             {task.dueDate ? (
                                 <>
@@ -403,7 +477,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
                         <div className="flex items-center text-xs mt-2 text-slate-400" title={`Lặp lại ${task.recurrenceRule === 'daily' ? 'hàng ngày' : task.recurrenceRule === 'weekly' ? 'hàng tuần' : 'hàng tháng'}`}><Repeat size={14} className="mr-1.5" /></div>
                         )}
                     </div>
-                    {isEditingDate && (<div className="mt-2"><input type="datetime-local" defaultValue={dueDateForInput} autoFocus onBlur={(e) => handleDateUpdate(e.target.value)} onKeyDown={(e) => {if (e.key === 'Enter') handleDateUpdate(e.currentTarget.value); if (e.key === 'Escape') setIsEditingDate(false);}} className="w-full sm:w-auto bg-[#293548] text-slate-200 border border-primary-600 rounded-lg px-2 py-1 text-xs"/></div>)}
+                    {isEditingDate && (<div className="mt-2" onMouseDown={e => e.stopPropagation()}><input type="datetime-local" defaultValue={dueDateForInput} autoFocus onBlur={(e) => handleDateUpdate(e.target.value)} onKeyDown={(e) => {if (e.key === 'Enter') handleDateUpdate(e.currentTarget.value); if (e.key === 'Escape') setIsEditingDate(false);}} className="w-full sm:w-auto bg-[#293548] text-slate-200 border border-primary-600 rounded-lg px-2 py-1 text-xs"/></div>)}
                 </>
             )}
 
@@ -440,7 +514,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
 
           <div className="mt-4 pt-3 pl-4 border-t border-slate-700/50">
               {subtasks.length > 0 && (
-                  <button onClick={() => setAreSubtasksVisible(!areSubtasksVisible)} className="flex items-center text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 hover:text-slate-200 transition-colors w-full">
+                  <button onMouseDown={e => e.stopPropagation()} onClick={() => setAreSubtasksVisible(!areSubtasksVisible)} className="flex items-center text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 hover:text-slate-200 transition-colors w-full">
                   {areSubtasksVisible ? <ChevronDown size={16} className="mr-1" /> : <ChevronRight size={16} className="mr-1" />}
                   <span>Công việc con ({subtasks.length})</span>
                   </button>
@@ -457,12 +531,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
                         ) : (
                             <>
                                 <div className="flex items-center gap-3">
-                                    <button onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
+                                    <button onMouseDown={e => e.stopPropagation()} onClick={() => onToggleTask(subtask.id)} className="flex-shrink-0">
                                         {subtask.status === 'completed' ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} className="text-slate-500 group-hover:text-slate-300" />}
                                     </button>
                                     <p className={`text-sm ${subtask.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-300'}`}>{subtask.text}</p>
                                 </div>
-                                <div className="flex items-center">
+                                <div className="flex items-center" onMouseDown={e => e.stopPropagation()}>
                                     <button onClick={() => handleStartEditSubtask(subtask)} className="text-slate-500 hover:text-primary-400 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full disabled:opacity-0 disabled:cursor-not-allowed" title="Sửa công việc con" disabled={subtask.status === 'completed'}><Pencil size={14} /></button>
                                     <button onClick={() => onDeleteTask(subtask.id)} className="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-full" title="Xóa công việc con"><Trash2 size={14} /></button>
                                 </div>
@@ -478,27 +552,61 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, onToggleT
               )}
           </div>
         </div>
-        <div className="ml-4 flex-shrink-0 flex items-center gap-4">
+        <div className="ml-4 flex-shrink-0 flex items-center gap-2" onMouseDown={e => e.stopPropagation()}>
           {isEditing ? (
             <>
-              <button onClick={handleCancelEditing} title="Hủy" className="text-slate-400 hover:text-white transition-colors duration-200 z-10"><X size={20} /></button>
-              <button onClick={handleSaveEditing} title="Lưu" className="text-primary-400 hover:text-primary-300 transition-colors duration-200 z-10"><Save size={20} /></button>
+              <button onClick={handleCancelEditing} title="Hủy" className="p-2 text-slate-400 hover:text-white transition-colors duration-200 z-10"><X size={20} /></button>
+              <button onClick={handleSaveEditing} title="Lưu" className="p-2 text-primary-400 hover:text-primary-300 transition-colors duration-200 z-10"><Save size={20} /></button>
             </>
           ) : (
             <>
               {task.status !== 'completed' && (
                 <>
                   {!task.parentId && (
-                    <button onClick={handleGenerateSubtasks} disabled={isGeneratingSubtasks || !hasApiKey} className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10 disabled:text-slate-600 disabled:hover:text-slate-600 disabled:cursor-not-allowed" title={hasApiKey ? "Chia nhỏ công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}><ListTree size={18} /></button>
+                    <button onClick={handleGenerateSubtasks} disabled={isGeneratingSubtasks || !hasApiKey} className="p-2 text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10 disabled:text-slate-600 disabled:hover:text-slate-600 disabled:cursor-not-allowed" title={hasApiKey ? "Chia nhỏ công việc bằng AI" : "Thêm API Key để sử dụng tính năng AI"}><ListTree size={18} /></button>
                   )}
-                  <button onClick={() => { setIsEditingNote(prev => !prev); if(!isEditingNote) setEditNoteText(task.note || '') }} className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10" aria-label="Thêm/Sửa ghi chú" title="Thêm/Sửa ghi chú"><StickyNote size={18} /></button>
-                  <button onClick={startEditing} className="text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10" aria-label="Chỉnh sửa nội dung" title="Chỉnh sửa nội dung"><Pencil size={18} /></button>
-                  <button onClick={() => onUpdateTaskStatus(task.id, task.status === 'inprogress' ? 'todo' : 'inprogress')} className={`transition-colors duration-200 z-10 ${task.status === 'inprogress' ? 'text-primary-400 hover:text-primary-300' : 'text-slate-500 hover:text-primary-400'}`} title={task.status === 'inprogress' ? 'Dừng làm' : 'Bắt đầu làm'}><Pickaxe size={18} className={task.status === 'inprogress' ? 'digging-animation' : ''} /></button>
-                  <button onClick={() => onToggleTaskUrgency(task.id)} className={`transition-colors duration-200 z-10 ${task.isUrgent ? 'text-red-500 hover:text-red-400' : 'text-slate-500 hover:text-red-500'}`} aria-label={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"} title={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"}><Flag size={18} /></button>
+                  <button onClick={() => { setIsEditingNote(prev => !prev); if(!isEditingNote) setEditNoteText(task.note || '') }} className="p-2 text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10" aria-label="Thêm/Sửa ghi chú" title="Thêm/Sửa ghi chú"><StickyNote size={18} /></button>
+                  <button onClick={startEditing} className="p-2 text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10" aria-label="Chỉnh sửa nội dung" title="Chỉnh sửa nội dung"><Pencil size={18} /></button>
+                  {task.projectId && (
+                    <div className="relative">
+                        <button
+                            ref={assignButtonRef}
+                            onClick={handleAssignClick}
+                            className="p-2 text-slate-500 hover:text-primary-400 transition-colors duration-200 z-10"
+                            title="Giao việc"
+                        >
+                            <UserPlus size={18} />
+                        </button>
+                        {isAssigning && (
+                            <div ref={assignPopoverRef} className="absolute right-0 w-64 bg-[#293548] border border-slate-600 rounded-lg shadow-lg z-30 max-h-60 overflow-y-auto top-full mt-2">
+                                <div className="p-2 text-xs font-semibold text-slate-400 border-b border-slate-600">Giao cho</div>
+                                {projectMembers.length > 0 ? projectMembers.map(member => (
+                                    <button
+                                        key={member.uid}
+                                        onClick={() => handleToggleAssignee(member.uid)}
+                                        className="w-full text-left flex items-center justify-between gap-3 px-3 py-2 hover:bg-slate-700 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
+                                                {member.photoURL ? <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" /> : <UserCircle size={16} className="text-slate-400 m-auto" />}
+                                            </div>
+                                            <span className="text-sm text-slate-200 truncate">{member.displayName}</span>
+                                        </div>
+                                        {task.assigneeIds.includes(member.uid) && <Check size={16} className="text-primary-400" />}
+                                    </button>
+                                )) : (
+                                    <p className="p-3 text-sm text-slate-500">Dự án này chưa có thành viên.</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                  )}
+                  <button onClick={() => onUpdateTaskStatus(task.id, task.status === 'inprogress' ? 'todo' : 'inprogress')} className={`p-2 transition-colors duration-200 z-10 ${task.status === 'inprogress' ? 'text-primary-400 hover:text-primary-300' : 'text-slate-500 hover:text-primary-400'}`} title={task.status === 'inprogress' ? 'Dừng làm' : 'Bắt đầu làm'}><Pickaxe size={18} className={task.status === 'inprogress' ? 'digging-animation' : ''} /></button>
+                  <button onClick={() => onToggleTaskUrgency(task.id)} className={`p-2 transition-colors duration-200 z-10 ${task.isUrgent ? 'text-red-500 hover:text-red-400' : 'text-slate-500 hover:text-red-500'}`} aria-label={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"} title={task.isUrgent ? "Bỏ đánh dấu GẤP" : "Đánh dấu là GẤP"}><Flag size={18} /></button>
                 </>
               )}
-              <button onClick={() => onToggleTask(task.id)} className="text-slate-500 hover:text-green-500 transition-colors duration-200 z-10" aria-label={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"} title={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"}><CheckCircle2 size={20} className={task.status === 'completed' ? "text-green-500" : ""} /></button>
-              <button onClick={() => onDeleteTask(task.id)} className="text-slate-500 hover:text-red-500 transition-colors duration-200 z-10" aria-label="Xóa công việc" title="Xóa công việc"><Trash2 size={18} /></button>
+              <button onClick={() => onToggleTask(task.id)} className="p-2 text-slate-500 hover:text-green-500 transition-colors duration-200 z-10" aria-label={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"} title={task.status === 'completed' ? "Đánh dấu chưa hoàn thành" : "Đánh dấu đã hoàn thành"}><CheckCircle2 size={20} className={task.status === 'completed' ? "text-green-500" : ""} /></button>
+              <button onClick={() => onDeleteTask(task.id)} className="p-2 text-slate-500 hover:text-red-500 transition-colors duration-200 z-10" aria-label="Xóa công việc" title="Xóa công việc"><Trash2 size={18} /></button>
             </>
           )}
         </div>

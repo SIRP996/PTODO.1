@@ -1,13 +1,14 @@
 
 
-import React, { useState } from 'react';
-import { Task } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Task, UserProfile } from '../types';
 import { format, isPast } from 'date-fns';
-import { Flag, Calendar, ListTree, Trash2, Play, ChevronRight, ChevronDown, Circle, CheckCircle2, StickyNote } from 'lucide-react';
+import { Flag, Calendar, ListTree, Trash2, Play, ChevronRight, ChevronDown, Circle, CheckCircle2, StickyNote, UserCircle } from 'lucide-react';
 
 interface KanbanCardProps {
   task: Task;
   subtasks: Task[];
+  profiles: Map<string, UserProfile>;
   onDragStart: (taskId: string) => void;
   isDragging: boolean;
   onToggleTaskUrgency: (id: string) => void;
@@ -18,11 +19,16 @@ interface KanbanCardProps {
   style?: React.CSSProperties;
 }
 
-const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, isDragging, onToggleTaskUrgency, onDeleteTask, onStartFocus, onToggleTask, onUpdateTaskNote, style }) => {
+const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, profiles, onDragStart, isDragging, onToggleTaskUrgency, onDeleteTask, onStartFocus, onToggleTask, onUpdateTaskNote, style }) => {
   const isOverdue = task.dueDate && task.status !== 'completed' && isPast(new Date(task.dueDate));
   const [areSubtasksVisible, setAreSubtasksVisible] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editNoteText, setEditNoteText] = useState(task.note || '');
+
+  const assignees = useMemo(() => 
+    task.assigneeIds.map(id => profiles.get(id)).filter(Boolean) as UserProfile[],
+    [task.assigneeIds, profiles]
+  );
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     onDragStart(task.id);
@@ -110,9 +116,17 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subtasks, onDragStart, is
 
       <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-700/50">
         <div className="flex items-center gap-4 text-slate-500">
-          {/* FIX: Wrap the Flag icon in a span to apply the title attribute, as Lucide icons do not accept the title prop directly. */}
-          {task.isUrgent && task.status !== 'completed' && <span title="Khẩn cấp"><Flag size={16} className="text-red-500" /></span>}
-          {subtasks.length > 0 && (
+            {assignees.length > 0 && (
+                <div className="flex -space-x-2">
+                    {assignees.map(assignee => (
+                        <div key={assignee.uid} title={assignee.displayName} className="w-6 h-6 rounded-full bg-slate-700 overflow-hidden ring-2 ring-black/20">
+                            {assignee.photoURL ? <img src={assignee.photoURL} alt={assignee.displayName} className="w-full h-full object-cover" /> : <UserCircle size={16} className="text-slate-400 m-auto" />}
+                        </div>
+                    ))}
+                </div>
+            )}
+            {task.isUrgent && task.status !== 'completed' && <span title="Khẩn cấp"><Flag size={16} className="text-red-500" /></span>}
+            {subtasks.length > 0 && (
              <button 
                 onClick={(e) => { e.stopPropagation(); setAreSubtasksVisible(!areSubtasksVisible); }}
                 className="flex items-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
