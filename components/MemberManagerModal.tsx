@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Project, UserProfile, Invitation } from '../types';
 import { User } from 'firebase/auth';
 import { X, Users, UserPlus, Mail, Send, Loader2, Trash2, Clock, UserCircle } from 'lucide-react';
 import { db } from '../firebaseConfig';
-import { collection, query, where, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
 
 interface MemberManagerModalProps {
@@ -11,6 +11,7 @@ interface MemberManagerModalProps {
   onClose: () => void;
   project: Project;
   currentUser: User;
+  profiles: Map<string, UserProfile>;
   onInviteUser: (project: Project, email: string) => Promise<void>;
   onRemoveUser: (projectId: string, userId: string) => Promise<void>;
   onCancelInvitation: (invitationId: string) => Promise<void>;
@@ -21,51 +22,30 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
   onClose,
   project,
   currentUser,
+  profiles,
   onInviteUser,
   onRemoveUser,
   onCancelInvitation,
 }) => {
-  const [members, setMembers] = useState<UserProfile[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [inviteeEmail, setInviteeEmail] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isInviting, setIsInviting] = useState(false);
   const { addToast } = useToast();
 
+  const members = useMemo(() => {
+    if (!isOpen) return [];
+    return project.memberIds
+      .map(id => profiles.get(id))
+      .filter((p): p is UserProfile => !!p)
+      .map(p => ({ ...p, displayName: p.displayName || 'Unnamed User' })); // Ensure fallback
+  }, [isOpen, project.memberIds, profiles]);
+
+
   useEffect(() => {
     if (!isOpen) return;
 
     setIsLoading(true);
-    const fetchMembers = async () => {
-      if (project.memberIds.length === 0) {
-        setMembers([]);
-        return;
-      }
-      try {
-        const memberProfiles: UserProfile[] = [];
-        // Fetch in chunks of 10 for 'in' query limit
-        for (let i = 0; i < project.memberIds.length; i += 10) {
-          const chunk = project.memberIds.slice(i, i + 10);
-          const usersQuery = query(collection(db, "users"), where("__name__", "in", chunk));
-          const querySnapshot = await getDocs(usersQuery);
-          querySnapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            memberProfiles.push({
-              uid: docSnap.id,
-              displayName: data.displayName || 'Unnamed User',
-              email: data.email,
-              photoURL: data.photoURL || data.avatarUrl,
-            });
-          });
-        }
-        setMembers(memberProfiles);
-      } catch (error) {
-        console.error("Error fetching members:", error);
-        addToast("Không thể tải danh sách thành viên.", "error");
-      }
-    };
-
-    fetchMembers();
 
     const invitationsQuery = query(
       collection(db, 'invitations'),
@@ -77,10 +57,14 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
       const invs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Invitation));
       setInvitations(invs);
       setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching invitations:", error);
+      addToast("Không thể tải danh sách lời mời.", "error");
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [isOpen, project.id, project.memberIds, addToast]);
+  }, [isOpen, project.id, addToast]);
   
   const handleInvite = async () => {
     if (!inviteeEmail.trim()) return;
@@ -101,7 +85,7 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
         </div>
 
         <div className="flex-grow p-6 overflow-y-auto space-y-6">
-            {isLoading ? (
+            {isLoading && members.length < project.memberIds.length ? (
                 <div className="flex items-center justify-center h-full"><Loader2 className="animate-spin text-primary-400"/></div>
             ) : (
                 <>
