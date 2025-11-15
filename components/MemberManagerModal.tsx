@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Project, UserProfile, Invitation } from '../types';
 import { User } from 'firebase/auth';
@@ -37,8 +38,7 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
     if (!isOpen) return [];
     return project.memberIds
       .map(id => profiles.get(id))
-      .filter((p): p is UserProfile => !!p)
-      .map(p => ({ ...p, displayName: p.displayName || 'Unnamed User' })); // Ensure fallback
+      .filter((p): p is UserProfile => !!p);
   }, [isOpen, project.memberIds, profiles]);
 
 

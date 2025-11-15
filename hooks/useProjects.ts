@@ -18,6 +18,7 @@ import {
   getDocs,
   arrayRemove,
   writeBatch,
+  documentId,
 } from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
 
@@ -43,18 +44,15 @@ export const useUserProfiles = (userIds: string[]) => {
                 return;
             }
             setLoading(true);
-            const idsToFetch = userIds.filter(id => !profiles.has(id));
-            if (idsToFetch.length === 0) {
-                setLoading(false);
-                return;
-            }
+            const uniqueUserIds = [...new Set(userIds)];
 
-            const newProfiles = new Map(profiles);
+            const newProfiles = new Map<string, UserProfile>();
             try {
-                 // Firestore 'in' query is limited to 30 elements. Chunking is needed for more users.
-                for (let i = 0; i < idsToFetch.length; i += 10) {
-                    const chunk = idsToFetch.slice(i, i + 10);
-                    const usersQuery = query(collection(db, "users"), where("__name__", "in", chunk));
+                 // Firestore 'in' query is limited to 30 elements.
+                for (let i = 0; i < uniqueUserIds.length; i += 30) {
+                    const chunk = uniqueUserIds.slice(i, i + 30);
+                    if (chunk.length === 0) continue;
+                    const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
                     const querySnapshot = await getDocs(usersQuery);
                     querySnapshot.forEach(docSnap => {
                         const data = docSnap.data();
@@ -66,6 +64,20 @@ export const useUserProfiles = (userIds: string[]) => {
                         });
                     });
                 }
+                
+                // Add placeholders for any users not found in the database
+                // This prevents them from being constantly re-queried and ensures they are displayed.
+                uniqueUserIds.forEach(id => {
+                    if (!newProfiles.has(id)) {
+                         newProfiles.set(id, {
+                            uid: id,
+                            displayName: 'Unnamed User',
+                            email: 'N/A',
+                            photoURL: null,
+                        });
+                    }
+                });
+
                 setProfiles(newProfiles);
             } catch (error) {
                 console.error("Error fetching user profiles:", error);
