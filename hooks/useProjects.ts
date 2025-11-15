@@ -34,42 +34,48 @@ const PROJECT_COLORS = [
 
 // Custom hook to fetch and cache user profiles
 export const useUserProfiles = (userIds: string[]) => {
+    const { currentUser } = useAuth();
     const [profiles, setProfiles] = useState<Map<string, UserProfile>>(new Map());
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         const fetchProfiles = async () => {
-            if (userIds.length === 0) {
+            // Add current user's ID to the list to ensure their profile is always considered.
+            const allIds = currentUser ? [...userIds, currentUser.uid] : userIds;
+            const uniqueUserIds = [...new Set(allIds)];
+
+            if (uniqueUserIds.length === 0) {
                 setProfiles(new Map());
                 return;
             }
-            setLoading(true);
-            const uniqueUserIds = [...new Set(userIds)];
 
+            setLoading(true);
             const newProfiles = new Map<string, UserProfile>();
+
             try {
-                 // Firestore 'in' query is limited to 30 elements.
+                // Fetch profiles from Firestore in chunks
                 for (let i = 0; i < uniqueUserIds.length; i += 30) {
                     const chunk = uniqueUserIds.slice(i, i + 30);
                     if (chunk.length === 0) continue;
+                    
                     const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
                     const querySnapshot = await getDocs(usersQuery);
+                    
                     querySnapshot.forEach(docSnap => {
                         const data = docSnap.data();
                         newProfiles.set(docSnap.id, {
                             uid: docSnap.id,
-                            displayName: data.displayName || 'Unnamed User',
-                            email: data.email,
+                            displayName: data.displayName || (data.email ? data.email.split('@')[0] : 'Unnamed User'),
+                            email: data.email || 'N/A',
                             photoURL: data.photoURL || data.avatarUrl,
                         });
                     });
                 }
-                
-                // Add placeholders for any users not found in the database
-                // This prevents them from being constantly re-queried and ensures they are displayed.
+
+                // Create placeholders for any users not found in Firestore.
                 uniqueUserIds.forEach(id => {
                     if (!newProfiles.has(id)) {
-                         newProfiles.set(id, {
+                        newProfiles.set(id, {
                             uid: id,
                             displayName: 'Unnamed User',
                             email: 'N/A',
@@ -77,8 +83,21 @@ export const useUserProfiles = (userIds: string[]) => {
                         });
                     }
                 });
+                
+                // CRITICAL FIX: After all fetching and placeholder creation,
+                // ALWAYS overwrite the current user's profile with fresh data from the auth context.
+                // This resolves any race conditions where Firestore data might be stale or missing.
+                if (currentUser) {
+                    newProfiles.set(currentUser.uid, {
+                        uid: currentUser.uid,
+                        displayName: currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Current User'),
+                        email: currentUser.email || 'N/A',
+                        photoURL: currentUser.photoURL,
+                    });
+                }
 
                 setProfiles(newProfiles);
+
             } catch (error) {
                 console.error("Error fetching user profiles:", error);
             } finally {
@@ -87,7 +106,7 @@ export const useUserProfiles = (userIds: string[]) => {
         };
 
         fetchProfiles();
-    }, [JSON.stringify(userIds)]); // Rerun when the list of IDs changes
+    }, [JSON.stringify(userIds), currentUser]); // Reruns when userIds or the currentUser object changes.
 
     return { profiles, loading };
 };
