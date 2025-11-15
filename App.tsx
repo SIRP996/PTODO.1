@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -487,7 +488,8 @@ const App: React.FC = () => {
   const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading, isGuestMode, exitGuestMode } = useAuth();
   const { addToast } = useToast();
   
-  const { projects, addProject, inviteUserToProject, removeUserFromProject, cancelInvitation } = useProjects();
+  // FIX: Destructure deleteProject and updateProject to pass to SourceSidebar
+  const { projects, addProject, inviteUserToProject, removeUserFromProject, cancelInvitation, deleteProject, updateProject } = useProjects();
   
   const { 
     tasks, addTask, toggleTask, deleteTask, markReminderSent, updateTaskDueDate, toggleTaskUrgency,
@@ -955,6 +957,9 @@ const App: React.FC = () => {
                       onRequestNotificationPermission={handleRequestPermission}
                       onOpenExtensionGuide={() => setIsExtensionGuideOpen(true)}
                       onOpenMemberManager={handleOpenMemberManager}
+                      onAddProject={addProject}
+                      onDeleteProject={deleteProject}
+                      onUpdateProject={updateProject}
                     />
                 </div>
 

@@ -482,13 +482,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, subtasks, projects, profiles,
                     )}
                     {assignees.length > 0 && (
                         <div className="flex items-center gap-2 mt-2">
-                        <div className="flex -space-x-2">
+                          <div className="flex -space-x-2">
                             {assignees.map(assignee => (
-                            <div key={assignee.uid} title={assignee.displayName} className="w-6 h-6 rounded-full bg-slate-700 overflow-hidden ring-2 ring-slate-800/80">
-                                {assignee.photoURL ? <img src={assignee.photoURL} alt={assignee.displayName} className="w-full h-full object-cover" /> : <UserCircle size={16} className="text-slate-400 m-auto" />}
-                            </div>
+                              <div key={assignee.uid} className="relative group">
+                                <div className="w-6 h-6 rounded-full bg-slate-700 overflow-hidden ring-2 ring-slate-800/80">
+                                  {assignee.photoURL ? <img src={assignee.photoURL} alt={assignee.displayName} className="w-full h-full object-cover" /> : <UserCircle size={16} className="text-slate-400 m-auto" />}
+                                </div>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                                  {assignee.displayName}
+                                </div>
+                              </div>
                             ))}
-                        </div>
+                          </div>
                         </div>
                     )}
                     <div className="flex items-center gap-4">
