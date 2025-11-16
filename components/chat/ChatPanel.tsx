@@ -1,8 +1,8 @@
 
+
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
 import { Project, Task, UserProfile, ChatRoom } from '../../types';
-import { useChat } from '../../hooks/useChat';
 import ChatRoomList from './ChatRoomList';
 import ChatView from './ChatView';
 
@@ -14,6 +14,9 @@ interface ChatPanelProps {
     tasks: Task[];
     profiles: Map<string, UserProfile>;
     onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+    chatData: any; // Data from useChat hook
+    activeRoom: ChatRoom | null;
+    onSelectRoom: (room: ChatRoom) => void;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({ 
@@ -23,51 +26,49 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     projects, 
     tasks, 
     profiles, 
-    onUpdateTask 
+    onUpdateTask,
+    chatData,
+    activeRoom,
+    onSelectRoom,
 }) => {
-    const [activeRoom, setActiveRoom] = useState<ChatRoom | null>(null);
-    const { createDmRoom } = useChat(currentUser, projects);
+    const { createDmRoom } = chatData;
 
-    const handleSelectRoom = (room: ChatRoom) => {
-        setActiveRoom(room);
-    };
-    
     const handleSelectUser = async (user: UserProfile) => {
         if (user.uid === currentUser.uid) return;
         const dmRoom = await createDmRoom(user);
         if (dmRoom) {
-            setActiveRoom(dmRoom);
+            onSelectRoom(dmRoom);
         }
     };
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-40 flex justify-end animate-simpleFadeIn">
-            <div 
-                className="fixed inset-0"
-                onClick={onClose}
-                aria-hidden="true"
-            ></div>
-            <div className="relative w-full max-w-4xl h-full bg-[#0F172A] flex animate-slideInLeft lg:animate-none">
-                <ChatRoomList 
-                    currentUser={currentUser}
-                    projects={projects}
-                    profiles={profiles}
-                    activeRoomId={activeRoom?.id || null}
-                    onSelectRoom={handleSelectRoom}
-                    onSelectUser={handleSelectUser}
-                    onClose={onClose}
-                />
-                <ChatView 
-                    key={activeRoom?.id || 'welcome'}
-                    currentUser={currentUser}
-                    activeRoom={activeRoom}
-                    profiles={profiles}
-                    tasks={tasks}
-                    onUpdateTask={onUpdateTask}
-                />
-            </div>
+        <div className="fixed bottom-6 right-6 w-[calc(100%-3rem)] max-w-3xl h-[75vh] max-h-[700px] z-40 bg-[#0F172A] flex rounded-2xl shadow-2xl border border-slate-700/50 animate-fadeIn">
+            <ChatRoomList 
+                currentUser={currentUser}
+                projects={projects}
+                profiles={profiles}
+                activeRoomId={activeRoom?.id || null}
+                onSelectRoom={onSelectRoom}
+                onSelectUser={handleSelectUser}
+                onClose={onClose}
+                projectChatRooms={chatData.projectChatRooms}
+                dmChatRooms={chatData.dmChatRooms}
+                unreadRoomIds={chatData.unreadRoomIds}
+            />
+            <ChatView 
+                key={activeRoom?.id || 'welcome'}
+                currentUser={currentUser}
+                activeRoom={activeRoom}
+                profiles={profiles}
+                tasks={tasks}
+                onUpdateTask={onUpdateTask}
+                messages={chatData.messages}
+                loadingMessages={chatData.loadingMessages}
+                sendMessage={chatData.sendMessage}
+                deleteMessage={chatData.deleteMessage}
+            />
         </div>
     );
 };

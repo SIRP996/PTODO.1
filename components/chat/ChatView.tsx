@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useRef, FormEvent, useMemo } from 'react';
 import { User } from 'firebase/auth';
-import { ChatRoom, UserProfile, Task } from '../../types';
-import { useChat } from '../../hooks/useChat';
+import { ChatRoom, UserProfile, Task, ChatMessage } from '../../types';
 import { Send, Loader2, UserCircle, MessageSquare, Trash2, AtSign, Hash } from 'lucide-react';
 import { formatRelative } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -84,10 +83,23 @@ interface ChatViewProps {
     profiles: Map<string, UserProfile>;
     tasks: Task[];
     onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+    messages: ChatMessage[];
+    loadingMessages: boolean;
+    sendMessage: (roomId: string, text: string, onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>) => Promise<void>;
+    deleteMessage: (roomId: string, messageId: string) => Promise<void>;
 }
 
-const ChatView: React.FC<ChatViewProps> = ({ currentUser, activeRoom, profiles, tasks, onUpdateTask }) => {
-    const { messages, loadingMessages, sendMessage, deleteMessage } = useChat(currentUser, [], activeRoom?.id || null);
+const ChatView: React.FC<ChatViewProps> = ({ 
+    currentUser, 
+    activeRoom, 
+    profiles, 
+    tasks, 
+    onUpdateTask,
+    messages,
+    loadingMessages,
+    sendMessage,
+    deleteMessage
+}) => {
     const [inputValue, setInputValue] = useState('');
     const [isSending, setIsSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -173,7 +185,7 @@ const ChatView: React.FC<ChatViewProps> = ({ currentUser, activeRoom, profiles, 
     }
 
     return (
-        <div className="w-2/3 flex flex-col h-full bg-slate-900/50">
+        <div className="w-2/3 flex flex-col h-full bg-slate-900/50 rounded-r-2xl">
             <div className="p-4 border-b border-slate-700 flex-shrink-0">
                 <h3 className="font-bold text-white truncate">{activeRoom.name}</h3>
             </div>

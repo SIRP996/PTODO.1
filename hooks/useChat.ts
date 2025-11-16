@@ -1,6 +1,6 @@
 
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { db } from '../firebaseConfig';
 import {
@@ -29,9 +29,11 @@ export const useChat = (currentUser: User | null, projects: Project[], activeRoo
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [unreadRoomIds, setUnreadRoomIds] = useState<Set<string>>(new Set());
+  const [lastReadTimestamps, setLastReadTimestamps] = useState<Record<string, number>>({});
   const { addToast } = useToast();
 
-  // Fetch all chat rooms (projects and DMs)
+  // Fetch all chat rooms (projects and DMs) and auto-create project rooms
   useEffect(() => {
     if (!currentUser) {
       setLoadingRooms(false);
@@ -47,6 +49,10 @@ export const useChat = (currentUser: User | null, projects: Project[], activeRoo
       const rooms: ChatRoom[] = snapshot.docs.map(docSnap => ({
         id: docSnap.id,
         ...docSnap.data(),
+        lastMessage: docSnap.data().lastMessage ? {
+          ...docSnap.data().lastMessage,
+          createdAt: (docSnap.data().lastMessage.createdAt as Timestamp)?.toDate().toISOString() || new Date(0).toISOString(),
+        } : undefined,
       } as ChatRoom));
 
       // Separate rooms and enrich DM rooms with profile data
@@ -75,10 +81,45 @@ export const useChat = (currentUser: User | null, projects: Project[], activeRoo
           dms.push(room);
         }
       }
+      
+      // Auto-create missing project rooms
+      const existingProjectRoomIds = new Set(projectRooms.map(r => r.projectId));
+      const batch = writeBatch(db);
+      let newRoomCreated = false;
+      projects.forEach(project => {
+          if (!existingProjectRoomIds.has(project.id)) {
+              const newRoomRef = doc(collection(db, 'chatRooms'));
+              batch.set(newRoomRef, {
+                  type: 'project',
+                  projectId: project.id,
+                  name: project.name,
+                  memberIds: project.memberIds,
+                  projectColor: project.color,
+              });
+              newRoomCreated = true;
+          }
+      });
+      if (newRoomCreated) {
+          await batch.commit();
+      }
 
       setProjectChatRooms(projectRooms.sort((a,b) => a.name.localeCompare(b.name)));
       setDmChatRooms(dms.sort((a,b) => a.name.localeCompare(b.name)));
       setLoadingRooms(false);
+
+      // Update unread status
+      const newUnread = new Set<string>();
+      [...projectRooms, ...dms].forEach(room => {
+        if (room.lastMessage && room.id !== activeRoomId) {
+            const lastMessageTime = new Date(room.lastMessage.createdAt).getTime();
+            const lastReadTime = lastReadTimestamps[room.id] || 0;
+            if (lastMessageTime > lastReadTime) {
+                newUnread.add(room.id);
+            }
+        }
+      });
+      setUnreadRoomIds(newUnread);
+
     }, (error) => {
       console.error("Error fetching chat rooms:", error);
       addToast("Không thể tải danh sách phòng chat.", "error");
@@ -86,7 +127,7 @@ export const useChat = (currentUser: User | null, projects: Project[], activeRoo
     });
 
     return () => unsubscribe();
-  }, [currentUser, addToast]);
+  }, [currentUser, addToast, projects, activeRoomId, lastReadTimestamps]);
 
   // Fetch messages for the active room
   useEffect(() => {
@@ -222,6 +263,15 @@ export const useChat = (currentUser: User | null, projects: Project[], activeRoo
     }
   }, [currentUser]);
 
+  const markRoomAsRead = useCallback((roomId: string) => {
+    setLastReadTimestamps(prev => ({ ...prev, [roomId]: Date.now() }));
+    setUnreadRoomIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(roomId);
+        return newSet;
+    });
+  }, []);
+
   return {
     projectChatRooms,
     dmChatRooms,
@@ -231,5 +281,7 @@ export const useChat = (currentUser: User | null, projects: Project[], activeRoo
     sendMessage,
     deleteMessage,
     createDmRoom,
+    unreadRoomIds,
+    markRoomAsRead,
   };
 };

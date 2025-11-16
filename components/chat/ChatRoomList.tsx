@@ -1,9 +1,9 @@
 
+
 import React, { useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
 import { Project, UserProfile, ChatRoom } from '../../types';
-import { useChat } from '../../hooks/useChat';
-import { X, UserCircle, Users, Hash } from 'lucide-react';
+import { X, UserCircle, Hash } from 'lucide-react';
 
 interface ChatRoomListProps {
     currentUser: User;
@@ -13,6 +13,9 @@ interface ChatRoomListProps {
     onSelectRoom: (room: ChatRoom) => void;
     onSelectUser: (user: UserProfile) => void;
     onClose: () => void;
+    projectChatRooms: ChatRoom[];
+    dmChatRooms: ChatRoom[];
+    unreadRoomIds: Set<string>;
 }
 
 const ChatRoomList: React.FC<ChatRoomListProps> = ({ 
@@ -22,9 +25,11 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({
     activeRoomId, 
     onSelectRoom,
     onSelectUser,
-    onClose
+    onClose,
+    projectChatRooms,
+    dmChatRooms,
+    unreadRoomIds,
 }) => {
-    const { projectChatRooms, dmChatRooms, loadingRooms } = useChat(currentUser, projects);
     const [searchTerm, setSearchTerm] = useState('');
 
     const otherUsers = useMemo(() => {
@@ -70,10 +75,10 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({
 
 
     return (
-        <div className="w-1/3 bg-slate-800/30 border-r border-slate-700 flex flex-col h-full">
+        <div className="w-1/3 bg-slate-800/30 border-r border-slate-700 flex flex-col h-full rounded-l-2xl">
             <div className="p-4 border-b border-slate-700 flex-shrink-0 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-white">Trò chuyện</h2>
-                <button onClick={onClose} className="text-slate-400 hover:text-white lg:hidden">
+                <button onClick={onClose} className="text-slate-400 hover:text-white">
                     <X />
                 </button>
             </div>
@@ -94,14 +99,17 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({
                         <button 
                             key={room.id}
                             onClick={() => onSelectRoom(room)}
-                            className={`w-full text-left flex items-center gap-3 p-2 rounded-md ${activeRoomId === room.id ? 'bg-primary-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}
+                            className={`w-full text-left flex items-center justify-between gap-3 p-2 rounded-md ${activeRoomId === room.id ? 'bg-primary-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}
                         >
-                            <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: room.projectColor || '#475569' }}>
-                                <Hash size={14} />
+                            <div className="flex items-center gap-3 truncate">
+                                <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: room.projectColor || '#475569' }}>
+                                    <Hash size={14} />
+                                </div>
+                                <div className="truncate">
+                                    <p className="text-sm font-semibold truncate">{room.name}</p>
+                                </div>
                             </div>
-                            <div className="truncate">
-                                <p className="text-sm font-semibold truncate">{room.name}</p>
-                            </div>
+                            {unreadRoomIds.has(room.id) && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>}
                         </button>
                     ))}
                 </div>
@@ -113,14 +121,17 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({
                          <button 
                             key={room.id}
                             onClick={() => onSelectRoom(room)}
-                            className={`w-full text-left flex items-center gap-3 p-2 rounded-md ${activeRoomId === room.id ? 'bg-primary-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}
+                            className={`w-full text-left flex items-center justify-between gap-3 p-2 rounded-md ${activeRoomId === room.id ? 'bg-primary-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}
                         >
-                            <div className="w-6 h-6 rounded-full flex-shrink-0 bg-slate-700 overflow-hidden">
-                                {getDmRoomAvatar(room) ? <img src={getDmRoomAvatar(room)!} className="w-full h-full object-cover" /> : <UserCircle className="text-slate-400"/>}
+                           <div className="flex items-center gap-3 truncate">
+                                <div className="w-6 h-6 rounded-full flex-shrink-0 bg-slate-700 overflow-hidden">
+                                    {getDmRoomAvatar(room) ? <img src={getDmRoomAvatar(room)!} className="w-full h-full object-cover" /> : <UserCircle className="text-slate-400"/>}
+                                </div>
+                                <div className="truncate">
+                                    <p className="text-sm font-semibold truncate">{getDmRoomName(room)}</p>
+                                </div>
                             </div>
-                            <div className="truncate">
-                                <p className="text-sm font-semibold truncate">{getDmRoomName(room)}</p>
-                            </div>
+                            {unreadRoomIds.has(room.id) && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>}
                         </button>
                     ))}
                     {filteredUsers.map(user => {

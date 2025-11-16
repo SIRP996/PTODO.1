@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -6,7 +7,7 @@ import SourceSidebar from './components/SourceSidebar';
 import TaskInput from './components/TaskInput';
 import TaskList from './components/TaskList';
 import { BellRing, ShieldOff, Loader2, List, LayoutGrid, Bot, Clock, Send, User, RotateCw, Settings, Link as LinkIcon, Check, BrainCircuit, X, UserPlus, Users, Mail, Trash2 } from 'lucide-react';
-import { Task, TaskStatus, Project, Filter, TaskTemplate, SectionKey, UserProfile } from './types';
+import { Task, TaskStatus, Project, Filter, TaskTemplate, SectionKey, UserProfile, ChatRoom } from './types';
 import { isPast, isToday, addDays, isWithinInterval, parseISO } from 'date-fns';
 import FocusModeOverlay from './components/FocusModeOverlay';
 import AuthPage from './components/auth/AuthPage';
@@ -33,6 +34,7 @@ import MemberManagerModal from './components/MemberManagerModal';
 import { useNotifications } from './hooks/useNotifications';
 import type { User as FirebaseUser } from 'firebase/auth';
 import ChatPanel from './components/chat/ChatPanel';
+import { useChat } from './hooks/useChat';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -535,7 +537,24 @@ const App: React.FC = () => {
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [projectToManage, setProjectToManage] = useState<Project | null>(null);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  
+  // --- CHAT STATE ---
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [activeChatRoom, setActiveChatRoom] = useState<ChatRoom | null>(null);
+  const chatData = useChat(currentUser, projects, activeChatRoom?.id || null);
+  
+  const handleSelectChatRoom = (room: ChatRoom) => {
+    setActiveChatRoom(room);
+    chatData.markRoomAsRead(room.id);
+  };
+  
+  const handleToggleChatPanel = () => {
+    setIsChatPanelOpen(prev => !prev);
+    if (!isChatPanelOpen && activeChatRoom) {
+      chatData.markRoomAsRead(activeChatRoom.id);
+    }
+  };
+
 
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
@@ -871,7 +890,8 @@ const App: React.FC = () => {
     onOpenWeeklyReview: () => setIsWeeklyReviewModalOpen(true), notificationPermissionStatus, onRequestNotificationPermission: handleRequestPermission,
     onOpenExtensionGuide: () => setIsExtensionGuideOpen(true), onOpenMemberManager: handleOpenMemberManager, onAddProject: addProject,
     onDeleteProject: deleteProject, onUpdateProject: updateProject,
-    onToggleChatPanel: () => setIsChatPanelOpen(prev => !prev),
+    onToggleChatPanel: handleToggleChatPanel,
+    unreadChatCount: chatData.unreadRoomIds.size,
   };
 
   if (loading) { return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary-500" /></div>; }
@@ -929,7 +949,7 @@ const App: React.FC = () => {
       )}
       {hasApiKey && currentUser && <ChatAssistant isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} tasks={tasks} onAddTask={addTask} onApiKeyError={onApiKeyError} userAvatarUrl={userSettings?.avatarUrl || currentUser?.photoURL || undefined} />}
       
-      {currentUser && (
+      {isChatPanelOpen && currentUser && (
         <ChatPanel 
             isOpen={isChatPanelOpen}
             onClose={() => setIsChatPanelOpen(false)}
@@ -938,6 +958,10 @@ const App: React.FC = () => {
             tasks={tasks}
             profiles={profiles}
             onUpdateTask={updateTask}
+            // Pass chat data from App-level hook
+            chatData={chatData}
+            activeRoom={activeChatRoom}
+            onSelectRoom={handleSelectChatRoom}
         />
       )}
 
