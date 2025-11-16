@@ -194,6 +194,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
   }
 
   const handleClearHistory = async () => {
+    if (!canClearHistory) {
+      addToast('Bạn không có quyền xóa lịch sử cuộc trò chuyện này.', 'error');
+      return;
+    }
     if (!window.confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử cuộc trò chuyện này không? Hành động này sẽ xóa cho tất cả thành viên và không thể hoàn tác.')) {
       return;
     }
@@ -201,19 +205,27 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     setIsClearing(true);
     try {
       const messagesCollectionRef = collection(db, `chatRooms/${room.id}/messages`);
-      const q = query(messagesCollectionRef, limit(500));
-      let snapshot = await getDocs(q);
 
-      while (snapshot.size > 0) {
+      // Using a loop is more robust for deleting large numbers of documents.
+      while (true) {
+        // Fetch up to 500 documents at a time (the maximum for a batch).
+        const q = query(messagesCollectionRef, limit(500));
+        const snapshot = await getDocs(q);
+
+        // If there are no more documents, we're done.
+        if (snapshot.empty) {
+          break;
+        }
+
+        // Delete the documents in a batch.
         const batch = writeBatch(db);
         snapshot.docs.forEach(doc => {
           batch.delete(doc.ref);
         });
         await batch.commit();
-        // Get the next batch
-        snapshot = await getDocs(q);
       }
       
+      // After all messages are deleted, clear the lastMessage and lastRead fields on the room document.
       const roomRef = doc(db, 'chatRooms', room.id);
       await updateDoc(roomRef, {
         lastMessage: deleteField(),
@@ -223,7 +235,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
       addToast('Đã xóa lịch sử trò chuyện.', 'success');
     } catch (error) {
       console.error('Error clearing chat history:', error);
-      addToast('Không thể xóa lịch sử trò chuyện.', 'error');
+      addToast('Không thể xóa lịch sử trò chuyện. Vui lòng kiểm tra console để biết chi tiết.', 'error');
     } finally {
         setIsClearing(false);
     }
