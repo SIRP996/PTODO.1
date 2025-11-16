@@ -133,7 +133,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     const currentUserProfile = profiles.get(currentUser.uid);
     let wasTaskAssigned = false;
 
-    // --- Task assignment logic ---
+    // --- Task creation and assignment logic ---
     if (text.startsWith('#task') && room.type === 'project') {
       const sendAssignmentConfirmation = async (taskText: string, assigneeName: string) => {
         const confirmationText = `Đã giao việc "${taskText}" cho ${assigneeName}.`;
@@ -153,7 +153,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
         });
       };
 
-      // Priority 1: Check for rich mention syntax: #task [user:USER_ID text:"NAME"] task content
       const mentionSyntaxRegex = /#task\s+\[user:(\S+)\s+text:"([^"]+)"\]\s*(.+)/s;
       const mentionMatch = text.match(mentionSyntaxRegex);
 
@@ -172,7 +171,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
         }
       }
 
-      // Priority 2: Fallback to raw text syntax: #task @username task content
       if (!wasTaskAssigned) {
         const rawTextRegex = /#task\s+@(\S+)\s+(.+)/s;
         const rawMatch = text.match(rawTextRegex);
@@ -195,10 +193,61 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
         }
       }
     }
-    // --- End task assignment logic ---
-
+    
     if (wasTaskAssigned) {
-      return; // Stop processing if a task was assigned
+      return; 
+    }
+
+    // --- Logic to assign an existing task via mentions ---
+    const taskMentionRegex = /\[task:(\S+)\s+text:"([^"]+)"\]/;
+    const userMentionRegex = /\[user:(\S+)\s+text:"([^"]+)"\]/;
+
+    const taskMatch = text.match(taskMentionRegex);
+    const userMatch = text.match(userMentionRegex);
+
+    if (taskMatch && userMatch && room.type === 'project' && room.projectId) {
+        const taskId = taskMatch[1];
+        const taskName = taskMatch[2];
+        const userIdToAssign = userMatch[1];
+        const userNameToAssign = userMatch[2];
+
+        const taskToAssign = tasks.find(t => t.id === taskId);
+        const userIsMember = room.memberIds.includes(userIdToAssign);
+
+        if (taskToAssign && userIsMember && !taskToAssign.assigneeIds.includes(userIdToAssign)) {
+            try {
+                const taskRef = doc(db, 'tasks', taskId);
+                await updateDoc(taskRef, {
+                    assigneeIds: arrayUnion(userIdToAssign)
+                });
+
+                const confirmationText = `Đã giao việc "${taskName}" cho ${userNameToAssign}.`;
+                const systemMessageRef = doc(collection(db, `chatRooms/${room.id}/messages`));
+                const roomRef = doc(db, 'chatRooms', room.id);
+                
+                const confirmationBatch = writeBatch(db);
+                confirmationBatch.set(systemMessageRef, {
+                    roomId: room.id,
+                    senderId: 'system',
+                    senderName: 'PTODO Bot',
+                    senderAvatar: null,
+                    text: confirmationText,
+                    createdAt: serverTimestamp(),
+                });
+                confirmationBatch.update(roomRef, {
+                    'lastMessage.text': confirmationText,
+                    'lastMessage.senderId': 'system',
+                    'lastMessage.senderName': 'PTODO Bot',
+                    'lastMessage.timestamp': serverTimestamp(),
+                });
+                await confirmationBatch.commit();
+                
+                addToast(`Đã giao việc "${taskName}" cho ${userNameToAssign}.`, 'success');
+            } catch (error) {
+                console.error("Error assigning task via mention:", error);
+                addToast("Không thể giao việc.", "error");
+            }
+        }
     }
 
     // --- Normal message sending ---
@@ -256,7 +305,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
 
     setIsClearing(true);
     
-    // If user is project owner, delete for everyone
     if (canClearHistory) {
         try {
             const messagesCollectionRef = collection(db, `chatRooms/${room.id}/messages`);
@@ -281,7 +329,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
         } finally {
             setIsClearing(false);
         }
-    } else { // If not owner, delete only for current user
+    } else { 
         try {
             const roomRef = doc(db, 'chatRooms', room.id);
             await updateDoc(roomRef, {
