@@ -103,6 +103,7 @@ export const useChat = (currentUser: User | null, projects: Project[], profiles:
               ...data.lastMessage,
               timestamp: (data.lastMessage.timestamp as Timestamp)?.toDate().toISOString(),
           } : undefined,
+          lastRead: data.lastRead,
         } as ChatRoom;
       });
 

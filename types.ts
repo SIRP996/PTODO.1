@@ -83,8 +83,12 @@ export interface ChatRoom {
   createdAt: string;
   lastMessage?: {
     text: string;
+    senderId: string;
     senderName: string;
     timestamp: string;
+  };
+  lastRead?: {
+    [userId: string]: string; // ISO string timestamp
   };
   // For DMs, to easily find existing chats - a sorted array of two user IDs
   dmUserIds?: string[];

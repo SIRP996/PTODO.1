@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { ChatRoom, ChatMessage, UserProfile, Task } from '../types';
 import { db } from '../firebaseConfig';
@@ -23,8 +23,27 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
   const { addToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const markAsRead = useCallback(async () => {
+    if (!currentUser) return;
+    const userLastRead = room.lastRead?.[currentUser.uid];
+    const lastMessageTimestamp = room.lastMessage?.timestamp;
+
+    if (lastMessageTimestamp && room.lastMessage?.senderId !== currentUser.uid && (!userLastRead || new Date(lastMessageTimestamp) > new Date(userLastRead))) {
+        try {
+            const roomRef = doc(db, 'chatRooms', room.id);
+            await updateDoc(roomRef, {
+                [`lastRead.${currentUser.uid}`]: new Date().toISOString(),
+            });
+        } catch (error) {
+            console.error("Failed to mark chat as read:", error);
+        }
+    }
+  }, [room.id, room.lastRead, room.lastMessage, currentUser]);
+
   useEffect(() => {
     setLoading(true);
+    markAsRead(); // Mark as read on component mount/room change
+    
     const messagesQuery = query(
       collection(db, `chatRooms/${room.id}/messages`),
       orderBy('createdAt', 'asc')
@@ -36,7 +55,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
         return {
           id: docSnap.id,
           ...data,
-          // FIX: Convert Firestore Timestamp to ISO string to prevent date parsing errors
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
         } as ChatMessage;
       });
@@ -44,11 +62,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
       const lastVisible = messages.length > 0 ? messages[messages.length - 1] : null;
 
       setMessages(newMessages);
-      
+      markAsRead(); // Also mark as read when new messages are loaded
+
       if(newMessages.length > 0) {
         const latestMessage = newMessages[newMessages.length-1];
         if(latestMessage.senderId !== currentUser.uid && (!lastVisible || latestMessage.id !== lastVisible.id)) {
-            notificationSound?.play().catch(e => console.error("Error playing sound:", e));
+            // Sound notification for new messages in an active window is handled by ChatPage toast
             if(document.hidden && Notification.permission === 'granted') {
                 new Notification(`Tin nhắn mới từ ${latestMessage.senderName}`, {
                     body: latestMessage.text,
@@ -66,7 +85,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     });
 
     return () => unsubscribe();
-  }, [room.id, currentUser.uid, notificationSound]);
+  }, [room.id, currentUser.uid, addToast, markAsRead]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -89,7 +108,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     const match = text.match(assignmentRegex);
     if (match && match[1] && room.type === 'project') {
       const usernameToAssign = match[1];
-      // FIX: Explicitly cast Array.from(profiles.values()) to UserProfile[] to resolve type inference issues.
       const memberToAssign = (Array.from(profiles.values()) as UserProfile[]).find(p => p.displayName === usernameToAssign && room.memberIds.includes(p.uid));
 
       if (memberToAssign) {
@@ -110,6 +128,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
             // Also update last message
              await updateDoc(doc(db, 'chatRooms', room.id), {
                 'lastMessage.text': confirmationText,
+                'lastMessage.senderId': 'system',
                 'lastMessage.senderName': 'PTODO Bot',
                 'lastMessage.timestamp': serverTimestamp(),
             });
@@ -134,6 +153,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
         });
         await updateDoc(doc(db, 'chatRooms', room.id), {
             'lastMessage.text': text.trim(),
+            'lastMessage.senderId': newMessage.senderId,
             'lastMessage.senderName': newMessage.senderName,
             'lastMessage.timestamp': serverTimestamp(),
         });

@@ -116,6 +116,15 @@ const ChatList: React.FC<ChatListProps> = ({ rooms, currentUser, profiles, allUs
         return profiles.get(otherUserId)?.displayName || room.name;
     };
 
+    const isUnread = (room: ChatRoom) => {
+        if (!currentUser || !room.lastMessage?.timestamp || room.lastMessage.senderId === currentUser.uid) {
+            return false;
+        }
+        const lastReadTimestamp = room.lastRead?.[currentUser.uid];
+        if (!lastReadTimestamp) return true; // Never read
+        return new Date(room.lastMessage.timestamp) > new Date(lastReadTimestamp);
+    };
+
     const filteredRooms = useMemo(() => {
         if (!searchTerm) return rooms;
         return rooms.filter(room => 
@@ -190,7 +199,9 @@ const ChatList: React.FC<ChatListProps> = ({ rooms, currentUser, profiles, allUs
                 </div>
                 {isProjectsExpanded && (
                     <ul className="space-y-1">
-                        {projectChats.map(room => (
+                        {projectChats.map(room => {
+                            const unread = isUnread(room);
+                            return (
                             <li key={room.id}>
                                 <button
                                     onClick={() => onSelectRoom(room.id)}
@@ -200,14 +211,15 @@ const ChatList: React.FC<ChatListProps> = ({ rooms, currentUser, profiles, allUs
                                         {getRoomDisplayAvatar(room)}
                                     </div>
                                     <div className="flex-grow truncate">
-                                        <p className={`text-sm font-semibold truncate ${selectedRoomId === room.id ? 'text-white' : 'text-slate-200'}`}>{getRoomDisplayName(room)}</p>
-                                        <p className={`text-xs truncate ${selectedRoomId === room.id ? 'text-primary-200' : 'text-slate-400'}`}>
+                                        <p className={`text-sm truncate ${selectedRoomId === room.id ? 'text-white' : 'text-slate-200'} ${unread ? 'font-bold text-white' : 'font-semibold'}`}>{getRoomDisplayName(room)}</p>
+                                        <p className={`text-xs truncate ${selectedRoomId === room.id ? 'text-primary-200' : 'text-slate-400'} ${unread ? 'font-semibold text-white' : ''}`}>
                                         {room.lastMessage ? `${room.lastMessage.senderName}: ${room.lastMessage.text}` : `${room.memberIds.length} thành viên`}
                                         </p>
                                     </div>
+                                    {unread && <div className="w-2.5 h-2.5 bg-primary-400 rounded-full flex-shrink-0" title="Tin nhắn mới"></div>}
                                 </button>
                             </li>
-                        ))}
+                        )})}
                     </ul>
                 )}
 
@@ -221,7 +233,9 @@ const ChatList: React.FC<ChatListProps> = ({ rooms, currentUser, profiles, allUs
                 </div>
                  {isGeneralExpanded && (
                     <ul className="space-y-1">
-                        {generalChats.map(room => (
+                        {generalChats.map(room => {
+                             const unread = isUnread(room);
+                             return (
                             <li key={room.id}>
                                 <button
                                     onClick={() => onSelectRoom(room.id)}
@@ -231,14 +245,15 @@ const ChatList: React.FC<ChatListProps> = ({ rooms, currentUser, profiles, allUs
                                         {getRoomDisplayAvatar(room)}
                                     </div>
                                     <div className="flex-grow truncate">
-                                        <p className={`text-sm font-semibold truncate ${selectedRoomId === room.id ? 'text-white' : 'text-slate-200'}`}>{getRoomDisplayName(room)}</p>
-                                        <p className={`text-xs truncate ${selectedRoomId === room.id ? 'text-primary-200' : 'text-slate-400'}`}>
+                                        <p className={`text-sm truncate ${selectedRoomId === room.id ? 'text-white' : 'text-slate-200'} ${unread ? 'font-bold text-white' : 'font-semibold'}`}>{getRoomDisplayName(room)}</p>
+                                        <p className={`text-xs truncate ${selectedRoomId === room.id ? 'text-primary-200' : 'text-slate-400'} ${unread ? 'font-semibold text-white' : ''}`}>
                                         {room.lastMessage ? `${room.lastMessage.senderName}: ${room.lastMessage.text}` : 'Bắt đầu trò chuyện...'}
                                         </p>
                                     </div>
+                                     {unread && <div className="w-2.5 h-2.5 bg-primary-400 rounded-full flex-shrink-0" title="Tin nhắn mới"></div>}
                                 </button>
                             </li>
-                        ))}
+                        )})}
                     </ul>
                 )}
             </div>
