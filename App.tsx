@@ -940,7 +940,7 @@ const App: React.FC = () => {
       return <ApiKeyPrompt isStudioEnv={isStudioEnv} onSelectKey={handleSelectStudioKey} onSaveManualKey={handleSaveManualKey} onSkip={handleSkip} error={apiKeyError} />;
   }
   if (page === 'calendar') {
-    return <CalendarPage tasks={tasks} onStartFocus={handleStartFocus} onUpdateTaskDueDate={updateTaskDueDate} onSwitchToMain={() => setPage('main')} />;
+    return <CalendarPage currentUser={currentUser} tasks={tasks} onStartFocus={handleStartFocus} onUpdateTaskDueDate={updateTaskDueDate} onSwitchToMain={() => setPage('main')} />;
   }
 
   return (

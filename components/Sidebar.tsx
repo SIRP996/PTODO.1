@@ -1,8 +1,10 @@
 import React, { useState, useMemo, KeyboardEvent, useEffect, useRef } from 'react';
 import { Project, Task } from '../types';
 import { Folder, Plus, Tag, Layers, Pencil, Trash2, ChevronDown, ChevronRight, EyeOff, Eye, Palette } from 'lucide-react';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 interface SidebarProps {
+  user: FirebaseUser | null;
   tasks: Task[];
   projects: Project[];
   onAddProject: (name: string) => void;
@@ -22,6 +24,7 @@ const PROJECT_COLORS = [
 
 
 const Sidebar: React.FC<SidebarProps> = ({
+  user,
   tasks,
   projects,
   onAddProject,
@@ -194,7 +197,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                <span className={`text-xs px-1.5 py-0.5 rounded-full ${selectedProjectId === null ? 'bg-primary-500' : 'bg-slate-700'}`}>{tasks.length}</span>
             </button>
           </li>
-          {visibleProjects.map(project => (
+          {visibleProjects.map(project => {
+            const isOwner = user?.uid === project.ownerId;
+            return (
             <li key={project.id} className="relative">
                {editingProjectId === project.id ? (
                 <div className="flex items-center gap-2 px-3 py-2">
@@ -256,9 +261,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                             </>
                         ) : (
                             <>
-                                <button onClick={(e) => { e.stopPropagation(); onUpdateProject(project.id, { isVisible: false }); }} className={`p-1 ${selectedProjectId === project.id ? 'hover:text-primary-200' : 'hover:text-white'}`} title="Ẩn dự án"><EyeOff size={14} /></button>
-                                <button onClick={(e) => { e.stopPropagation(); handleStartEditing(project); }} className={`p-1 ${selectedProjectId === project.id ? 'hover:text-primary-200' : 'hover:text-white'}`} title="Sửa tên dự án"><Pencil size={14} /></button>
-                                <button onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(project.id); }} className={`p-1 ${selectedProjectId === project.id ? 'hover:text-red-300' : 'hover:text-red-400'}`} title="Xóa dự án"><Trash2 size={14} /></button>
+                              {isOwner && (
+                                <>
+                                  <button onClick={(e) => { e.stopPropagation(); onUpdateProject(project.id, { isVisible: false }); }} className={`p-1 ${selectedProjectId === project.id ? 'hover:text-primary-200' : 'hover:text-white'}`} title="Ẩn dự án"><EyeOff size={14} /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleStartEditing(project); }} className={`p-1 ${selectedProjectId === project.id ? 'hover:text-primary-200' : 'hover:text-white'}`} title="Sửa tên dự án"><Pencil size={14} /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(project.id); }} className={`p-1 ${selectedProjectId === project.id ? 'hover:text-red-300' : 'hover:text-red-400'}`} title="Xóa dự án"><Trash2 size={14} /></button>
+                                </>
+                              )}
                             </>
                         )}
                     </div>
@@ -266,7 +275,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
             </li>
-          ))}
+          )})}
           {isAddingProject && (
             <li>
               <input

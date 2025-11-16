@@ -28,6 +28,7 @@ import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useProjects } from '../hooks/useProjects';
 import Sidebar from '../components/Sidebar';
 import { isPast } from 'date-fns';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 
 interface CalendarPageProps {
@@ -35,6 +36,7 @@ interface CalendarPageProps {
   onUpdateTaskDueDate: (id: string, newDueDate: string | null) => void;
   onStartFocus: (task: Task) => void;
   onSwitchToMain: () => void;
+  currentUser: FirebaseUser | null;
 }
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -59,7 +61,7 @@ const getColorForTask = (taskId: string) => {
     return colors[index];
 };
 
-const CalendarPage: React.FC<CalendarPageProps> = ({ tasks, onUpdateTaskDueDate, onStartFocus, onSwitchToMain }) => {
+const CalendarPage: React.FC<CalendarPageProps> = ({ tasks, onUpdateTaskDueDate, onStartFocus, onSwitchToMain, currentUser }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -191,6 +193,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ tasks, onUpdateTaskDueDate,
       
         <div className="flex-grow flex overflow-hidden p-4 gap-4">
             <Sidebar
+                user={currentUser}
                 tasks={tasks}
                 projects={projects}
                 onAddProject={addProject}
