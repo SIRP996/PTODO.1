@@ -1,8 +1,9 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { Project, UserProfile, Invitation } from '../types';
+import { Project, UserProfile, Invitation, Task } from '../types';
 import { User } from 'firebase/auth';
-import { X, Users, UserPlus, Mail, Send, Loader2, Trash2, Clock, UserCircle } from 'lucide-react';
+import { X, Users, UserPlus, Mail, Send, Loader2, Trash2, Clock, UserCircle, CheckCircle2, ListTodo } from 'lucide-react';
 import { db } from '../firebaseConfig';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
@@ -13,6 +14,7 @@ interface MemberManagerModalProps {
   project: Project;
   currentUser: User;
   profiles: Map<string, UserProfile>;
+  tasks: Task[];
   onInviteUser: (project: Project, email: string) => Promise<void>;
   onRemoveUser: (projectId: string, userId: string) => Promise<void>;
   onCancelInvitation: (invitationId: string) => Promise<void>;
@@ -24,6 +26,7 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
   project,
   currentUser,
   profiles,
+  tasks,
   onInviteUser,
   onRemoveUser,
   onCancelInvitation,
@@ -40,6 +43,22 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
       .map(id => profiles.get(id))
       .filter((p): p is UserProfile => !!p);
   }, [isOpen, project.memberIds, profiles]);
+
+  const memberStats = useMemo(() => {
+    if (!isOpen || !project || members.length === 0 || tasks.length === 0) return new Map();
+
+    const projectTasks = tasks.filter(t => t.projectId === project.id);
+    const stats = new Map<string, { completed: number; pending: number; total: number }>();
+
+    members.forEach(member => {
+        const assignedTasks = projectTasks.filter(t => t.assigneeIds.includes(member.uid));
+        const completed = assignedTasks.filter(t => t.status === 'completed').length;
+        const pending = assignedTasks.length - completed;
+        stats.set(member.uid, { completed, pending, total: assignedTasks.length });
+    });
+
+    return stats;
+  }, [isOpen, project, members, tasks]);
 
 
   useEffect(() => {
@@ -84,14 +103,57 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
         </div>
 
-        <div className="flex-grow p-6 overflow-y-auto space-y-6">
+        <div className="flex-grow p-6 overflow-y-auto space-y-8">
             {isLoading && members.length < project.memberIds.length ? (
                 <div className="flex items-center justify-center h-full"><Loader2 className="animate-spin text-primary-400"/></div>
             ) : (
                 <>
-                    {/* Current Members */}
+                    {/* Performance Dashboard */}
                     <div>
-                        <h4 className="text-md font-semibold text-slate-300 mb-3">Thành viên trong "{project.name}" ({members.length})</h4>
+                        <h4 className="text-md font-semibold text-slate-300 mb-3">Thống kê hiệu suất</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {members.map(member => {
+                                const stats = memberStats.get(member.uid) || { completed: 0, pending: 0, total: 0 };
+                                const percentage = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+                                return (
+                                <div key={member.uid} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700/50">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-9 h-9 rounded-full bg-slate-700 flex-shrink-0 overflow-hidden">
+                                            {member.photoURL ? <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" /> : <UserCircle size={20} className="text-slate-400 m-auto" />}
+                                        </div>
+                                        <p className="font-semibold text-sm text-slate-200 truncate">{member.displayName}</p>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between items-center">
+                                            <span className="flex items-center gap-2 text-green-400"><CheckCircle2 size={14}/> Hoàn thành</span>
+                                            <span className="font-bold text-white">{stats.completed}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="flex items-center gap-2 text-amber-400"><ListTodo size={14}/> Đang chờ</span>
+                                            <span className="font-bold text-white">{stats.pending}</span>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-xs font-medium text-slate-400">Tiến độ</span>
+                                            <span className="text-xs font-bold text-slate-200">{percentage}%</span>
+                                        </div>
+                                        <div className="w-full bg-slate-700/50 rounded-full h-1.5">
+                                            <div
+                                                className="bg-primary-500 h-1.5 rounded-full transition-all duration-500"
+                                                style={{ width: `${percentage}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Current Members List */}
+                    <div>
+                        <h4 className="text-md font-semibold text-slate-300 mb-3">Chi tiết thành viên ({members.length})</h4>
                         <div className="space-y-2">
                             {members.map(member => (
                                 <div key={member.uid} className="flex items-center justify-between bg-slate-800/50 p-2.5 rounded-lg">
