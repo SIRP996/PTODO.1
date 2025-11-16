@@ -416,9 +416,13 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                                             ) : (
                                                 <ul className="space-y-1 list-none">
                                                     <li><button onClick={(e) => { e.stopPropagation(); onOpenMemberManager(project); setMenuProjectId(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-700"><Users size={14} /> Quản lý thành viên</button></li>
-                                                    <li><button onClick={(e) => { e.stopPropagation(); onUpdateProject(project.id, { isVisible: false }); setMenuProjectId(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-700"><EyeOff size={14} /> Ẩn dự án</button></li>
-                                                    <li><button onClick={(e) => { e.stopPropagation(); handleStartEditing(project); setMenuProjectId(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-700"><Pencil size={14} /> Sửa tên</button></li>
-                                                    <li><button onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(project.id); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-md text-red-400 hover:bg-red-900/50"><Trash2 size={14} /> Xóa dự án</button></li>
+                                                    {isOwner && (
+                                                        <>
+                                                            <li><button onClick={(e) => { e.stopPropagation(); onUpdateProject(project.id, { isVisible: false }); setMenuProjectId(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-700"><EyeOff size={14} /> Ẩn dự án</button></li>
+                                                            <li><button onClick={(e) => { e.stopPropagation(); handleStartEditing(project); setMenuProjectId(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-700"><Pencil size={14} /> Sửa tên</button></li>
+                                                            <li><button onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(project.id); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-md text-red-400 hover:bg-red-900/50"><Trash2 size={14} /> Xóa dự án</button></li>
+                                                        </>
+                                                    )}
                                                 </ul>
                                             )}
                                         </div>
