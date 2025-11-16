@@ -3,7 +3,7 @@ import { User } from 'firebase/auth';
 import { Task, Project, UserProfile, ChatRoom } from '../types';
 import ChatList from '../components/ChatList';
 import ChatWindow from '../components/ChatWindow';
-import { MessageSquare, Loader2, X } from 'lucide-react';
+import { MessageSquare, Loader2, X, PanelLeft, Minus, Maximize2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
 interface ChatPageProps {
@@ -37,6 +37,8 @@ const ChatPage: React.FC<ChatPageProps> = ({
     selectedRoomId,
     onSelectRoom
 }) => {
+  const [isChatListVisible, setIsChatListVisible] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
   const selectedRoom = useMemo(() => {
     return chatRooms.find(room => room.id === selectedRoomId);
   }, [selectedRoomId, chatRooms]);
@@ -45,13 +47,25 @@ const ChatPage: React.FC<ChatPageProps> = ({
 
   return (
     <div className="fixed bottom-8 right-8 z-50 animate-fadeIn">
-        <div className="bg-[#1E293B] border border-white/10 w-[80vw] max-w-2xl h-[75vh] max-h-[650px] rounded-2xl shadow-2xl flex flex-col">
+        <div className={`bg-[#1E293B] border border-white/10 w-[80vw] max-w-2xl rounded-2xl shadow-2xl flex flex-col transition-all duration-300 ${isMinimized ? 'h-auto' : 'h-[75vh] max-h-[650px]'}`}>
             <div className="flex justify-between items-center p-4 border-b border-white/10 flex-shrink-0">
-                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><MessageSquare size={20} /> Trò chuyện</h3>
-                 <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+                 <div className="flex items-center gap-4">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2"><MessageSquare size={20} /> Trò chuyện</h3>
+                    {!isMinimized && (
+                        <button onClick={() => setIsChatListVisible(p => !p)} className="text-slate-400 hover:text-white" title={isChatListVisible ? "Ẩn menu" : "Hiện menu"}>
+                            <PanelLeft size={20} className={`transition-transform duration-300 ${isChatListVisible ? '' : 'rotate-180'}`}/>
+                        </button>
+                    )}
+                 </div>
+                 <div className="flex items-center gap-2">
+                    <button onClick={() => setIsMinimized(p => !p)} className="text-slate-400 hover:text-white" title={isMinimized ? "Mở rộng" : "Thu nhỏ"}>
+                        {isMinimized ? <Maximize2 size={16} /> : <Minus size={20} />}
+                    </button>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+                 </div>
             </div>
-            <div className="flex flex-grow overflow-hidden">
-                <aside className="w-60 flex-shrink-0 border-r border-white/10">
+            <div className={`flex flex-grow overflow-hidden ${isMinimized ? 'hidden' : ''}`}>
+                <aside className={`flex-shrink-0 border-r border-white/10 transition-all duration-300 ${isChatListVisible ? 'w-60' : 'w-0 overflow-hidden'}`}>
                     <ChatList
                         rooms={chatRooms}
                         currentUser={currentUser}
@@ -76,6 +90,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
                         currentUser={currentUser}
                         profiles={profiles}
                         tasks={tasks}
+                        projects={projects}
                         notificationSound={notificationSound}
                         onAddTask={onAddTask}
                       />

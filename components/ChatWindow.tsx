@@ -1,52 +1,47 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { User } from 'firebase/auth';
-import { ChatRoom, ChatMessage, UserProfile, Task } from '../types';
+import { ChatRoom, ChatMessage, UserProfile, Task, Project } from '../types';
 import { db } from '../firebaseConfig';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, Timestamp, getDocs, writeBatch, deleteField, limit } from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
 import Message from './Message';
 import MessageInput from './MessageInput';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 
 interface ChatWindowProps {
   room: ChatRoom;
   currentUser: User;
   profiles: Map<string, UserProfile>;
   tasks: Task[];
+  projects: Project[];
   notificationSound: HTMLAudioElement | null;
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly', projectId?: string) => Promise<string | undefined>;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, tasks, notificationSound, onAddTask }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, tasks, projects, notificationSound, onAddTask }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isClearing, setIsClearing] = useState(false);
   const { addToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const markAsRead = useCallback(async () => {
-    if (!currentUser) return;
-    const userLastRead = room.lastRead?.[currentUser.uid];
-    const lastMessageTimestamp = room.lastMessage?.timestamp;
+  const isProjectOwner = useMemo(() => {
+    if (room.type !== 'project' || !room.projectId || !currentUser) return false;
+    const project = projects.find(p => p.id === room.projectId);
+    return project?.ownerId === currentUser.uid;
+  }, [room, projects, currentUser]);
 
-    if (lastMessageTimestamp && room.lastMessage?.senderId !== currentUser.uid && (!userLastRead || new Date(lastMessageTimestamp) > new Date(userLastRead))) {
-        try {
-            const roomRef = doc(db, 'chatRooms', room.id);
-            await updateDoc(roomRef, {
-                [`lastRead.${currentUser.uid}`]: new Date().toISOString(),
-            });
-        } catch (error) {
-            console.error("Failed to mark chat as read:", error);
-        }
-    }
-  }, [room.id, room.lastRead, room.lastMessage, currentUser]);
+  const canClearHistory = room.type !== 'project' || isProjectOwner;
 
+  // Effect to fetch messages, runs only when the room ID changes.
   useEffect(() => {
     setLoading(true);
-    markAsRead(); // Mark as read on component mount/room change
+    setMessages([]); // Clear messages from previous room
     
     const messagesQuery = query(
       collection(db, `chatRooms/${room.id}/messages`),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'desc'),
+      limit(50) // Fetch only the last 50 messages for performance
     );
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
@@ -57,17 +52,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
           ...data,
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
         } as ChatMessage;
-      });
+      }).reverse(); // Reverse to show in chronological order
       
-      const lastVisible = messages.length > 0 ? messages[messages.length - 1] : null;
-
       setMessages(newMessages);
-      markAsRead(); // Also mark as read when new messages are loaded
 
       if(newMessages.length > 0) {
         const latestMessage = newMessages[newMessages.length-1];
-        if(latestMessage.senderId !== currentUser.uid && (!lastVisible || latestMessage.id !== lastVisible.id)) {
-            // Sound notification for new messages in an active window is handled by ChatPage toast
+        if(latestMessage.senderId !== currentUser.uid) {
             if(document.hidden && Notification.permission === 'granted') {
                 new Notification(`Tin nhắn mới từ ${latestMessage.senderName}`, {
                     body: latestMessage.text,
@@ -85,10 +76,34 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     });
 
     return () => unsubscribe();
-  }, [room.id, currentUser.uid, addToast, markAsRead]);
-  
+  }, [room.id, currentUser.uid, addToast]);
+
+  // Effect to mark messages as read.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!currentUser || !room.lastMessage) return;
+
+    const userLastRead = room.lastRead?.[currentUser.uid];
+    const lastMessageTimestamp = room.lastMessage.timestamp;
+
+    // Only mark as read if the last message is from someone else and is newer than our last read timestamp
+    if (room.lastMessage.senderId !== currentUser.uid && (!userLastRead || new Date(lastMessageTimestamp) > new Date(userLastRead))) {
+        const mark = async () => {
+            try {
+                const roomRef = doc(db, 'chatRooms', room.id);
+                await updateDoc(roomRef, {
+                    [`lastRead.${currentUser.uid}`]: new Date().toISOString(),
+                });
+            } catch (error) {
+                console.error("Failed to mark chat as read:", error);
+            }
+        };
+        mark();
+    }
+  }, [room.id, room.lastMessage, room.lastRead, currentUser]);
+  
+  // Effect to scroll to the bottom on new messages.
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
   }, [messages]);
 
   const getDisplayName = (room: ChatRoom) => {
@@ -147,30 +162,86 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     };
 
     try {
-        await addDoc(collection(db, `chatRooms/${room.id}/messages`), {
+        const batch = writeBatch(db);
+        
+        const messageRef = doc(collection(db, `chatRooms/${room.id}/messages`));
+        batch.set(messageRef, {
             ...newMessage,
             createdAt: serverTimestamp(),
         });
-        await updateDoc(doc(db, 'chatRooms', room.id), {
+        
+        const roomRef = doc(db, 'chatRooms', room.id);
+        batch.update(roomRef, {
             'lastMessage.text': text.trim(),
             'lastMessage.senderId': newMessage.senderId,
             'lastMessage.senderName': newMessage.senderName,
             'lastMessage.timestamp': serverTimestamp(),
         });
+        
+        await batch.commit();
     } catch(e) {
         addToast("Không thể gửi tin nhắn.", 'error');
     }
   };
   
   const handleDeleteMessage = async (messageId: string) => {
-    await deleteDoc(doc(db, `chatRooms/${room.id}/messages`, messageId));
+    try {
+        await deleteDoc(doc(db, `chatRooms/${room.id}/messages`, messageId));
+    } catch (error) {
+        console.error("Error deleting message:", error);
+        addToast("Không thể xóa tin nhắn.", "error");
+    }
   }
+
+  const handleClearHistory = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử cuộc trò chuyện này không? Hành động này sẽ xóa cho tất cả thành viên và không thể hoàn tác.')) {
+      return;
+    }
+
+    setIsClearing(true);
+    try {
+      const messagesCollectionRef = collection(db, `chatRooms/${room.id}/messages`);
+      const q = query(messagesCollectionRef, limit(500));
+      let snapshot = await getDocs(q);
+
+      while (snapshot.size > 0) {
+        const batch = writeBatch(db);
+        snapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+        // Get the next batch
+        snapshot = await getDocs(q);
+      }
+      
+      const roomRef = doc(db, 'chatRooms', room.id);
+      await updateDoc(roomRef, {
+        lastMessage: deleteField(),
+        lastRead: deleteField(),
+      });
+
+      addToast('Đã xóa lịch sử trò chuyện.', 'success');
+    } catch (error) {
+      console.error('Error clearing chat history:', error);
+      addToast('Không thể xóa lịch sử trò chuyện.', 'error');
+    } finally {
+        setIsClearing(false);
+    }
+  };
+
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-white/10 flex-shrink-0">
-        <h3 className="font-bold text-white truncate">{getDisplayName(room)}</h3>
-        <p className="text-xs text-slate-400">{room.memberIds.length} thành viên</p>
+      <div className="p-4 border-b border-white/10 flex-shrink-0 flex justify-between items-center">
+        <div>
+          <h3 className="font-bold text-white truncate">{getDisplayName(room)}</h3>
+          <p className="text-xs text-slate-400">{room.memberIds.length} thành viên</p>
+        </div>
+        {canClearHistory && (
+          <button onClick={handleClearHistory} disabled={isClearing} className="p-2 text-slate-400 hover:text-red-400 rounded-full transition-colors disabled:cursor-not-allowed disabled:text-slate-600" title="Xóa lịch sử trò chuyện">
+            {isClearing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+          </button>
+        )}
       </div>
       <div className="flex-grow p-4 overflow-y-auto space-y-4">
         {loading ? (
