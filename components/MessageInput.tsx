@@ -61,7 +61,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, tasks, membe
 
     const isUser = 'displayName' in item;
     const type = isUser ? 'user' : 'task';
-    // FIX: Use 'uid' for UserProfile and 'id' for Task
     const id = isUser ? item.uid : item.id;
     const displayText = isUser ? item.displayName : item.text;
 
@@ -125,7 +124,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, tasks, membe
                 const displayText = isUser ? `@${item.displayName}` : `#${item.text}`;
                 return (
                     <button
-                        // FIX: Use 'uid' for UserProfile and 'id' for Task as the key
                         key={isUser ? item.uid : item.id}
                         type="button"
                         onClick={() => handleSelectSuggestion(item)}

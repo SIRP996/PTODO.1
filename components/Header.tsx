@@ -94,7 +94,6 @@ const Header: React.FC<HeaderProps> = ({
                   onClose={onCloseNotifications}
                   notifications={notifications}
                   onAccept={onAcceptInvitation}
-                  // FIX: Pass the correct prop 'onDeclineInvitation' instead of the undefined 'declineInvitation'.
                   onDecline={onDeclineInvitation}
                 />
             </div>

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -6,7 +7,7 @@ import SourceSidebar from './components/SourceSidebar';
 import TaskInput from './components/TaskInput';
 import TaskList from './components/TaskList';
 import { BellRing, ShieldOff, Loader2, List, LayoutGrid, Bot, Clock, Send, User, RotateCw, Settings, Link as LinkIcon, Check, BrainCircuit, X, UserPlus, Users, Mail, Trash2 } from 'lucide-react';
-import { Task, TaskStatus, Project, Filter, TaskTemplate, SectionKey, UserProfile } from './types';
+import { Task, TaskStatus, Project, Filter, TaskTemplate, SectionKey, UserProfile, ChatRoom } from './types';
 import { isPast, isToday, addDays, isWithinInterval, parseISO } from 'date-fns';
 import FocusModeOverlay from './components/FocusModeOverlay';
 import AuthPage from './components/auth/AuthPage';
@@ -33,6 +34,7 @@ import { getGoogleGenAI } from './utils/gemini';
 import MemberManagerModal from './components/MemberManagerModal';
 import { useNotifications } from './hooks/useNotifications';
 import type { User as FirebaseUser } from 'firebase/auth';
+import { useChat } from './hooks/useChat';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -488,7 +490,6 @@ const App: React.FC = () => {
   const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading, isGuestMode, exitGuestMode } = useAuth();
   const { addToast } = useToast();
   
-  // FIX: Destructure deleteProject and updateProject to pass to SourceSidebar
   const { projects, addProject, inviteUserToProject, removeUserFromProject, cancelInvitation, deleteProject, updateProject } = useProjects();
   
   const { 
@@ -542,6 +543,7 @@ const App: React.FC = () => {
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isMainChatOpen, setIsMainChatOpen] = useState(false);
+  const [selectedChatRoomId, setSelectedChatRoomId] = useState<string | null>(null);
   const [isZenMode, setIsZenMode] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -553,6 +555,9 @@ const App: React.FC = () => {
 
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const sidebarResizeData = useRef<{ initialX: number; initialWidth: number } | null>(null);
+  
+  const { chatRooms, loading: loadingRooms, createChat } = useChat(currentUser, projects, profiles);
+  const prevChatRoomsRef = useRef<ChatRoom[]>([]);
 
   // Handle invitation link from URL
   useEffect(() => {
@@ -708,6 +713,33 @@ const App: React.FC = () => {
   
   useEffect(() => { document.body.dataset.theme = userSettings?.theme || 'default'; }, [userSettings?.theme]);
   useEffect(() => { if (!currentUser) localStorage.removeItem('active_genai_api_key'); }, [currentUser]);
+
+  // Chat notification logic
+  useEffect(() => {
+    if (!currentUser || isGuestMode) return;
+
+    // FIX: Explicitly type the Map to avoid 'oldRoom' being inferred as 'unknown'.
+    const oldRoomsMap = new Map<string, ChatRoom>(prevChatRoomsRef.current.map(room => [room.id, room]));
+    
+    chatRooms.forEach(newRoom => {
+        const oldRoom = oldRoomsMap.get(newRoom.id);
+        const hasNewMessage = newRoom.lastMessage && (newRoom.lastMessage.timestamp !== oldRoom?.lastMessage?.timestamp);
+
+        if (hasNewMessage) {
+            if (newRoom.lastMessage.senderId !== currentUser?.uid) {
+                const shouldNotify = !isMainChatOpen || newRoom.id !== selectedChatRoomId;
+                
+                if (shouldNotify) {
+                    const senderName = newRoom.lastMessage.senderName;
+                    addToast(`Tin nhắn mới từ ${senderName}`, 'info');
+                    notificationSound?.play().catch(e => console.error("Sound play failed", e));
+                }
+            }
+        }
+    });
+
+    prevChatRoomsRef.current = chatRooms;
+  }, [chatRooms, selectedChatRoomId, isMainChatOpen, currentUser, isGuestMode, addToast, notificationSound]);
 
   const handleSelectStudioKey = async () => {
     setApiKeyError(null);
@@ -866,7 +898,6 @@ const App: React.FC = () => {
   const handleNavigateToAuth = () => { exitGuestMode(); setShowAuthPage(true); };
 
   const sidebarProps = {
-    // FIX: Pass currentUser to the 'user' prop as expected by SourceSidebar. The 'user' variable was not defined.
     user: currentUser,
     tasks, projects, searchTerm, onSearchChange: setSearchTerm, activeFilter, onFilterChange: setActiveFilter,
     onLogout: logout, hasApiKey, onManageApiKey: () => setUpdateKeyModalOpen(true), onOpenSettings: () => setSettingsModalOpen(true),
@@ -932,7 +963,10 @@ const App: React.FC = () => {
       )}
       {isMainChatOpen && currentUser && (
         <ChatPage 
-          onClose={() => setIsMainChatOpen(false)}
+          onClose={() => {
+              setIsMainChatOpen(false);
+              setSelectedChatRoomId(null);
+          }}
           tasks={tasks}
           projects={projects}
           profiles={profiles}
@@ -940,6 +974,11 @@ const App: React.FC = () => {
           allUsers={Array.from(profiles.values())}
           notificationSound={notificationSound}
           onAddTask={addTask}
+          chatRooms={chatRooms}
+          loadingRooms={loadingRooms}
+          createChat={createChat}
+          selectedRoomId={selectedChatRoomId}
+          onSelectRoom={setSelectedChatRoomId}
         />
       )}
       {hasApiKey && currentUser && <ChatAssistant isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} tasks={tasks} onAddTask={addTask} onApiKeyError={onApiKeyError} userAvatarUrl={userSettings?.avatarUrl || currentUser?.photoURL || undefined} />}
@@ -1037,7 +1076,6 @@ const App: React.FC = () => {
                              <div onMouseDown={handleResizeMouseDown} className="absolute bottom-0 right-0 w-6 h-6 cursor-ns-resize flex items-center justify-center group" title="Kéo để thay đổi kích thước"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-600 group-hover:text-slate-400 transition-colors"><path d="M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>
                           </div>
                         ) : (
-                          // FIX: Pass the 'toggleTask' function to the 'onToggleTask' prop instead of the undefined 'onToggleTask'.
                           <KanbanBoard tasks={parentTasks} subtasksByParentId={subtasksByParentId} onUpdateTaskStatus={updateTaskStatus} toggleTaskUrgency={toggleTaskUrgency} onDeleteTask={deleteTask} onStartFocus={handleStartFocus} onToggleTask={toggleTask} onUpdateTaskNote={updateTaskNote} profiles={profiles} currentUser={currentUser} projects={projects} />
                         )}
                       </div>

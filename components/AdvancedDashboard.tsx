@@ -54,7 +54,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
 
     const currentStreak = useMemo(() => {
         if (completedTasks.length === 0) return 0;
-        // FIX: Cast array to string[] to fix type inference issue where it was being resolved as unknown[].
+        // FIX: Cast to string[] to resolve type inference issue where Set was producing unknown[].
         const completionDates = ([...new Set(completedTasks.map(t => format(parseISO(t.createdAt), 'yyyy-MM-dd')))] as string[]).sort((a, b) => b.localeCompare(a));
         
         let streak = 0;
@@ -84,7 +84,7 @@ const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({ tasks }) => {
             return acc;
         }, {} as { [key: string]: number });
         
-        // FIX: Cast `value` to `number` to fix type error where it was being inferred as `unknown`.
+        // FIX: Cast `value` to `number` as Object.entries infers it as `unknown`.
         return Object.entries(tagCounts)
             .map(([name, value]): { name: string; value: number } => ({ name: `#${name}`, value: value as number }))
             .sort((a, b) => b.value - a.value);

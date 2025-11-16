@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { Task, Project, UserProfile, ChatRoom } from '../types';
-import { useChat } from '../hooks/useChat';
 import ChatList from '../components/ChatList';
 import ChatWindow from '../components/ChatWindow';
 import { MessageSquare, Loader2, X } from 'lucide-react';
@@ -16,6 +15,11 @@ interface ChatPageProps {
   allUsers: UserProfile[];
   notificationSound: HTMLAudioElement | null;
   onAddTask: (text: string, tags: string[], dueDate: string | null, isUrgent: boolean, recurrenceRule: 'none' | 'daily' | 'weekly' | 'monthly', projectId?: string) => Promise<string | undefined>;
+  chatRooms: ChatRoom[];
+  loadingRooms: boolean;
+  createChat: (memberIds: string[], type: 'dm' | 'group', name?: string) => Promise<string | null>;
+  selectedRoomId: string | null;
+  onSelectRoom: (roomId: string | null) => void;
 }
 
 const ChatPage: React.FC<ChatPageProps> = ({ 
@@ -26,47 +30,16 @@ const ChatPage: React.FC<ChatPageProps> = ({
     currentUser,
     allUsers,
     notificationSound,
-    onAddTask
+    onAddTask,
+    chatRooms,
+    loadingRooms,
+    createChat,
+    selectedRoomId,
+    onSelectRoom
 }) => {
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-  
-  const { 
-    chatRooms, 
-    loading: loadingRooms, 
-    createChat 
-  } = useChat(currentUser, projects, profiles);
-  const { addToast } = useToast();
-  const prevRoomsRef = useRef<ChatRoom[]>([]);
-
-
   const selectedRoom = useMemo(() => {
     return chatRooms.find(room => room.id === selectedRoomId);
   }, [selectedRoomId, chatRooms]);
-
-  useEffect(() => {
-    // Simple diffing to find new messages for toast notifications
-    const oldRoomsMap = new Map(prevRoomsRef.current.map(room => [room.id, room]));
-    
-    chatRooms.forEach(newRoom => {
-        const oldRoom = oldRoomsMap.get(newRoom.id);
-        
-        // FIX: The logic to detect a new message was complex and potentially unsafe.
-        // This simplified logic is safer and correctly handles new rooms, rooms with their first message, and rooms with updated messages.
-        // It also helps TypeScript correctly narrow the type of `newRoom.lastMessage`.
-        const hasNewMessage = newRoom.lastMessage && (newRoom.lastMessage.timestamp !== oldRoom?.lastMessage?.timestamp);
-
-        if (hasNewMessage) {
-            // FIX: The `hasNewMessage` check above guarantees that `newRoom.lastMessage` is not null, so the non-null assertion `!` is not needed and can be safely removed.
-            if (newRoom.lastMessage.senderId !== currentUser?.uid && newRoom.id !== selectedRoomId) {
-                const senderName = newRoom.lastMessage.senderName;
-                addToast(`Tin nhắn mới từ ${senderName}`, 'info');
-                notificationSound?.play().catch(e => console.error("Sound play failed", e));
-            }
-        }
-    });
-
-    prevRoomsRef.current = chatRooms;
-  }, [chatRooms, selectedRoomId, currentUser, addToast, notificationSound]);
 
   if (!currentUser) return null;
 
@@ -84,7 +57,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
                         currentUser={currentUser}
                         profiles={profiles}
                         allUsers={allUsers}
-                        onSelectRoom={setSelectedRoomId}
+                        onSelectRoom={onSelectRoom}
                         selectedRoomId={selectedRoomId}
                         onCreateChat={createChat}
                         projects={projects}

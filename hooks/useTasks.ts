@@ -495,7 +495,6 @@ export const useTasks = (projects: Project[]) => {
 
         let googleCalendarEventId = null;
         if (task.dueDate) {
-          // FIX: Pass the string version of dueDate to syncWithCalendar, not the Date object.
           googleCalendarEventId = await syncWithCalendar('create', { ...docData, dueDate: task.dueDate, id: newDocRef.id });
         }
         batch.set(newDocRef, { ...docData, googleCalendarEventId });
