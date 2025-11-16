@@ -15,13 +15,23 @@ interface MessageInputProps {
   projectId?: string;
 }
 
+const EMOJIS = [
+    '😀', '😂', '😍', '🤔', '👍', '🙏', '🎉', '🚀', '❤️', '🔥', '💀', '💩',
+    '😊', '😭', '😱', '😡', '😴', '👋', '👀', '💯', '✅', '💰', '💻', '🍺'
+];
+
+
 const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, tasks, members, projectId }) => {
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [suggestions, setSuggestions] = useState<(UserProfile | Task)[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
+
 
   useEffect(() => {
     if (suggestion) {
@@ -38,6 +48,21 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, tasks, membe
         setSuggestions([]);
     }
   }, [suggestion, members, tasks, projectId]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target as Node) &&
+        emojiButtonRef.current &&
+        !emojiButtonRef.current.contains(event.target as Node)
+      ) {
+        setIsEmojiPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
@@ -115,6 +140,20 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, tasks, membe
     setText('');
     setIsSending(false);
   };
+  
+  const handleSelectEmoji = (emoji: string) => {
+    if (!textareaRef.current) return;
+    const { selectionStart, selectionEnd } = textareaRef.current;
+    const newText = text.slice(0, selectionStart) + emoji + text.slice(selectionEnd);
+    setText(newText);
+    setIsEmojiPickerOpen(false);
+
+    const newCursorPos = selectionStart + emoji.length;
+    setTimeout(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
 
   const renderSuggestionPopup = () => {
     if (!suggestion || suggestions.length === 0) return null;
@@ -138,11 +177,33 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, tasks, membe
         </div>
     );
   };
+  
+  const renderEmojiPicker = () => {
+    if (!isEmojiPickerOpen) return null;
+
+    return (
+        <div ref={emojiPickerRef} className="absolute bottom-full right-0 mb-2 w-72 bg-[#293548] border border-slate-600 rounded-lg shadow-lg z-10 p-2 overflow-y-auto">
+            <div className="grid grid-cols-8 gap-1">
+                {EMOJIS.map(emoji => (
+                    <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => handleSelectEmoji(emoji)}
+                        className="p-1 text-2xl rounded-lg hover:bg-slate-700"
+                    >
+                        {emoji}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+  }
 
 
   return (
     <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
       {renderSuggestionPopup()}
+      {renderEmojiPicker()}
       <div className="relative flex-grow">
         <textarea
           ref={textareaRef}
@@ -155,7 +216,9 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, tasks, membe
           disabled={isSending}
         />
         <button
+            ref={emojiButtonRef}
             type="button"
+            onClick={() => setIsEmojiPickerOpen(p => !p)}
             className="absolute top-1/2 right-3 -translate-y-1/2 p-1.5 rounded-full text-slate-400 hover:text-white"
             title="Thêm icon"
         >
