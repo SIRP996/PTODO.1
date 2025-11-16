@@ -322,7 +322,9 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeFilter.type === 'all' ? 'bg-primary-500' : 'bg-slate-700'}`}>{tasks.length}</span>
                       </button>
                     </li>
-                    {visibleProjects.map(project => (
+                    {visibleProjects.map(project => {
+                      const isOwner = user?.uid === project.ownerId;
+                      return (
                       <li key={project.id}>
                         {editingProjectId === project.id ? (
                           <div className="flex items-center gap-2 px-3 py-2">
@@ -372,7 +374,10 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                             
                             <div className={`flex items-center gap-2 text-xs font-semibold ${activeFilter.type === 'project' && activeFilter.id === project.id ? 'text-primary-200' : 'text-slate-400'}`}>
                                 <div className="flex items-center gap-1" title="Số công việc"><ClipboardList size={14} /><span>{taskCounts[project.id] || 0}</span></div>
-                                <div className="flex items-center gap-1" title="Số thành viên"><Users size={14} /><span>{project.memberIds.length}</span></div>
+                                <div className="flex items-center gap-1" title="Số thành viên">
+                                  <Users size={14} className={isOwner ? 'text-amber-400' : 'text-slate-400'}/>
+                                  <span>{project.memberIds.length}</span>
+                                </div>
                                 <div className="relative">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setMenuProjectId(menuProjectId === project.id ? null : project.id); setConfirmingDeleteId(null); }}
@@ -405,7 +410,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                           </div>
                         )}
                       </li>
-                    ))}
+                    )})}
                     {isAddingProject && (
                       <li>
                         <input
