@@ -101,7 +101,9 @@ const Message: React.FC<MessageProps> = ({ message, currentUser, onDelete }) => 
 
        {!isSender && (
          <div className="flex items-center self-end opacity-0 group-hover:opacity-100 transition-opacity">
-            {/* Placeholder for future actions like reply */}
+            <button onClick={() => onDelete(message.id)} className="p-1 text-slate-500 hover:text-red-400" title="Xóa tin nhắn">
+                <Trash2 size={14}/>
+            </button>
         </div>
       )}
 

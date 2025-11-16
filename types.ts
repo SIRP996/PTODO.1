@@ -102,6 +102,7 @@ export interface ChatMessage {
   senderAvatar: string | null;
   text: string;
   createdAt: string;
+  deletedFor?: string[];
 }
 
 

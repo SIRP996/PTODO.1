@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { User } from 'firebase/auth';
 import { ChatRoom, ChatMessage, UserProfile, Task, Project } from '../types';
 import { db } from '../firebaseConfig';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, Timestamp, getDocs, writeBatch, deleteField, limit } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, Timestamp, getDocs, writeBatch, deleteField, limit, arrayUnion } from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
 import Message from './Message';
 import MessageInput from './MessageInput';
@@ -52,7 +52,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
           ...data,
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
         } as ChatMessage;
-      }).reverse(); // Reverse to show in chronological order
+      })
+      .filter(msg => { // Filter out messages deleted by the current user
+        if (!msg.deletedFor || !Array.isArray(msg.deletedFor)) {
+          return true;
+        }
+        return !msg.deletedFor.includes(currentUser.uid);
+      })
+      .reverse(); // Reverse to show in chronological order
       
       setMessages(newMessages);
 
@@ -186,9 +193,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
   
   const handleDeleteMessage = async (messageId: string) => {
     try {
-        await deleteDoc(doc(db, `chatRooms/${room.id}/messages`, messageId));
+        const messageRef = doc(db, `chatRooms/${room.id}/messages`, messageId);
+        await updateDoc(messageRef, {
+            deletedFor: arrayUnion(currentUser.uid)
+        });
     } catch (error) {
-        console.error("Error deleting message:", error);
+        console.error("Error deleting message for user:", error);
         addToast("Không thể xóa tin nhắn.", "error");
     }
   }
