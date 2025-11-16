@@ -32,10 +32,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     return project?.ownerId === currentUser.uid;
   }, [room, projects, currentUser]);
 
-  const canClearHistory = room.type !== 'project' || isProjectOwner;
+  const canClearHistory = room.type === 'project' && isProjectOwner;
   
   // --- Stabilized dependencies ---
-  const userClearedUntilTimestamp = room.clearedUntil?.[currentUser.uid];
   const lastMessageTimestamp = room.lastMessage?.timestamp;
   const lastMessageSenderId = room.lastMessage?.senderId;
   const userLastReadTimestamp = room.lastRead?.[currentUser.uid];
@@ -62,9 +61,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
         } as ChatMessage;
       })
       .filter(msg => {
-        if (userClearedUntilTimestamp && msg.createdAt <= userClearedUntilTimestamp) {
-            return false;
-        }
         if (!msg.deletedFor || !Array.isArray(msg.deletedFor)) {
           return true;
         }
@@ -96,7 +92,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     });
 
     return () => unsubscribe();
-  }, [room.id, currentUser.uid, addToast, userClearedUntilTimestamp]);
+  }, [room.id, currentUser.uid, addToast]);
 
   // Effect to mark messages as read.
   useEffect(() => {
@@ -310,6 +306,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     setIsClearing(true);
     
     if (canClearHistory) {
+        // Delete for everyone (Project Owner action)
         try {
             const messagesCollectionRef = collection(db, `chatRooms/${room.id}/messages`);
             while (true) {
@@ -324,29 +321,35 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
             await updateDoc(roomRef, {
                 lastMessage: deleteField(),
                 lastRead: deleteField(),
-                clearedUntil: deleteField(),
             });
             addToast('Đã xóa lịch sử trò chuyện cho mọi người.', 'success');
         } catch (error) {
             console.error('Error clearing global chat history:', error);
             addToast('Không thể xóa lịch sử trò chuyện.', 'error');
-        } finally {
-            setIsClearing(false);
         }
     } else { 
+        // Delete for me (DM, Group, or non-owner in Project)
         try {
-            const roomRef = doc(db, 'chatRooms', room.id);
-            await updateDoc(roomRef, {
-                [`clearedUntil.${currentUser.uid}`]: new Date().toISOString()
+            const messagesCollectionRef = collection(db, `chatRooms/${room.id}/messages`);
+            const snapshot = await getDocs(messagesCollectionRef);
+            if (snapshot.empty) {
+                addToast('Không có tin nhắn nào để xóa.', 'info');
+                setIsClearing(false);
+                return;
+            }
+            const batch = writeBatch(db);
+            snapshot.docs.forEach(doc => {
+                const messageRef = doc.ref;
+                batch.update(messageRef, { deletedFor: arrayUnion(currentUser.uid) });
             });
+            await batch.commit();
             addToast('Đã xóa lịch sử trò chuyện của bạn.', 'success');
         } catch (error) {
             console.error('Error clearing local chat history:', error);
             addToast('Không thể xóa lịch sử trò chuyện.', 'error');
-        } finally {
-            setIsClearing(false);
         }
     }
+    setIsClearing(false);
   };
 
 
