@@ -241,13 +241,27 @@ export const useProjects = () => {
       return;
     }
     try {
-      const q = query(collection(db, 'tasks'), where('projectId', '==', projectId));
-      const querySnapshot = await getDocs(q);
       const batch = writeBatch(db);
-      querySnapshot.forEach(doc => {
+
+      // Delete associated tasks
+      const tasksQuery = query(collection(db, 'tasks'), where('projectId', '==', projectId));
+      const tasksSnapshot = await getDocs(tasksQuery);
+      tasksSnapshot.forEach(doc => {
           batch.delete(doc.ref);
       });
+
+      // Delete associated chat room
+      const chatRoomsQuery = query(collection(db, 'chatRooms'), where('projectId', '==', projectId));
+      const chatRoomsSnapshot = await getDocs(chatRoomsQuery);
+      chatRoomsSnapshot.forEach(doc => {
+          // This will remove the chat room from the UI, but its subcollection of messages will be orphaned.
+          // For a full cleanup, a Cloud Function triggered on chatRoom deletion is recommended.
+          batch.delete(doc.ref);
+      });
+
+      // Delete the project itself
       batch.delete(doc(db, 'projects', projectId));
+      
       await batch.commit();
       addToast("Đã xóa dự án và tất cả công việc liên quan.", 'success');
     } catch (error) {

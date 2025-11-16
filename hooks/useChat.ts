@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { db } from '../firebaseConfig';
@@ -53,13 +54,25 @@ export const useChat = (currentUser: User | null, projects: Project[], profiles:
           });
           batchHasWrites = true;
         } else {
-            // Ensure members are up to date
+            // Ensure members and name are up-to-date
             const chatDoc = snapshot.docs[0];
             const chatData = chatDoc.data();
-            const currentMembers = new Set(chatData.memberIds);
+            const updates: { [key: string]: any } = {};
+
+            // Sync members
+            const currentMembers = new Set(chatData.memberIds || []);
             const projectMembers = new Set(project.memberIds);
             if (currentMembers.size !== projectMembers.size || !project.memberIds.every(id => currentMembers.has(id))) {
-                batch.update(chatDoc.ref, { memberIds: project.memberIds });
+                updates.memberIds = project.memberIds;
+            }
+
+            // Sync name
+            if (chatData.name !== project.name) {
+                updates.name = project.name;
+            }
+            
+            if (Object.keys(updates).length > 0) {
+                batch.update(chatDoc.ref, updates);
                 batchHasWrites = true;
             }
         }
@@ -124,6 +137,34 @@ export const useChat = (currentUser: User | null, projects: Project[], profiles:
 
     return () => unsubscribe();
   }, [currentUser, addToast]);
+  
+  // Effect to clean up orphaned project chat rooms
+  useEffect(() => {
+    if (loading || !currentUser) {
+        return;
+    }
+
+    const projectChatsFromState = chatRooms.filter(room => room.type === 'project' && room.projectId);
+    if (projectChatsFromState.length === 0) {
+        return;
+    }
+
+    const existingProjectIds = new Set(projects.map(p => p.id));
+    const orphanedChats = projectChatsFromState.filter(chat => !existingProjectIds.has(chat.projectId!));
+
+    if (orphanedChats.length > 0) {
+        console.log(`Found ${orphanedChats.length} orphaned chat(s) to remove.`);
+        const batch = writeBatch(db);
+        orphanedChats.forEach(chat => {
+            batch.delete(doc(db, 'chatRooms', chat.id));
+        });
+
+        batch.commit().catch(err => {
+            console.error("Error during orphaned chat cleanup:", err);
+        });
+    }
+
+  }, [chatRooms, projects, currentUser, loading]);
 
   const createChat = useCallback(async (
     memberIds: string[], 
