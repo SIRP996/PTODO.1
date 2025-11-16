@@ -192,6 +192,7 @@ export const useTasks = (projects: Project[]) => {
         reminderSent: false,
       };
       updateGuestTasks([...guestTasks, newGuestTask]);
+      addToast("Đã thêm công việc thành công!", 'success');
       return newGuestTask.id;
     }
 
@@ -278,10 +279,12 @@ export const useTasks = (projects: Project[]) => {
     if (!task) return;
 
     const newStatus: TaskStatus = task.status === 'completed' ? 'todo' : 'completed';
+    const toastMessage = newStatus === 'completed' ? "Công việc hoàn thành!" : "Công việc được chuyển lại cần làm.";
 
     if (isGuestMode) {
       const updatedTasks = getGuestTasks().map(t => t.id === id ? { ...t, status: newStatus } : t);
       updateGuestTasks(updatedTasks);
+      addToast(toastMessage, 'success');
       // No recurrence in guest mode for simplicity
       return;
     }
@@ -296,6 +299,7 @@ export const useTasks = (projects: Project[]) => {
         }
         
         await updateDoc(taskDocRef, { status: newStatus });
+        addToast(toastMessage, 'success');
 
         if (newStatus === 'completed' && task.recurrenceRule && task.recurrenceRule !== 'none' && task.dueDate) {
           let nextDueDate: Date | null = null;
@@ -326,6 +330,7 @@ export const useTasks = (projects: Project[]) => {
       const idsToDelete = [id, ...subtasks.map(st => st.id)];
       const updatedTasks = getGuestTasks().filter(t => !idsToDelete.includes(t.id));
       updateGuestTasks(updatedTasks);
+      addToast("Đã xóa công việc.", 'success');
       return;
     }
     
