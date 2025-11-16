@@ -24,6 +24,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
   const [isClearing, setIsClearing] = useState(false);
   const { addToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const previousMessagesRef = useRef<ChatMessage[]>([]);
 
   const isProjectOwner = useMemo(() => {
     if (room.type !== 'project' || !room.projectId || !currentUser) return false;
@@ -32,21 +33,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
   }, [room, projects, currentUser]);
 
   const canClearHistory = room.type !== 'project' || isProjectOwner;
+  
+  // --- Stabilized dependencies ---
+  const userClearedUntilTimestamp = room.clearedUntil?.[currentUser.uid];
+  const lastMessageTimestamp = room.lastMessage?.timestamp;
+  const lastMessageSenderId = room.lastMessage?.senderId;
+  const userLastReadTimestamp = room.lastRead?.[currentUser.uid];
 
-  // Effect to fetch messages, runs only when the room ID changes.
+  // Effect to fetch messages, runs only when the room ID or clear timestamp changes.
   useEffect(() => {
     setLoading(true);
-    setMessages([]); // Clear messages from previous room
+    setMessages([]);
+    previousMessagesRef.current = [];
     
     const messagesQuery = query(
       collection(db, `chatRooms/${room.id}/messages`),
       orderBy('createdAt', 'desc'),
-      limit(50) // Fetch only the last 50 messages for performance
+      limit(50)
     );
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      const userClearedUntilTimestamp = room.clearedUntil?.[currentUser.uid];
-
       const newMessages = snapshot.docs.map(docSnap => {
         const data = docSnap.data();
         return {
@@ -56,32 +62,32 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
         } as ChatMessage;
       })
       .filter(msg => {
-        // Filter messages created before the user cleared the chat
         if (userClearedUntilTimestamp && msg.createdAt <= userClearedUntilTimestamp) {
             return false;
         }
-        // Filter messages individually deleted by the current user
         if (!msg.deletedFor || !Array.isArray(msg.deletedFor)) {
           return true;
         }
         return !msg.deletedFor.includes(currentUser.uid);
       })
-      .reverse(); // Reverse to show in chronological order
+      .reverse();
       
       setMessages(newMessages);
 
-      if(newMessages.length > 0) {
-        const latestMessage = newMessages[newMessages.length-1];
-        if(latestMessage.senderId !== currentUser.uid) {
-            if(document.hidden && Notification.permission === 'granted') {
-                new Notification(`Tin nhắn mới từ ${latestMessage.senderName}`, {
-                    body: latestMessage.text,
-                    icon: latestMessage.senderAvatar || '/vite.svg',
-                });
-            }
+      if (newMessages.length > 0) {
+        const latestMessage = newMessages[newMessages.length - 1];
+        if (latestMessage.senderId !== currentUser.uid) {
+          const isTrulyNew = !previousMessagesRef.current.some(m => m.id === latestMessage.id);
+          if (isTrulyNew && document.hidden && Notification.permission === 'granted') {
+            new Notification(`Tin nhắn mới từ ${latestMessage.senderName}`, {
+              body: latestMessage.text,
+              icon: latestMessage.senderAvatar || '/vite.svg',
+            });
+          }
         }
       }
-
+      
+      previousMessagesRef.current = newMessages;
       setLoading(false);
     }, (error) => {
       console.error(`Error fetching messages for room ${room.id}:`, error);
@@ -90,17 +96,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     });
 
     return () => unsubscribe();
-  }, [room.id, currentUser.uid, addToast, room.clearedUntil]);
+  }, [room.id, currentUser.uid, addToast, userClearedUntilTimestamp]);
 
   // Effect to mark messages as read.
   useEffect(() => {
-    if (!currentUser || !room.lastMessage) return;
+    if (!currentUser || !lastMessageTimestamp || !lastMessageSenderId) return;
 
-    const userLastRead = room.lastRead?.[currentUser.uid];
-    const lastMessageTimestamp = room.lastMessage.timestamp;
-
-    // Only mark as read if the last message is from someone else and is newer than our last read timestamp
-    if (room.lastMessage.senderId !== currentUser.uid && (!userLastRead || new Date(lastMessageTimestamp) > new Date(userLastRead))) {
+    if (lastMessageSenderId !== currentUser.uid && (!userLastReadTimestamp || new Date(lastMessageTimestamp) > new Date(userLastReadTimestamp))) {
         const mark = async () => {
             try {
                 const roomRef = doc(db, 'chatRooms', room.id);
@@ -111,9 +113,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
                 console.error("Failed to mark chat as read:", error);
             }
         };
-        mark();
+        // Add a small debounce to prevent rapid firing in case of quick updates.
+        const timerId = setTimeout(mark, 500);
+        return () => clearTimeout(timerId);
     }
-  }, [room.id, room.lastMessage, room.lastRead, currentUser]);
+  }, [room.id, lastMessageTimestamp, lastMessageSenderId, userLastReadTimestamp, currentUser]);
   
   // Effect to scroll to the bottom on new messages.
   useEffect(() => {
