@@ -741,6 +741,28 @@ const App: React.FC = () => {
     prevChatRoomsRef.current = chatRooms;
   }, [chatRooms, selectedChatRoomId, isMainChatOpen, currentUser, isGuestMode, addToast, notificationSound]);
 
+  const totalUnreadCount = useMemo(() => {
+    if (!currentUser || isGuestMode) return 0;
+
+    return chatRooms.reduce((count, room) => {
+      const lastMessage = room.lastMessage;
+      if (!lastMessage || lastMessage.senderId === currentUser.uid) {
+        return count;
+      }
+
+      const lastReadTimestamp = room.lastRead?.[currentUser.uid];
+      if (!lastReadTimestamp) {
+        return count + 1; // Never read this room's messages
+      }
+
+      if (new Date(lastMessage.timestamp) > new Date(lastReadTimestamp)) {
+        return count + 1;
+      }
+
+      return count;
+    }, 0);
+  }, [chatRooms, currentUser, isGuestMode]);
+
   const handleSelectStudioKey = async () => {
     setApiKeyError(null);
     if ((window as any).aistudio?.openSelectKey) {
@@ -906,6 +928,7 @@ const App: React.FC = () => {
     onOpenExtensionGuide: () => setIsExtensionGuideOpen(true), onOpenMemberManager: handleOpenMemberManager, onAddProject: addProject,
     onDeleteProject: deleteProject, onUpdateProject: updateProject,
     onToggleMainChat: () => setIsMainChatOpen(p => !p),
+    totalUnreadCount,
   };
 
   if (loading) { return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary-500" /></div>; }

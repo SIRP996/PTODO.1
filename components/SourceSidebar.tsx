@@ -31,6 +31,7 @@ interface SourceSidebarProps {
     onDeleteProject: (id: string) => void;
     onUpdateProject: (id: string, data: Partial<Omit<Project, 'id' | 'userId' | 'createdAt'>>) => void;
     onToggleMainChat: () => void;
+    totalUnreadCount: number;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -71,7 +72,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
     user, tasks, projects, searchTerm, onSearchChange, activeFilter, onFilterChange, 
     onLogout, onManageApiKey, onOpenSettings, onToggleLogViewer, onOpenTemplateManager, onOpenWeeklyReview, hasApiKey,
     notificationPermissionStatus, onRequestNotificationPermission, onOpenExtensionGuide, onOpenMemberManager,
-    onAddProject, onDeleteProject, onUpdateProject, onToggleMainChat
+    onAddProject, onDeleteProject, onUpdateProject, onToggleMainChat, totalUnreadCount
 }) => {
     const { userSettings, isGuestMode, exitGuestMode, updateUserSettings } = useAuth();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -304,11 +305,21 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                         <span>{filter.label}</span>
                     </button>
                 ))}
-                <button 
-                    onClick={onToggleMainChat} 
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-lg transition-colors border border-transparent text-slate-300 hover:bg-white/5`}>
-                    <MessageSquare size={18} />
-                    <span>Trò chuyện</span>
+                <button
+                    onClick={onToggleMainChat}
+                    className={`w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg transition-colors border border-transparent text-slate-300 hover:bg-white/5`}
+                >
+                    <div className="flex items-center gap-3">
+                        <MessageSquare size={18} />
+                        <span>Trò chuyện</span>
+                    </div>
+                    {totalUnreadCount > 0 && (
+                        <span 
+                            className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+                            title={`${totalUnreadCount} tin nhắn chưa đọc`}>
+                            {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+                        </span>
+                    )}
                 </button>
             </div>
 
