@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -7,7 +9,7 @@ import SourceSidebar from './components/SourceSidebar';
 import TaskInput from './components/TaskInput';
 import TaskList from './components/TaskList';
 import { BellRing, ShieldOff, Loader2, List, LayoutGrid, Bot, Clock, Send, User, RotateCw, Settings, Link as LinkIcon, Check, BrainCircuit, X, UserPlus, Users, Mail, Trash2 } from 'lucide-react';
-import { Task, TaskStatus, Project, Filter, TaskTemplate, SectionKey, UserProfile, ChatRoom } from './types';
+import { Task, TaskStatus, Project, Filter, TaskTemplate, SectionKey, UserProfile } from './types';
 import { isPast, isToday, addDays, isWithinInterval, parseISO } from 'date-fns';
 import FocusModeOverlay from './components/FocusModeOverlay';
 import AuthPage from './components/auth/AuthPage';
@@ -33,8 +35,6 @@ import { getGoogleGenAI } from './utils/gemini';
 import MemberManagerModal from './components/MemberManagerModal';
 import { useNotifications } from './hooks/useNotifications';
 import type { User as FirebaseUser } from 'firebase/auth';
-import ChatPanel from './components/chat/ChatPanel';
-import { useChat } from './hooks/useChat';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -490,6 +490,7 @@ const App: React.FC = () => {
   const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading, isGuestMode, exitGuestMode } = useAuth();
   const { addToast } = useToast();
   
+  // FIX: Destructure deleteProject and updateProject to pass to SourceSidebar
   const { projects, addProject, inviteUserToProject, removeUserFromProject, cancelInvitation, deleteProject, updateProject } = useProjects();
   
   const { 
@@ -503,12 +504,10 @@ const App: React.FC = () => {
   
   const allMemberIds = useMemo(() => {
     const ids = new Set<string>();
-    if (currentUser) ids.add(currentUser.uid);
     projects.forEach(p => p.memberIds.forEach(id => ids.add(id)));
     tasks.forEach(t => t.assigneeIds.forEach(id => ids.add(id)));
     return Array.from(ids);
-  }, [projects, tasks, currentUser]);
-
+  }, [projects, tasks]);
   const { profiles } = useUserProfiles(allMemberIds);
   
   const [page, setPage] = useState<'main' | 'calendar'>('main');
@@ -537,24 +536,6 @@ const App: React.FC = () => {
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [projectToManage, setProjectToManage] = useState<Project | null>(null);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  
-  // --- CHAT STATE ---
-  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
-  const [activeChatRoom, setActiveChatRoom] = useState<ChatRoom | null>(null);
-  const chatData = useChat(currentUser, projects, activeChatRoom?.id || null);
-  
-  const handleSelectChatRoom = (room: ChatRoom) => {
-    setActiveChatRoom(room);
-    chatData.markRoomAsRead(room.id);
-  };
-  
-  const handleToggleChatPanel = () => {
-    setIsChatPanelOpen(prev => !prev);
-    if (!isChatPanelOpen && activeChatRoom) {
-      chatData.markRoomAsRead(activeChatRoom.id);
-    }
-  };
-
 
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
@@ -635,27 +616,10 @@ const App: React.FC = () => {
 
   const notificationSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
-
-  const chatNotificationSound = useMemo(() => {
-    if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
-    }
-    return null;
-  }, []);
-
-  const previousUnreadCountRef = useRef(0);
-  useEffect(() => {
-    const currentUnreadCount = chatData.unreadRoomIds.size;
-    if (!isChatPanelOpen && currentUnreadCount > previousUnreadCountRef.current) {
-        chatNotificationSound?.play().catch(e => console.warn("Could not play chat sound:", e));
-    }
-    previousUnreadCountRef.current = currentUnreadCount;
-  }, [chatData.unreadRoomIds, chatNotificationSound, isChatPanelOpen]);
-
 
   const [taskListHeight, setTaskListHeight] = useState(600);
   const resizeData = useRef<{ initialY: number; initialHeight: number } | null>(null);
@@ -900,6 +864,7 @@ const App: React.FC = () => {
   const handleNavigateToAuth = () => { exitGuestMode(); setShowAuthPage(true); };
 
   const sidebarProps = {
+    // FIX: Pass currentUser to the 'user' prop as expected by SourceSidebar. The 'user' variable was not defined.
     user: currentUser,
     tasks, projects, searchTerm, onSearchChange: setSearchTerm, activeFilter, onFilterChange: setActiveFilter,
     onLogout: logout, hasApiKey, onManageApiKey: () => setUpdateKeyModalOpen(true), onOpenSettings: () => setSettingsModalOpen(true),
@@ -907,8 +872,6 @@ const App: React.FC = () => {
     onOpenWeeklyReview: () => setIsWeeklyReviewModalOpen(true), notificationPermissionStatus, onRequestNotificationPermission: handleRequestPermission,
     onOpenExtensionGuide: () => setIsExtensionGuideOpen(true), onOpenMemberManager: handleOpenMemberManager, onAddProject: addProject,
     onDeleteProject: deleteProject, onUpdateProject: updateProject,
-    onToggleChatPanel: handleToggleChatPanel,
-    unreadChatCount: chatData.unreadRoomIds.size,
   };
 
   if (loading) { return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary-500" /></div>; }
@@ -965,22 +928,6 @@ const App: React.FC = () => {
         />
       )}
       {hasApiKey && currentUser && <ChatAssistant isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} tasks={tasks} onAddTask={addTask} onApiKeyError={onApiKeyError} userAvatarUrl={userSettings?.avatarUrl || currentUser?.photoURL || undefined} />}
-      
-      {isChatPanelOpen && currentUser && (
-        <ChatPanel 
-            isOpen={isChatPanelOpen}
-            onClose={() => setIsChatPanelOpen(false)}
-            currentUser={currentUser}
-            projects={projects}
-            tasks={tasks}
-            profiles={profiles}
-            onUpdateTask={updateTask}
-            // Pass chat data from App-level hook
-            chatData={chatData}
-            activeRoom={activeChatRoom}
-            onSelectRoom={handleSelectChatRoom}
-        />
-      )}
 
       <div className="min-h-screen bg-[#0F172A] text-slate-100 font-sans flex flex-col">
           <div className="max-w-screen-2xl mx-auto w-full flex-grow flex flex-col">

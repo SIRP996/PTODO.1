@@ -1,10 +1,8 @@
-
-
 import React, { useState, useMemo, KeyboardEvent, useEffect, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { Task, Project, Filter, SectionKey } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { Download, LogOut, KeyRound, UserCircle, Users, BookOpen, Calendar, Sun, AlertTriangle, Layers3, ChevronDown, BellRing, ShieldOff, Link as LinkIcon, Folder, Plus, Tag, Pencil, Trash2, ChevronRight, EyeOff, Eye, Palette, ClipboardList, MoreVertical, MessageSquare } from 'lucide-react';
+import { Download, LogOut, KeyRound, UserCircle, Users, BookOpen, Calendar, Sun, AlertTriangle, Layers3, ChevronDown, BellRing, ShieldOff, Link as LinkIcon, Folder, Plus, Tag, Pencil, Trash2, ChevronRight, EyeOff, Eye, Palette, ClipboardList, MoreVertical } from 'lucide-react';
 import SearchBar from './SearchBar';
 import Dashboard from './Dashboard';
 import AdvancedDashboard from './AdvancedDashboard';
@@ -32,8 +30,6 @@ interface SourceSidebarProps {
     onAddProject: (name: string) => void;
     onDeleteProject: (id: string) => void;
     onUpdateProject: (id: string, data: Partial<Omit<Project, 'id' | 'userId' | 'createdAt'>>) => void;
-    onToggleChatPanel: () => void;
-    unreadChatCount: number;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -74,7 +70,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
     user, tasks, projects, searchTerm, onSearchChange, activeFilter, onFilterChange, 
     onLogout, onManageApiKey, onOpenSettings, onToggleLogViewer, onOpenTemplateManager, onOpenWeeklyReview, hasApiKey,
     notificationPermissionStatus, onRequestNotificationPermission, onOpenExtensionGuide, onOpenMemberManager,
-    onAddProject, onDeleteProject, onUpdateProject, onToggleChatPanel, unreadChatCount
+    onAddProject, onDeleteProject, onUpdateProject
 }) => {
     const { userSettings, isGuestMode, exitGuestMode, updateUserSettings } = useAuth();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -168,12 +164,6 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
         });
         return counts;
     }, [tasks, projects]);
-    
-    const memberCounts = useMemo(() => {
-        const counts: { [projectId: string]: number } = {};
-        projects.forEach(p => counts[p.id] = p.memberIds.length);
-        return counts;
-    }, [projects]);
 
     useEffect(() => {
         if (editingProjectId && editInputRef.current) {
@@ -314,24 +304,24 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                     </button>
                 ))}
             </div>
-            
-            {!isGuestMode && (
-                <button onClick={onToggleChatPanel} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm rounded-lg transition-colors border border-transparent text-slate-300 hover:bg-white/5">
-                    <div className="flex items-center gap-3">
-                        <MessageSquare size={18} />
-                        <span>Trò chuyện</span>
-                    </div>
-                    {unreadChatCount > 0 && (
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
-                            {unreadChatCount}
-                        </span>
-                    )}
-                </button>
-            )}
 
             <div className={isAnyMenuOpen ? 'relative z-10' : ''}>
                 <CollapsibleSection title="Dự án" defaultOpen>
                   <ul className="space-y-1 list-none">
+                    <li>
+                      <button
+                        onClick={() => onFilterChange({ type: 'all' })}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors ${
+                          activeFilter.type === 'all' ? 'bg-primary-600 text-white' : 'text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Layers3 size={16} />
+                          <span>Tất cả công việc</span>
+                        </div>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeFilter.type === 'all' ? 'bg-primary-500' : 'bg-slate-700'}`}>{tasks.length}</span>
+                      </button>
+                    </li>
                     {visibleProjects.map(project => {
                       const isOwner = user?.uid === project.ownerId;
                       return (
@@ -386,7 +376,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                                 <div className="flex items-center gap-1" title="Số công việc"><ClipboardList size={14} /><span>{taskCounts[project.id] || 0}</span></div>
                                 <div className="flex items-center gap-1" title="Số thành viên">
                                   <Users size={14} className={isOwner ? 'text-amber-400' : 'text-slate-400'}/>
-                                  <span>{memberCounts[project.id] || 0}</span>
+                                  <span>{project.memberIds.length}</span>
                                 </div>
                                 <div className="relative">
                                     <button
@@ -406,7 +396,6 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                                                     </div>
                                                 </div>
                                             ) : (
-                                                isOwner &&
                                                 <ul className="space-y-1 list-none">
                                                     <li><button onClick={(e) => { e.stopPropagation(); onOpenMemberManager(project); setMenuProjectId(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-700"><Users size={14} /> Quản lý thành viên</button></li>
                                                     <li><button onClick={(e) => { e.stopPropagation(); onUpdateProject(project.id, { isVisible: false }); setMenuProjectId(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-700"><EyeOff size={14} /> Ẩn dự án</button></li>
@@ -455,11 +444,9 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                             </div>
                              <div className="flex-shrink-0 flex items-center gap-2 text-xs text-slate-500">
                                 <div className="flex items-center gap-1" title="Số công việc"><ClipboardList size={14} /><span>{taskCounts[project.id] || 0}</span></div>
-                                <div className="flex items-center gap-1" title="Số thành viên"><Users size={14} /><span>{memberCounts[project.id] || 0}</span></div>
+                                <div className="flex items-center gap-1" title="Số thành viên"><Users size={14} /><span>{project.memberIds.length}</span></div>
                                 <div className="relative">
-                                    {projects.find(p => p.id === project.id)?.ownerId === user?.uid &&
                                     <button onClick={(e) => { e.stopPropagation(); setMenuProjectId(menuProjectId === project.id ? null : project.id); }} className="p-1 rounded-full hover:bg-slate-600"><MoreVertical size={16} /></button>
-                                    }
                                     {menuProjectId === project.id && (
                                         <div ref={menuRef} className="absolute top-full right-0 mt-2 w-40 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20 p-1">
                                             <button onClick={(e) => { e.stopPropagation(); onUpdateProject(project.id, { isVisible: true }); setMenuProjectId(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-700"><Eye size={14} /> Hiện lại dự án</button>
