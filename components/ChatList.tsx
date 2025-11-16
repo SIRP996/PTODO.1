@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { User } from 'firebase/auth';
-import { ChatRoom, UserProfile } from '../types';
-import { MessageSquare, Users, Folder, Plus, UserCircle, X, Check } from 'lucide-react';
+import { ChatRoom, UserProfile, Project } from '../types';
+import { MessageSquare, Users, Folder, Plus, UserCircle, X, Check, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface ChatListProps {
   rooms: ChatRoom[];
@@ -11,6 +11,7 @@ interface ChatListProps {
   selectedRoomId: string | null;
   onSelectRoom: (roomId: string) => void;
   onCreateChat: (memberIds: string[], type: 'dm' | 'group', name?: string) => Promise<string | null>;
+  projects: Project[];
 }
 
 const CreateChatModal: React.FC<{
@@ -102,9 +103,11 @@ const CreateChatModal: React.FC<{
 };
 
 
-const ChatList: React.FC<ChatListProps> = ({ rooms, currentUser, profiles, allUsers, selectedRoomId, onSelectRoom, onCreateChat }) => {
+const ChatList: React.FC<ChatListProps> = ({ rooms, currentUser, profiles, allUsers, selectedRoomId, onSelectRoom, onCreateChat, projects }) => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isProjectsExpanded, setIsProjectsExpanded] = useState(true);
+    const [isGeneralExpanded, setIsGeneralExpanded] = useState(true);
 
     const getRoomDisplayName = (room: ChatRoom) => {
         if (room.type !== 'dm' || !currentUser) return room.name;
@@ -134,7 +137,10 @@ const ChatList: React.FC<ChatListProps> = ({ rooms, currentUser, profiles, allUs
     }, [filteredRooms]);
     
     const getRoomDisplayAvatar = (room: ChatRoom) => {
-        if (room.type === 'project') return <Folder size={18} className="text-slate-400" />;
+        if (room.type === 'project') {
+            const project = projects.find(p => p.id === room.projectId);
+            return <Folder size={18} style={{ color: project?.color || '#94a3b8' }} />;
+        }
         if (room.type === 'group') return <Users size={18} className="text-slate-400" />;
         if (room.type === 'dm' && currentUser) {
             const otherUserId = room.memberIds.find(id => id !== currentUser.uid);
@@ -175,50 +181,66 @@ const ChatList: React.FC<ChatListProps> = ({ rooms, currentUser, profiles, allUs
 
             <div className="flex-grow overflow-y-auto p-2">
                 {/* Project Chats */}
-                <div className="px-2 py-2 text-xs font-semibold text-slate-500 uppercase">Dự án</div>
-                <ul className="space-y-1">
-                    {projectChats.map(room => (
-                        <li key={room.id}>
-                            <button
-                                onClick={() => onSelectRoom(room.id)}
-                                className={`w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors ${selectedRoomId === room.id ? 'bg-primary-600/80' : 'hover:bg-slate-700/50'}`}
-                            >
-                                <div className="w-8 h-8 rounded-lg bg-slate-700 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                    {getRoomDisplayAvatar(room)}
-                                </div>
-                                <div className="flex-grow truncate">
-                                    <p className={`text-sm font-semibold truncate ${selectedRoomId === room.id ? 'text-white' : 'text-slate-200'}`}>{getRoomDisplayName(room)}</p>
-                                    <p className={`text-xs truncate ${selectedRoomId === room.id ? 'text-primary-200' : 'text-slate-400'}`}>
-                                      {room.lastMessage ? `${room.lastMessage.senderName}: ${room.lastMessage.text}` : 'Bắt đầu trò chuyện...'}
-                                    </p>
-                                </div>
-                            </button>
-                        </li>
-                    ))}
-                </ul>
+                <div 
+                    className="flex justify-between items-center px-2 py-2 text-xs font-semibold text-slate-500 uppercase cursor-pointer hover:text-slate-400"
+                    onClick={() => setIsProjectsExpanded(!isProjectsExpanded)}
+                >
+                    <span>Dự án</span>
+                    {isProjectsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </div>
+                {isProjectsExpanded && (
+                    <ul className="space-y-1">
+                        {projectChats.map(room => (
+                            <li key={room.id}>
+                                <button
+                                    onClick={() => onSelectRoom(room.id)}
+                                    className={`w-full flex items-center gap-3 px-2 py-1.5 rounded-md text-left transition-colors ${selectedRoomId === room.id ? 'bg-primary-600/80' : 'hover:bg-slate-700/50'}`}
+                                >
+                                    <div className="w-7 h-7 rounded-lg bg-slate-700 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                        {getRoomDisplayAvatar(room)}
+                                    </div>
+                                    <div className="flex-grow truncate">
+                                        <p className={`text-sm font-semibold truncate ${selectedRoomId === room.id ? 'text-white' : 'text-slate-200'}`}>{getRoomDisplayName(room)}</p>
+                                        <p className={`text-xs truncate ${selectedRoomId === room.id ? 'text-primary-200' : 'text-slate-400'}`}>
+                                        {room.lastMessage ? `${room.lastMessage.senderName}: ${room.lastMessage.text}` : `${room.memberIds.length} thành viên`}
+                                        </p>
+                                    </div>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
 
                 {/* General Chats */}
-                <div className="px-2 py-2 mt-4 text-xs font-semibold text-slate-500 uppercase">Tin nhắn</div>
-                 <ul className="space-y-1">
-                    {generalChats.map(room => (
-                        <li key={room.id}>
-                            <button
-                                onClick={() => onSelectRoom(room.id)}
-                                className={`w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors ${selectedRoomId === room.id ? 'bg-primary-600/80' : 'hover:bg-slate-700/50'}`}
-                            >
-                                <div className="w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                    {getRoomDisplayAvatar(room)}
-                                </div>
-                                <div className="flex-grow truncate">
-                                    <p className={`text-sm font-semibold truncate ${selectedRoomId === room.id ? 'text-white' : 'text-slate-200'}`}>{getRoomDisplayName(room)}</p>
-                                    <p className={`text-xs truncate ${selectedRoomId === room.id ? 'text-primary-200' : 'text-slate-400'}`}>
-                                       {room.lastMessage ? `${room.lastMessage.senderName}: ${room.lastMessage.text}` : 'Bắt đầu trò chuyện...'}
-                                    </p>
-                                </div>
-                            </button>
-                        </li>
-                    ))}
-                </ul>
+                <div 
+                    className="flex justify-between items-center px-2 py-2 mt-2 text-xs font-semibold text-slate-500 uppercase cursor-pointer hover:text-slate-400"
+                    onClick={() => setIsGeneralExpanded(!isGeneralExpanded)}
+                >
+                    <span>Tin nhắn</span>
+                    {isGeneralExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </div>
+                 {isGeneralExpanded && (
+                    <ul className="space-y-1">
+                        {generalChats.map(room => (
+                            <li key={room.id}>
+                                <button
+                                    onClick={() => onSelectRoom(room.id)}
+                                    className={`w-full flex items-center gap-3 px-2 py-1.5 rounded-md text-left transition-colors ${selectedRoomId === room.id ? 'bg-primary-600/80' : 'hover:bg-slate-700/50'}`}
+                                >
+                                    <div className="w-7 h-7 rounded-full bg-slate-700 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                        {getRoomDisplayAvatar(room)}
+                                    </div>
+                                    <div className="flex-grow truncate">
+                                        <p className={`text-sm font-semibold truncate ${selectedRoomId === room.id ? 'text-white' : 'text-slate-200'}`}>{getRoomDisplayName(room)}</p>
+                                        <p className={`text-xs truncate ${selectedRoomId === room.id ? 'text-primary-200' : 'text-slate-400'}`}>
+                                        {room.lastMessage ? `${room.lastMessage.senderName}: ${room.lastMessage.text}` : 'Bắt đầu trò chuyện...'}
+                                        </p>
+                                    </div>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
         </div>
     );

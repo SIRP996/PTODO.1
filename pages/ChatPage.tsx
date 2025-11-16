@@ -58,6 +58,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
                         onSelectRoom={setSelectedRoomId}
                         selectedRoomId={selectedRoomId}
                         onCreateChat={createChat}
+                        projects={projects}
                     />
                 </aside>
 
