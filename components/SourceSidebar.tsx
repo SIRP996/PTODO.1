@@ -2,7 +2,7 @@ import React, { useState, useMemo, KeyboardEvent, useEffect, useRef } from 'reac
 import { User } from 'firebase/auth';
 import { Task, Project, Filter, SectionKey } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { Download, LogOut, KeyRound, UserCircle, Users, BookOpen, Calendar, Sun, AlertTriangle, Layers3, ChevronDown, BellRing, ShieldOff, Link as LinkIcon, Folder, Plus, Tag, Pencil, Trash2, ChevronRight, EyeOff, Eye, Palette, ClipboardList, MoreVertical } from 'lucide-react';
+import { Download, LogOut, KeyRound, UserCircle, Users, BookOpen, Calendar, Sun, AlertTriangle, Layers3, ChevronDown, BellRing, ShieldOff, Link as LinkIcon, Folder, Plus, Tag, Pencil, Trash2, ChevronRight, EyeOff, Eye, Palette, ClipboardList, MoreVertical, MessageSquare } from 'lucide-react';
 import SearchBar from './SearchBar';
 import Dashboard from './Dashboard';
 import AdvancedDashboard from './AdvancedDashboard';
@@ -30,6 +30,7 @@ interface SourceSidebarProps {
     onAddProject: (name: string) => void;
     onDeleteProject: (id: string) => void;
     onUpdateProject: (id: string, data: Partial<Omit<Project, 'id' | 'userId' | 'createdAt'>>) => void;
+    onToggleMainChat: () => void;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -70,7 +71,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
     user, tasks, projects, searchTerm, onSearchChange, activeFilter, onFilterChange, 
     onLogout, onManageApiKey, onOpenSettings, onToggleLogViewer, onOpenTemplateManager, onOpenWeeklyReview, hasApiKey,
     notificationPermissionStatus, onRequestNotificationPermission, onOpenExtensionGuide, onOpenMemberManager,
-    onAddProject, onDeleteProject, onUpdateProject
+    onAddProject, onDeleteProject, onUpdateProject, onToggleMainChat
 }) => {
     const { userSettings, isGuestMode, exitGuestMode, updateUserSettings } = useAuth();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -135,7 +136,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
         setIsUserMenuOpen(false);
     }
 
-    const quickFilters: { label: string; type: 'all' | 'today' | 'next7days' | 'urgent'; icon: React.ReactNode }[] = [
+    const quickFilters: { label: string; type: Filter['type']; icon: React.ReactNode }[] = [
         { label: 'Tất cả công việc', type: 'all', icon: <Layers3 size={18} /> },
         { label: 'Hôm nay', type: 'today', icon: <Sun size={18} /> },
         { label: '7 ngày tới', type: 'next7days', icon: <Calendar size={18} /> },
@@ -298,11 +299,17 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
 
             <div className="space-y-1">
                 {quickFilters.map(filter => (
-                     <button key={filter.type} onClick={() => onFilterChange({ type: filter.type })} className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-lg transition-colors border border-transparent ${activeFilter.type === filter.type ? 'bg-primary-600/80 text-white font-semibold border-primary-500/50' : 'text-slate-300 hover:bg-white/5'}`}>
+                     <button key={filter.type} onClick={() => onFilterChange({ type: filter.type } as Filter)} className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-lg transition-colors border border-transparent ${activeFilter.type === filter.type ? 'bg-primary-600/80 text-white font-semibold border-primary-500/50' : 'text-slate-300 hover:bg-white/5'}`}>
                         {filter.icon}
                         <span>{filter.label}</span>
                     </button>
                 ))}
+                <button 
+                    onClick={onToggleMainChat} 
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-lg transition-colors border border-transparent text-slate-300 hover:bg-white/5`}>
+                    <MessageSquare size={18} />
+                    <span>Trò chuyện</span>
+                </button>
             </div>
 
             <div className={isAnyMenuOpen ? 'relative z-10' : ''}>

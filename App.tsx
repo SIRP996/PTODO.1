@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -23,6 +20,7 @@ import ChatAssistant from './components/ChatAssistant';
 import GuestBanner from './components/GuestBanner';
 import LogViewer from './components/LogViewer';
 import CalendarPage from './pages/CalendarPage';
+import ChatPage from './pages/ChatPage';
 import { useProjects, useUserProfiles } from './hooks/useProjects';
 import TimelineView from './components/TimelineView';
 import { useTaskTemplates } from './hooks/useTaskTemplates';
@@ -506,8 +504,11 @@ const App: React.FC = () => {
     const ids = new Set<string>();
     projects.forEach(p => p.memberIds.forEach(id => ids.add(id)));
     tasks.forEach(t => t.assigneeIds.forEach(id => ids.add(id)));
+    if (currentUser) {
+      ids.add(currentUser.uid);
+    }
     return Array.from(ids);
-  }, [projects, tasks]);
+  }, [projects, tasks, currentUser]);
   const { profiles } = useUserProfiles(allMemberIds);
   
   const [page, setPage] = useState<'main' | 'calendar'>('main');
@@ -540,6 +541,7 @@ const App: React.FC = () => {
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isMainChatOpen, setIsMainChatOpen] = useState(false);
   const [isZenMode, setIsZenMode] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -872,6 +874,7 @@ const App: React.FC = () => {
     onOpenWeeklyReview: () => setIsWeeklyReviewModalOpen(true), notificationPermissionStatus, onRequestNotificationPermission: handleRequestPermission,
     onOpenExtensionGuide: () => setIsExtensionGuideOpen(true), onOpenMemberManager: handleOpenMemberManager, onAddProject: addProject,
     onDeleteProject: deleteProject, onUpdateProject: updateProject,
+    onToggleMainChat: () => setIsMainChatOpen(p => !p),
   };
 
   if (loading) { return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary-500" /></div>; }
@@ -925,6 +928,18 @@ const App: React.FC = () => {
             template={selectedTemplateForApply}
             projects={projects}
             onApply={handleApplyTemplate}
+        />
+      )}
+      {isMainChatOpen && currentUser && (
+        <ChatPage 
+          onClose={() => setIsMainChatOpen(false)}
+          tasks={tasks}
+          projects={projects}
+          profiles={profiles}
+          currentUser={currentUser}
+          allUsers={Array.from(profiles.values())}
+          notificationSound={notificationSound}
+          onAddTask={addTask}
         />
       )}
       {hasApiKey && currentUser && <ChatAssistant isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} tasks={tasks} onAddTask={addTask} onApiKeyError={onApiKeyError} userAvatarUrl={userSettings?.avatarUrl || currentUser?.photoURL || undefined} />}
@@ -985,45 +1000,48 @@ const App: React.FC = () => {
                 )}
 
                 <div className={`space-y-6 transition-all duration-300 flex-grow w-full`}>
-                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 animate-fadeIn">
-                    <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onOpenImportModal={() => setIsImportModalOpen(true)} projects={projects} selectedProjectId={activeFilter.type === 'project' ? activeFilter.id : null} templates={templates} onOpenApplyTemplateModal={handleOpenApplyTemplateModal} onOpenPlannerModal={handleOpenPlannerModal} />
-                  </div>
-                  
-                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 animate-fadeIn" style={{ animationDelay: '100ms' }}>
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
-                            <button onClick={() => setDisplayMode('kanban')} className={`px-3 py-1 text-sm font-medium rounded-md flex items-center gap-2 ${displayMode === 'kanban' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}><LayoutGrid size={16} /><span>Bảng</span></button>
-                            <button onClick={() => setDisplayMode('list')} className={`px-3 py-1 text-sm font-medium rounded-md flex items-center gap-2 ${displayMode === 'list' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}><List size={16} /><span>Danh sách</span></button>
-                            <button onClick={() => setDisplayMode('timeline')} className={`px-3 py-1 text-sm font-medium rounded-md flex items-center gap-2 ${displayMode === 'timeline' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}><Clock size={16} /><span>Dòng thời gian</span></button>
-                        </div>
-                         {displayMode === 'list' && (
-                            <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
-                                {(['todo', 'inprogress', 'completed'] as TaskStatus[]).map(status => (
-                                    <button key={status} onClick={() => setView(status)} className={`px-3 py-1 text-sm rounded-md ${view === status ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}>{`${statusLabels[status]} (${taskCounts[status]})`}</button>
-                                ))}
-                            </div>
-                         )}
-                    </div>
-                    
-                    {displayMode === 'timeline' ? (
-                       <TimelineView
-                          tasks={tasks}
-                          currentDate={timelineDate}
-                          onDateChange={setTimelineDate}
-                          onStartFocus={handleStartFocus}
-                          onUpdateTaskDueDate={updateTaskDueDate}
-                      />
-                    ) : displayMode === 'list' ? (
-                      <div style={{ position: 'relative' }}>
-                        <div className="overflow-y-auto pr-2" style={{ height: `${taskListHeight}px` }}>
-                            <TaskList tasks={tasksForList} onToggleTask={toggleTask} onDeleteTask={deleteTask} onUpdateTaskDueDate={updateTaskDueDate} onToggleTaskUrgency={toggleTaskUrgency} onStartFocus={handleStartFocus} onAddSubtasksBatch={addSubtasksBatch} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onUpdateTaskText={updateTaskText} onUpdateTaskStatus={updateTaskStatus} onUpdateTaskNote={updateTaskNote} onUpdateTask={updateTask} projects={projects} profiles={profiles} currentUser={currentUser} />
-                        </div>
-                         <div onMouseDown={handleResizeMouseDown} className="absolute bottom-0 right-0 w-6 h-6 cursor-ns-resize flex items-center justify-center group" title="Kéo để thay đổi kích thước"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-600 group-hover:text-slate-400 transition-colors"><path d="M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>
+                    <>
+                      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 animate-fadeIn">
+                        <TaskInput onAddTask={addTask} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onOpenImportModal={() => setIsImportModalOpen(true)} projects={projects} selectedProjectId={activeFilter.type === 'project' ? activeFilter.id : null} templates={templates} onOpenApplyTemplateModal={handleOpenApplyTemplateModal} onOpenPlannerModal={handleOpenPlannerModal} />
                       </div>
-                    ) : (
-                      <KanbanBoard tasks={parentTasks} subtasksByParentId={subtasksByParentId} onUpdateTaskStatus={updateTaskStatus} toggleTaskUrgency={toggleTaskUrgency} onDeleteTask={deleteTask} onStartFocus={handleStartFocus} onToggleTask={toggleTask} onUpdateTaskNote={updateTaskNote} profiles={profiles} currentUser={currentUser} projects={projects} />
-                    )}
-                  </div>
+                      
+                      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 animate-fadeIn" style={{ animationDelay: '100ms' }}>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
+                                <button onClick={() => setDisplayMode('kanban')} className={`px-3 py-1 text-sm font-medium rounded-md flex items-center gap-2 ${displayMode === 'kanban' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}><LayoutGrid size={16} /><span>Bảng</span></button>
+                                <button onClick={() => setDisplayMode('list')} className={`px-3 py-1 text-sm font-medium rounded-md flex items-center gap-2 ${displayMode === 'list' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}><List size={16} /><span>Danh sách</span></button>
+                                <button onClick={() => setDisplayMode('timeline')} className={`px-3 py-1 text-sm font-medium rounded-md flex items-center gap-2 ${displayMode === 'timeline' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}><Clock size={16} /><span>Dòng thời gian</span></button>
+                            </div>
+                             {displayMode === 'list' && (
+                                <div className="flex items-center gap-1 p-1 bg-slate-900/50 border border-slate-700 rounded-lg">
+                                    {(['todo', 'inprogress', 'completed'] as TaskStatus[]).map(status => (
+                                        <button key={status} onClick={() => setView(status)} className={`px-3 py-1 text-sm rounded-md ${view === status ? 'bg-primary-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}>{`${statusLabels[status]} (${taskCounts[status]})`}</button>
+                                    ))}
+                                </div>
+                             )}
+                        </div>
+                        
+                        {displayMode === 'timeline' ? (
+                           <TimelineView
+                              tasks={tasks}
+                              currentDate={timelineDate}
+                              onDateChange={setTimelineDate}
+                              onStartFocus={handleStartFocus}
+                              onUpdateTaskDueDate={updateTaskDueDate}
+                          />
+                        ) : displayMode === 'list' ? (
+                          <div style={{ position: 'relative' }}>
+                            <div className="overflow-y-auto pr-2" style={{ height: `${taskListHeight}px` }}>
+                                <TaskList tasks={tasksForList} onToggleTask={toggleTask} onDeleteTask={deleteTask} onUpdateTaskDueDate={updateTaskDueDate} onToggleTaskUrgency={toggleTaskUrgency} onStartFocus={handleStartFocus} onAddSubtasksBatch={addSubtasksBatch} onApiKeyError={onApiKeyError} hasApiKey={hasApiKey} onUpdateTaskText={updateTaskText} onUpdateTaskStatus={updateTaskStatus} onUpdateTaskNote={updateTaskNote} onUpdateTask={updateTask} projects={projects} profiles={profiles} currentUser={currentUser} />
+                            </div>
+                             <div onMouseDown={handleResizeMouseDown} className="absolute bottom-0 right-0 w-6 h-6 cursor-ns-resize flex items-center justify-center group" title="Kéo để thay đổi kích thước"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-600 group-hover:text-slate-400 transition-colors"><path d="M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>
+                          </div>
+                        ) : (
+                          // FIX: Pass the 'toggleTask' function to the 'onToggleTask' prop instead of the undefined 'onToggleTask'.
+                          <KanbanBoard tasks={parentTasks} subtasksByParentId={subtasksByParentId} onUpdateTaskStatus={updateTaskStatus} toggleTaskUrgency={toggleTaskUrgency} onDeleteTask={deleteTask} onStartFocus={handleStartFocus} onToggleTask={toggleTask} onUpdateTaskNote={updateTaskNote} profiles={profiles} currentUser={currentUser} projects={projects} />
+                        )}
+                      </div>
+                    </>
                 </div>
               </main>
           </div>

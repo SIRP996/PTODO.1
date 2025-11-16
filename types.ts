@@ -1,4 +1,3 @@
-
 export type TaskStatus = 'todo' | 'inprogress' | 'completed';
 export type Theme = 'default' | 'crimson' | 'emerald' | 'amber' | 'sapphire' | 'slate' | 'noir';
 export type SectionKey = 'dashboard' | 'advancedDashboard' | 'utilities';
@@ -73,6 +72,32 @@ export interface TaskTemplate {
   icon: string;
   createdAt: string;
   subtasks: SubtaskTemplate[];
+}
+
+export interface ChatRoom {
+  id: string;
+  name: string;
+  memberIds: string[];
+  type: 'project' | 'group' | 'dm'; // direct message
+  projectId?: string; // if type is 'project'
+  createdAt: string;
+  lastMessage?: {
+    text: string;
+    senderName: string;
+    timestamp: string;
+  };
+  // For DMs, to easily find existing chats - a sorted array of two user IDs
+  dmUserIds?: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  roomId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string | null;
+  text: string;
+  createdAt: string;
 }
 
 
