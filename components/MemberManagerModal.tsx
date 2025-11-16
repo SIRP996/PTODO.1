@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Project, UserProfile, Invitation, Task } from '../types';
 import { User } from 'firebase/auth';
-import { X, Users, UserPlus, Mail, Send, Loader2, Trash2, Clock, UserCircle, CheckCircle2, ListTodo } from 'lucide-react';
+import { X, Users, UserPlus, Mail, Send, Loader2, Trash2, Clock, UserCircle, CheckCircle2, ListTodo, AlertTriangle } from 'lucide-react';
 import { db } from '../firebaseConfig';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
+import { isPast, parseISO } from 'date-fns';
 
 interface MemberManagerModalProps {
   isOpen: boolean;
@@ -44,17 +45,33 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
       .filter((p): p is UserProfile => !!p);
   }, [isOpen, project.memberIds, profiles]);
 
+  const projectStats = useMemo(() => {
+    if (!isOpen || !project) return { total: 0, completed: 0, overdue: 0, urgent: 0, percentage: 0 };
+
+    const projectTasks = tasks.filter(t => t.projectId === project.id);
+    const total = projectTasks.length;
+    const completed = projectTasks.filter(t => t.status === 'completed').length;
+    const overdue = projectTasks.filter(t => t.dueDate && t.status !== 'completed' && isPast(parseISO(t.dueDate))).length;
+    const urgent = projectTasks.filter(t => t.isUrgent && t.status !== 'completed').length;
+    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    return { total, completed, overdue, urgent, percentage };
+  }, [isOpen, project, tasks]);
+
   const memberStats = useMemo(() => {
     if (!isOpen || !project || members.length === 0 || tasks.length === 0) return new Map();
 
     const projectTasks = tasks.filter(t => t.projectId === project.id);
-    const stats = new Map<string, { completed: number; pending: number; total: number }>();
+    const stats = new Map<string, { completed: number; pending: number; overdue: number; urgent: number; total: number }>();
 
     members.forEach(member => {
         const assignedTasks = projectTasks.filter(t => t.assigneeIds.includes(member.uid));
+        const total = assignedTasks.length;
         const completed = assignedTasks.filter(t => t.status === 'completed').length;
-        const pending = assignedTasks.length - completed;
-        stats.set(member.uid, { completed, pending, total: assignedTasks.length });
+        const pending = total - completed;
+        const overdue = assignedTasks.filter(t => t.dueDate && t.status !== 'completed' && isPast(parseISO(t.dueDate))).length;
+        const urgent = assignedTasks.filter(t => t.isUrgent && t.status !== 'completed').length;
+        stats.set(member.uid, { completed, pending, overdue, urgent, total });
     });
 
     return stats;
@@ -108,34 +125,81 @@ const MemberManagerModal: React.FC<MemberManagerModalProps> = ({
                 <div className="flex items-center justify-center h-full"><Loader2 className="animate-spin text-primary-400"/></div>
             ) : (
                 <>
+                    {/* Project Overview */}
+                    <div>
+                        <h4 className="text-md font-semibold text-slate-300 mb-3">Tổng quan Dự án</h4>
+                        <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700/50">
+                            <div className="mb-4">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-sm font-medium text-slate-400">Tiến độ chung</span>
+                                    <span className="text-sm font-bold text-slate-200">{projectStats.percentage}%</span>
+                                </div>
+                                <div className="w-full bg-slate-700/50 rounded-full h-2.5">
+                                    <div
+                                        className="bg-primary-500 h-2.5 rounded-full transition-all duration-500"
+                                        style={{ width: `${projectStats.percentage}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold text-white">{projectStats.total}</p>
+                                    <p className="text-xs text-slate-400">Tổng cộng</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold text-green-400">{projectStats.completed}</p>
+                                    <p className="text-xs text-slate-400">Hoàn thành</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold text-amber-400">{projectStats.overdue}</p>
+                                    <p className="text-xs text-slate-400">Quá hạn</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold text-red-400">{projectStats.urgent}</p>
+                                    <p className="text-xs text-slate-400">Khẩn cấp</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Performance Dashboard */}
                     <div>
-                        <h4 className="text-md font-semibold text-slate-300 mb-3">Thống kê hiệu suất</h4>
+                        <h4 className="text-md font-semibold text-slate-300 mb-3">Hiệu suất theo Thành viên</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {members.map(member => {
-                                const stats = memberStats.get(member.uid) || { completed: 0, pending: 0, total: 0 };
+                                const stats = memberStats.get(member.uid) || { completed: 0, pending: 0, overdue: 0, urgent: 0, total: 0 };
                                 const percentage = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
                                 return (
-                                <div key={member.uid} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700/50">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-9 h-9 rounded-full bg-slate-700 flex-shrink-0 overflow-hidden">
-                                            {member.photoURL ? <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" /> : <UserCircle size={20} className="text-slate-400 m-auto" />}
+                                <div key={member.uid} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700/50 flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-9 h-9 rounded-full bg-slate-700 flex-shrink-0 overflow-hidden">
+                                                {member.photoURL ? <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" /> : <UserCircle size={20} className="text-slate-400 m-auto" />}
+                                            </div>
+                                            <p className="font-semibold text-sm text-slate-200 truncate">{member.displayName}</p>
                                         </div>
-                                        <p className="font-semibold text-sm text-slate-200 truncate">{member.displayName}</p>
-                                    </div>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between items-center">
-                                            <span className="flex items-center gap-2 text-green-400"><CheckCircle2 size={14}/> Hoàn thành</span>
-                                            <span className="font-bold text-white">{stats.completed}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="flex items-center gap-2 text-amber-400"><ListTodo size={14}/> Đang chờ</span>
-                                            <span className="font-bold text-white">{stats.pending}</span>
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                                            <div className="flex justify-between items-baseline">
+                                                <span className="flex items-center gap-1.5 text-green-400"><CheckCircle2 size={14}/> Hoàn thành</span>
+                                                <span className="font-bold text-white">{stats.completed}</span>
+                                            </div>
+                                            <div className="flex justify-between items-baseline">
+                                                <span className="flex items-center gap-1.5 text-slate-300"><ListTodo size={14}/> Đang chờ</span>
+                                                <span className="font-bold text-white">{stats.pending}</span>
+                                            </div>
+                                            <div className="flex justify-between items-baseline">
+                                                <span className="flex items-center gap-1.5 text-amber-400"><Clock size={14}/> Quá hạn</span>
+                                                <span className="font-bold text-white">{stats.overdue}</span>
+                                            </div>
+                                            <div className="flex justify-between items-baseline">
+                                                <span className="flex items-center gap-1.5 text-red-400"><AlertTriangle size={14}/> Khẩn cấp</span>
+                                                <span className="font-bold text-white">{stats.urgent}</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="mt-4">
                                         <div className="flex justify-between items-center mb-1">
-                                            <span className="text-xs font-medium text-slate-400">Tiến độ</span>
+                                            <span className="text-xs font-medium text-slate-400">Tiến độ cá nhân</span>
                                             <span className="text-xs font-bold text-slate-200">{percentage}%</span>
                                         </div>
                                         <div className="w-full bg-slate-700/50 rounded-full h-1.5">
