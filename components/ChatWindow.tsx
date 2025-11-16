@@ -45,6 +45,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     );
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      const userClearedUntilTimestamp = room.clearedUntil?.[currentUser.uid];
+
       const newMessages = snapshot.docs.map(docSnap => {
         const data = docSnap.data();
         return {
@@ -53,7 +55,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
         } as ChatMessage;
       })
-      .filter(msg => { // Filter out messages deleted by the current user
+      .filter(msg => {
+        // Filter messages created before the user cleared the chat
+        if (userClearedUntilTimestamp && msg.createdAt <= userClearedUntilTimestamp) {
+            return false;
+        }
+        // Filter messages individually deleted by the current user
         if (!msg.deletedFor || !Array.isArray(msg.deletedFor)) {
           return true;
         }
@@ -83,7 +90,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     });
 
     return () => unsubscribe();
-  }, [room.id, currentUser.uid, addToast]);
+  }, [room.id, currentUser.uid, addToast, room.clearedUntil]);
 
   // Effect to mark messages as read.
   useEffect(() => {
@@ -124,42 +131,77 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
     if (!text.trim()) return;
 
     const currentUserProfile = profiles.get(currentUser.uid);
+    let wasTaskAssigned = false;
 
     // --- Task assignment logic ---
-    const assignmentRegex = /#task\s+@(\S+)/;
-    const match = text.match(assignmentRegex);
-    if (match && match[1] && room.type === 'project') {
-      const usernameToAssign = match[1];
-      const memberToAssign = (Array.from(profiles.values()) as UserProfile[]).find(p => p.displayName === usernameToAssign && room.memberIds.includes(p.uid));
+    if (text.startsWith('#task') && room.type === 'project') {
+      const sendAssignmentConfirmation = async (taskText: string, assigneeName: string) => {
+        const confirmationText = `Đã giao việc "${taskText}" cho ${assigneeName}.`;
+        await addDoc(collection(db, `chatRooms/${room.id}/messages`), {
+          roomId: room.id,
+          senderId: 'system',
+          senderName: 'PTODO Bot',
+          senderAvatar: null,
+          text: confirmationText,
+          createdAt: serverTimestamp(),
+        });
+        await updateDoc(doc(db, 'chatRooms', room.id), {
+          'lastMessage.text': confirmationText,
+          'lastMessage.senderId': 'system',
+          'lastMessage.senderName': 'PTODO Bot',
+          'lastMessage.timestamp': serverTimestamp(),
+        });
+      };
 
-      if (memberToAssign) {
-        const taskText = text.replace(assignmentRegex, '').trim();
-        const newTaskId = await onAddTask(taskText, [], null, false, 'none', room.projectId);
-        if (newTaskId) {
-            await updateDoc(doc(db, 'tasks', newTaskId), { assigneeIds: [memberToAssign.uid] });
-            const confirmationText = `Đã giao việc "${taskText}" cho ${memberToAssign.displayName}.`;
-            // Send a system message confirming assignment
-            await addDoc(collection(db, `chatRooms/${room.id}/messages`), {
-              roomId: room.id,
-              senderId: 'system',
-              senderName: 'PTODO Bot',
-              senderAvatar: null,
-              text: confirmationText,
-              createdAt: serverTimestamp(),
-            });
-            // Also update last message
-             await updateDoc(doc(db, 'chatRooms', room.id), {
-                'lastMessage.text': confirmationText,
-                'lastMessage.senderId': 'system',
-                'lastMessage.senderName': 'PTODO Bot',
-                'lastMessage.timestamp': serverTimestamp(),
-            });
-            return;
+      // Priority 1: Check for rich mention syntax: #task [user:USER_ID text:"NAME"] task content
+      const mentionSyntaxRegex = /#task\s+\[user:(\S+)\s+text:"([^"]+)"\]\s*(.+)/s;
+      const mentionMatch = text.match(mentionSyntaxRegex);
+
+      if (mentionMatch) {
+        const userIdToAssign = mentionMatch[1];
+        const usernameToAssign = mentionMatch[2];
+        const taskText = mentionMatch[3].trim();
+        
+        if (room.memberIds.includes(userIdToAssign)) {
+            const newTaskId = await onAddTask(taskText, [], null, false, 'none', room.projectId);
+            if (newTaskId) {
+                await updateDoc(doc(db, 'tasks', newTaskId), { assigneeIds: [userIdToAssign] });
+                await sendAssignmentConfirmation(taskText, usernameToAssign);
+                wasTaskAssigned = true;
+            }
+        }
+      }
+
+      // Priority 2: Fallback to raw text syntax: #task @username task content
+      if (!wasTaskAssigned) {
+        const rawTextRegex = /#task\s+@(\S+)\s+(.+)/s;
+        const rawMatch = text.match(rawTextRegex);
+
+        if (rawMatch) {
+            const usernameToAssign = rawMatch[1];
+            const taskText = rawMatch[2].trim();
+            const memberToAssign = (Array.from(profiles.values()) as UserProfile[]).find(
+                p => p.displayName.toLowerCase() === usernameToAssign.toLowerCase() && room.memberIds.includes(p.uid)
+            );
+
+            if (memberToAssign) {
+                const newTaskId = await onAddTask(taskText, [], null, false, 'none', room.projectId);
+                if (newTaskId) {
+                    await updateDoc(doc(db, 'tasks', newTaskId), { assigneeIds: [memberToAssign.uid] });
+                    await sendAssignmentConfirmation(taskText, memberToAssign.displayName);
+                    wasTaskAssigned = true;
+                }
+            }
         }
       }
     }
     // --- End task assignment logic ---
 
+    if (wasTaskAssigned) {
+      return; // Stop processing if a task was assigned
+    }
+
+    // --- Normal message sending ---
     const newMessage: Omit<ChatMessage, 'id' | 'createdAt'> = {
         roomId: room.id,
         senderId: currentUser.uid,
@@ -204,50 +246,54 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
   }
 
   const handleClearHistory = async () => {
-    if (!canClearHistory) {
-      addToast('Bạn không có quyền xóa lịch sử cuộc trò chuyện này.', 'error');
-      return;
-    }
-    if (!window.confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử cuộc trò chuyện này không? Hành động này sẽ xóa cho tất cả thành viên và không thể hoàn tác.')) {
+    const confirmationMessage = canClearHistory
+      ? 'Bạn có chắc chắn muốn xóa toàn bộ lịch sử cuộc trò chuyện này không? Hành động này sẽ xóa cho tất cả thành viên và không thể hoàn tác.'
+      : 'Bạn có chắc chắn muốn xóa lịch sử trò chuyện ở phía bạn không? Các thành viên khác vẫn sẽ thấy tin nhắn.';
+    
+    if (!window.confirm(confirmationMessage)) {
       return;
     }
 
     setIsClearing(true);
-    try {
-      const messagesCollectionRef = collection(db, `chatRooms/${room.id}/messages`);
-
-      // Using a loop is more robust for deleting large numbers of documents.
-      while (true) {
-        // Fetch up to 500 documents at a time (the maximum for a batch).
-        const q = query(messagesCollectionRef, limit(500));
-        const snapshot = await getDocs(q);
-
-        // If there are no more documents, we're done.
-        if (snapshot.empty) {
-          break;
+    
+    // If user is project owner, delete for everyone
+    if (canClearHistory) {
+        try {
+            const messagesCollectionRef = collection(db, `chatRooms/${room.id}/messages`);
+            while (true) {
+                const q = query(messagesCollectionRef, limit(500));
+                const snapshot = await getDocs(q);
+                if (snapshot.empty) break;
+                const batch = writeBatch(db);
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+            }
+            const roomRef = doc(db, 'chatRooms', room.id);
+            await updateDoc(roomRef, {
+                lastMessage: deleteField(),
+                lastRead: deleteField(),
+                clearedUntil: deleteField(),
+            });
+            addToast('Đã xóa lịch sử trò chuyện cho mọi người.', 'success');
+        } catch (error) {
+            console.error('Error clearing global chat history:', error);
+            addToast('Không thể xóa lịch sử trò chuyện.', 'error');
+        } finally {
+            setIsClearing(false);
         }
-
-        // Delete the documents in a batch.
-        const batch = writeBatch(db);
-        snapshot.docs.forEach(doc => {
-          batch.delete(doc.ref);
-        });
-        await batch.commit();
-      }
-      
-      // After all messages are deleted, clear the lastMessage and lastRead fields on the room document.
-      const roomRef = doc(db, 'chatRooms', room.id);
-      await updateDoc(roomRef, {
-        lastMessage: deleteField(),
-        lastRead: deleteField(),
-      });
-
-      addToast('Đã xóa lịch sử trò chuyện.', 'success');
-    } catch (error) {
-      console.error('Error clearing chat history:', error);
-      addToast('Không thể xóa lịch sử trò chuyện. Vui lòng kiểm tra console để biết chi tiết.', 'error');
-    } finally {
-        setIsClearing(false);
+    } else { // If not owner, delete only for current user
+        try {
+            const roomRef = doc(db, 'chatRooms', room.id);
+            await updateDoc(roomRef, {
+                [`clearedUntil.${currentUser.uid}`]: new Date().toISOString()
+            });
+            addToast('Đã xóa lịch sử trò chuyện của bạn.', 'success');
+        } catch (error) {
+            console.error('Error clearing local chat history:', error);
+            addToast('Không thể xóa lịch sử trò chuyện.', 'error');
+        } finally {
+            setIsClearing(false);
+        }
     }
   };
 
@@ -259,11 +305,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
           <h3 className="font-bold text-white truncate">{getDisplayName(room)}</h3>
           <p className="text-xs text-slate-400">{room.memberIds.length} thành viên</p>
         </div>
-        {canClearHistory && (
-          <button onClick={handleClearHistory} disabled={isClearing} className="p-2 text-slate-400 hover:text-red-400 rounded-full transition-colors disabled:cursor-not-allowed disabled:text-slate-600" title="Xóa lịch sử trò chuyện">
-            {isClearing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-          </button>
-        )}
+        
+        <button onClick={handleClearHistory} disabled={isClearing} className="p-2 text-slate-400 hover:text-red-400 rounded-full transition-colors disabled:cursor-not-allowed disabled:text-slate-600" title="Xóa lịch sử trò chuyện">
+          {isClearing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+        </button>
+        
       </div>
       <div className="flex-grow p-4 overflow-y-auto space-y-4">
         {loading ? (
@@ -283,7 +329,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUser, profiles, ta
         <div ref={messagesEndRef} />
       </div>
       <div className="p-4 border-t border-white/10 flex-shrink-0">
-        <MessageInput onSendMessage={handleSendMessage} tasks={tasks} members={room.memberIds.map(id => profiles.get(id)).filter(Boolean) as UserProfile[]} />
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          tasks={tasks}
+          members={room.memberIds.map(id => profiles.get(id)).filter(Boolean) as UserProfile[]}
+          projectId={room.type === 'project' ? room.projectId : undefined}
+        />
       </div>
     </div>
   );

@@ -92,6 +92,9 @@ export interface ChatRoom {
   };
   // For DMs, to easily find existing chats - a sorted array of two user IDs
   dmUserIds?: string[];
+  clearedUntil?: {
+    [userId: string]: string; // ISO string timestamp
+  };
 }
 
 export interface ChatMessage {

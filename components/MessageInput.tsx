@@ -12,9 +12,10 @@ interface MessageInputProps {
   onSendMessage: (text: string) => Promise<void>;
   tasks: Task[];
   members: UserProfile[];
+  projectId?: string;
 }
 
-const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, tasks, members }) => {
+const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, tasks, members, projectId }) => {
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
@@ -28,14 +29,15 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, tasks, membe
         if (suggestion.type === 'user') {
             filtered = members.filter(m => m.displayName.toLowerCase().includes(suggestion.query.toLowerCase()));
         } else if (suggestion.type === 'task') {
-            filtered = tasks.filter(t => t.text.toLowerCase().includes(suggestion.query.toLowerCase()) && t.status !== 'completed');
+            const relevantTasks = projectId ? tasks.filter(t => t.projectId === projectId) : tasks;
+            filtered = relevantTasks.filter(t => t.text.toLowerCase().includes(suggestion.query.toLowerCase()) && t.status !== 'completed');
         }
         setSuggestions(filtered.slice(0, 5)); // Limit to 5 suggestions
         setActiveIndex(0);
     } else {
         setSuggestions([]);
     }
-  }, [suggestion, members, tasks]);
+  }, [suggestion, members, tasks, projectId]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
