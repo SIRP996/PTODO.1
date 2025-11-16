@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useMemo, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useTasks } from './hooks/useTasks';
 import Header from './components/Header';
@@ -35,6 +32,7 @@ import { getGoogleGenAI } from './utils/gemini';
 import MemberManagerModal from './components/MemberManagerModal';
 import { useNotifications } from './hooks/useNotifications';
 import type { User as FirebaseUser } from 'firebase/auth';
+import ChatPanel from './components/chat/ChatPanel';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -490,7 +488,6 @@ const App: React.FC = () => {
   const { currentUser, logout, updateUserProfile, userSettings, updateUserSettings, loading, isGuestMode, exitGuestMode } = useAuth();
   const { addToast } = useToast();
   
-  // FIX: Destructure deleteProject and updateProject to pass to SourceSidebar
   const { projects, addProject, inviteUserToProject, removeUserFromProject, cancelInvitation, deleteProject, updateProject } = useProjects();
   
   const { 
@@ -504,10 +501,12 @@ const App: React.FC = () => {
   
   const allMemberIds = useMemo(() => {
     const ids = new Set<string>();
+    if (currentUser) ids.add(currentUser.uid);
     projects.forEach(p => p.memberIds.forEach(id => ids.add(id)));
     tasks.forEach(t => t.assigneeIds.forEach(id => ids.add(id)));
     return Array.from(ids);
-  }, [projects, tasks]);
+  }, [projects, tasks, currentUser]);
+
   const { profiles } = useUserProfiles(allMemberIds);
   
   const [page, setPage] = useState<'main' | 'calendar'>('main');
@@ -536,6 +535,7 @@ const App: React.FC = () => {
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [projectToManage, setProjectToManage] = useState<Project | null>(null);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
 
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
@@ -616,7 +616,7 @@ const App: React.FC = () => {
 
   const notificationSound = useMemo(() => {
     if (typeof Audio !== 'undefined') {
-        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+        return new Audio("data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBvZmYgU291bmQgRUNAIDIwMTIAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAAMgAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
     }
     return null;
   }, []);
@@ -864,7 +864,6 @@ const App: React.FC = () => {
   const handleNavigateToAuth = () => { exitGuestMode(); setShowAuthPage(true); };
 
   const sidebarProps = {
-    // FIX: Pass currentUser to the 'user' prop as expected by SourceSidebar. The 'user' variable was not defined.
     user: currentUser,
     tasks, projects, searchTerm, onSearchChange: setSearchTerm, activeFilter, onFilterChange: setActiveFilter,
     onLogout: logout, hasApiKey, onManageApiKey: () => setUpdateKeyModalOpen(true), onOpenSettings: () => setSettingsModalOpen(true),
@@ -872,6 +871,7 @@ const App: React.FC = () => {
     onOpenWeeklyReview: () => setIsWeeklyReviewModalOpen(true), notificationPermissionStatus, onRequestNotificationPermission: handleRequestPermission,
     onOpenExtensionGuide: () => setIsExtensionGuideOpen(true), onOpenMemberManager: handleOpenMemberManager, onAddProject: addProject,
     onDeleteProject: deleteProject, onUpdateProject: updateProject,
+    onToggleChatPanel: () => setIsChatPanelOpen(prev => !prev),
   };
 
   if (loading) { return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary-500" /></div>; }
@@ -928,6 +928,18 @@ const App: React.FC = () => {
         />
       )}
       {hasApiKey && currentUser && <ChatAssistant isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} tasks={tasks} onAddTask={addTask} onApiKeyError={onApiKeyError} userAvatarUrl={userSettings?.avatarUrl || currentUser?.photoURL || undefined} />}
+      
+      {currentUser && (
+        <ChatPanel 
+            isOpen={isChatPanelOpen}
+            onClose={() => setIsChatPanelOpen(false)}
+            currentUser={currentUser}
+            projects={projects}
+            tasks={tasks}
+            profiles={profiles}
+            onUpdateTask={updateTask}
+        />
+      )}
 
       <div className="min-h-screen bg-[#0F172A] text-slate-100 font-sans flex flex-col">
           <div className="max-w-screen-2xl mx-auto w-full flex-grow flex flex-col">

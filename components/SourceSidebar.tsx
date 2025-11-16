@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo, KeyboardEvent, useEffect, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { Task, Project, Filter, SectionKey } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { Download, LogOut, KeyRound, UserCircle, Users, BookOpen, Calendar, Sun, AlertTriangle, Layers3, ChevronDown, BellRing, ShieldOff, Link as LinkIcon, Folder, Plus, Tag, Pencil, Trash2, ChevronRight, EyeOff, Eye, Palette, ClipboardList, MoreVertical } from 'lucide-react';
+import { Download, LogOut, KeyRound, UserCircle, Users, BookOpen, Calendar, Sun, AlertTriangle, Layers3, ChevronDown, BellRing, ShieldOff, Link as LinkIcon, Folder, Plus, Tag, Pencil, Trash2, ChevronRight, EyeOff, Eye, Palette, ClipboardList, MoreVertical, MessageSquare } from 'lucide-react';
 import SearchBar from './SearchBar';
 import Dashboard from './Dashboard';
 import AdvancedDashboard from './AdvancedDashboard';
@@ -30,6 +31,7 @@ interface SourceSidebarProps {
     onAddProject: (name: string) => void;
     onDeleteProject: (id: string) => void;
     onUpdateProject: (id: string, data: Partial<Omit<Project, 'id' | 'userId' | 'createdAt'>>) => void;
+    onToggleChatPanel: () => void;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -70,7 +72,7 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
     user, tasks, projects, searchTerm, onSearchChange, activeFilter, onFilterChange, 
     onLogout, onManageApiKey, onOpenSettings, onToggleLogViewer, onOpenTemplateManager, onOpenWeeklyReview, hasApiKey,
     notificationPermissionStatus, onRequestNotificationPermission, onOpenExtensionGuide, onOpenMemberManager,
-    onAddProject, onDeleteProject, onUpdateProject
+    onAddProject, onDeleteProject, onUpdateProject, onToggleChatPanel
 }) => {
     const { userSettings, isGuestMode, exitGuestMode, updateUserSettings } = useAuth();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -304,6 +306,13 @@ const SourceSidebar: React.FC<SourceSidebarProps> = ({
                     </button>
                 ))}
             </div>
+            
+            {!isGuestMode && (
+                <button onClick={onToggleChatPanel} className="w-full flex items-center gap-3 px-4 py-3 text-sm rounded-lg transition-colors border border-transparent text-slate-300 hover:bg-white/5">
+                    <MessageSquare size={18} />
+                    <span>Trò chuyện</span>
+                </button>
+            )}
 
             <div className={isAnyMenuOpen ? 'relative z-10' : ''}>
                 <CollapsibleSection title="Dự án" defaultOpen>

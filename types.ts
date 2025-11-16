@@ -75,10 +75,37 @@ export interface TaskTemplate {
   subtasks: SubtaskTemplate[];
 }
 
-
 export type Filter =
   | { type: 'all' }
   | { type: 'today' }
   | { type: 'next7days' }
   | { type: 'urgent' }
   | { type: 'project'; id: string };
+
+// --- CHAT TYPES ---
+
+export interface ChatMessage {
+  id: string;
+  roomId: string;
+  senderId: string;
+  text: string;
+  createdAt: string; // ISO string
+  isDeleted?: boolean;
+}
+
+export interface ChatRoom {
+  id: string;
+  type: 'project' | 'dm';
+  memberIds: string[];
+  lastMessage?: {
+    text: string;
+    senderId: string;
+    createdAt: string;
+  };
+  // for project rooms
+  projectId?: string;
+  name: string;
+  projectColor?: string;
+  // for dm rooms
+  memberProfiles?: { [key: string]: { displayName: string, photoURL?: string | null } };
+}
